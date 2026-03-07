@@ -150,15 +150,15 @@ body {
     @apply flex flex-wrap gap-4 w-full max-md:justify-center;
   }
 
-  .companion-card {
+  .exam-card {
     @apply flex flex-col rounded-4xl border border-black px-4 py-4 gap-5 w-full min-lg:max-w-[410px] justify-between;
   }
 
-  .subject-badge {
-    @apply bg-black text-white rounded-4xl text-sm px-2 py-1 capitalize;
+  .tag-badge {
+    @apply bg-black text-white rounded-4xl text-xs px-2 py-1 capitalize;
   }
 
-  .companion-bookmark {
+  .exam-bookmark {
     @apply px-2 bg-black rounded-4xl flex items-center h-full aspect-square cursor-pointer;
   }
 
