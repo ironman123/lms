@@ -33,7 +33,7 @@ const ExamCard = ({ id, name, description, tags, duration, totalMarks, color }: 
                 <p className="text-sm font-bold">{duration} min</p>
                 <p className="ml-auto text-sm font-bold">Total Marks: {totalMarks}</p>
             </div>
-            <Link href={`/library/exams/${id}`} className="text-center mt-0 block w-full bg-black text-white rounded-4xl text-sm px-2 py-1">
+            <Link href={`/library/exam/${name}`} className="text-center mt-0 block w-full bg-black text-white rounded-4xl text-sm px-2 py-1">
                 View Details
             </Link>
         </article >
