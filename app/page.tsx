@@ -1,39 +1,41 @@
+import Cta from '@/components/Cta'
+
+import List from '@/components/List'
 import ExamCard from '@/components/ExamCard'
 import { Button } from '@/components/ui/button'
 import React from 'react'
+import { exams } from '@/constants/index'
 
 const Page = () => {
   return (
     <main>
       <h1>Popular Exams</h1>
+      <section className='home-section grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+        {
+          exams.slice(0, 3).map((exam) => (
+            <ExamCard
+              key={exam.$id}
+              id={exam.$id}
+              name={exam.name}
+              description={exam.description}
+              tags={exam.tags}
+              duration={exam.duration}
+              totalMarks={exam.totalMarks}
+              color={exam.color}
+            />
+          ))
+        }
+
+
+      </section>
+
       <section className='home-section'>
-        <ExamCard
-          id="123"
-          name="JEE Mains"
-          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas, voluptate."
-          tags={["Engineering", "National Level"]}
-          duration="3 hours"
-          totalMarks={300}
-          color="#FFDA6E"
+        <List
+          title="Recently Viewed"
+          exams={exams}
+          className="w-2/3 max-lg:w-full"
         />
-        <ExamCard
-          id="456"
-          name="NEET"
-          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas, voluptate."
-          tags={["Medical", "National Level"]}
-          duration="3 hours"
-          totalMarks={720}
-          color="#e5d0ff"
-        />
-        <ExamCard
-          id="789"
-          name="GATE"
-          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas, voluptate."
-          tags={["Engineering", "National Level"]}
-          duration="3 hours"
-          totalMarks={1000}
-          color="#BDE7FF"
-        />
+        <Cta />
       </section>
     </main>
   )

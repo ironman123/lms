@@ -1,5 +1,5 @@
 import SyllabusDropdown from "@/components/SyllabusDropdown";
-
+import ExamWorkspace from "@/components/ExamWorkspace";
 import { exams } from "@/constants/index";
 
 interface PageProps {
@@ -20,11 +20,7 @@ const Exam = async ({ params }: PageProps) => {
                     data={currentExam?.syllabus || []} //static data
                 />
             </section>
-
-            <section className="mt-6 mr-4">
-
-            </section>
-
+            <ExamWorkspace examName={examName} />
         </div>
     )
 }

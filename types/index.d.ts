@@ -81,3 +81,27 @@ interface CompanionComponentProps {
   voice: string;
   style: string;
 }
+
+
+
+// type Exams = Models.DocumentList<Models.Document> & {
+//   $id: string;
+//   name: string;
+//   description: string;
+//   tags: string[];
+//   duration: number;
+//   year: number;
+//   totalMarks: number;
+//   bookmarked: boolean;
+// };
+
+interface Exams extends Models.DocumentList<Models.Document> {
+  $id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  duration: number;
+  year: number;
+  totalMarks: number;
+  bookmarked: boolean;
+}
