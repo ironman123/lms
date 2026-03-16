@@ -80,7 +80,7 @@ export const exams = [
     tags: ["Engineering", "National Level"],
     duration: 180,
     totalMarks: 300,
-    year: 2023,
+    //year: 2023,
     color: "#FFDA6E",
     syllabus: [
       {
@@ -104,7 +104,7 @@ export const exams = [
     tags: ["Medical", "National Level"],
     duration: 180,
     totalMarks: 720,
-    year: 2024,
+    //year: 2024,
     color: "#e5d0ff",
     syllabus: [
       {
@@ -128,7 +128,7 @@ export const exams = [
     tags: ["Engineering", "National Level"],
     duration: 180,
     totalMarks: 1000,
-    year: 2022,
+    //year: 2022,
     color: "#BDE7FF",
     syllabus: [
       {
