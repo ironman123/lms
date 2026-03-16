@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+  //output   = "../lib/generated/prisma"
+}
+
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+
+// This is the structure you should use for the Exams/Syllabus
+model Exam {
+  id          String     @id @default(uuid())
+  name        String     @unique // e.g., "GATE CSE"
+  description String?
+  duration    Int
+  totalMarks  Int
+  color       String
+  categories  Category[] // An exam has many categories (Engineering Math, OS, etc.)
+}
+
+model Category {
+  id      String  @id @default(uuid())
+  name    String  // e.g., "General Aptitude"
+  exam    Exam    @relation(fields: [examId], references: [id])
+  examId  String
+  topics  Topic[] // A category has many topics (Verbal Ability, Numerical)
+}
+
+model Topic {
+  id         String   @id @default(uuid())
+  name       String   // e.g., "Linear Algebra"
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+}
