@@ -15,8 +15,16 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
+import MiniNavbar from "./MiniNavbar";
 
 // 1. Mock data updated with properties to match our new filters
+const tabs = [
+    { id: "all", label: "All Papers", count: 12 },
+    { id: "pyq", label: "PYQs", count: 5 },
+    { id: "mock", label: "Mocks", count: 4 },
+    { id: "notes", label: "Notes", count: 3 },
+];
+
 const data = [
     { id: 1, title: "2024 Session 1", type: "PYQ", year: "2024", duration: 180, shift: "Morning Shift", pricing: "Free", subject: "Mathematics" },
     { id: 2, title: "Full Syllabus Mock 1", type: "Mock", year: "2024", duration: 180, shift: "Evening Shift", pricing: "Paid", subject: "Physics" },
@@ -212,12 +220,7 @@ export default function ExamWorkspace({ examName }: { examName: string }) {
             <section className="w-full border border-gray-200 rounded-lg bg-white px-6 py-6">
                 <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
 
-                    <TabsList className="mb-6 w-full justify-around bg-amber-100/50 p-1 text-amber-700">
-                        <TabsTrigger className="data-[state=active]:bg-amber-500 data-[state=active]:text-white hover:bg-amber-200/50 transition-colors" value="all">All Papers</TabsTrigger>
-                        <TabsTrigger className="data-[state=active]:bg-amber-500 data-[state=active]:text-white hover:bg-amber-200/50 transition-colors" value="pyq">PYQs</TabsTrigger>
-                        <TabsTrigger className="data-[state=active]:bg-amber-500 data-[state=active]:text-white hover:bg-amber-200/50 transition-colors" value="mock">Mocks</TabsTrigger>
-                        <TabsTrigger className="data-[state=active]:bg-amber-500 data-[state=active]:text-white hover:bg-amber-200/50 transition-colors" value="notes">Notes</TabsTrigger>
-                    </TabsList>
+                    <MiniNavbar tabs={tabs} />
 
                     {/* Exam List Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
