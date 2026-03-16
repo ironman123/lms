@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
     { label: 'Home', href: '/' },
     { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Subscription', href: '/subscription' },
+    { label: 'Subscriptions', href: '/subscription' },
     { label: 'Contact', href: '/contact' },
 ]
 const NavItems = () => {
@@ -17,7 +17,7 @@ const NavItems = () => {
                 <Link
                     key={label}
                     href={href}
-                    className={cn("text-gray-700 hover:text-black transition", pathname === href && 'text-primary font-bold')}
+                    className={cn("text-gray-700 hover:text-black transition hover:scale-105 transition-transform duration-100", pathname === href && 'text-primary font-bold')}
                 >
                     {label}
                 </Link>
