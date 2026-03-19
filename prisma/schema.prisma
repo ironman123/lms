@@ -165,3 +165,50 @@ model User {
   interactions   QuestionInteraction[]
   topicMasteries TopicMastery[]
 }
+
+model TestSession {
+  id         String      @id @default(uuid())
+  mode       SessionMode @default(PRACTICE)
+  startTime  DateTime    @default(now())
+  endTime    DateTime?
+  totalScore Float?
+
+  // Relations
+  user    User          @relation(fields: [userId], references: [id])
+  userId  String
+  paper   QuestionPaper @relation(fields: [paperId], references: [id])
+  paperId String
+
+  // The collection of every interaction in THIS specific test attempt
+  interactions QuestionInteraction[]
+  activityLogs ActivityLog[]
+}
+
+model ActivityLog {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   TestSession @relation(fields: [sessionId], references: [id])
+
+  // The "What" happened
+  event    String // e.g., "NAVIGATE_TO_Q5", "VIEWED_HINT", "WINDOW_BLUR"
+  metadata Json? // Stores extra info like { fromQ: 4, toQ: 5 }
+
+  timestamp DateTime @default(now())
+}
+
+model TopicMastery {
+  id      String @id @default(uuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  topicId String
+  topic   Topic  @relation(fields: [topicId], references: [id])
+
+  // The "Scientist" Data
+  currentScore Float    @default(0.0) // 0.0 to 1.0 (0% to 100% mastery)
+  lastTestedAt DateTime @default(now())
+
+  // This allows us to see how mastery changes over weeks
+  history Json? // Optional: Stores [ {date: "2026-03-01", score: 0.4}, ... ]
+
+  @@unique([userId, topicId])
+}
