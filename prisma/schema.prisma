@@ -34,3 +34,38 @@ enum SessionMode {
   MOCK_EXAM // Strict timer, no hints, simulates real GATE/UPSC
   DIAGNOSTIC // Initial test to map "Mastery"
 }
+
+// This is the structure you should use for the Exams/Syllabus
+model Exam {
+  id             String          @id @default(uuid())
+  name           String          @unique // e.g., "GATE CSE"
+  description    String?
+  duration       Int
+  totalMarks     Int
+  color          String          @default("#0076c5") // Hex color code for UI representation
+  categories     Category[] // An exam has many categories (Engineering Math, OS, etc.)
+  questionPapers QuestionPaper[]
+}
+
+model Category {
+  id     String  @id @default(uuid())
+  name   String // e.g., "General Aptitude"
+  exam   Exam    @relation(fields: [examId], references: [id])
+  examId String
+  topics Topic[] // A category has many topics (Verbal Ability, Numerical)
+}
+
+model Topic {
+  id         String   @id @default(uuid())
+  name       String // e.g., "Linear Algebra"
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  // The Knowledge Graph: Prerequisites
+  parentId String?
+  parent   Topic?  @relation("SubTopics", fields: [parentId], references: [id])
+  children Topic[] @relation("SubTopics")
+
+  questions      Question[]
+  topicMasteries TopicMastery[]
+}
