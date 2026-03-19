@@ -4,6 +4,13 @@
 import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl)
+{
+  throw new Error("CRITICAL: DATABASE_URL is not defined in your environment variables.");
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -11,7 +18,7 @@ export default defineConfig({
   },
   engine: "classic",
   datasource: {
-    directUrl: env("DIRECT_URL"),
-    url: env("DATABASE_URL"),
+    directUrl: process.env.DIRECT_URL,
+    url: databaseUrl,
   },
 });
