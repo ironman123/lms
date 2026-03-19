@@ -15,3 +15,22 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionType {
+  MCQ // Single correct answer
+  MSQ // Multiple Select (Multiple correct answers)
+  NUMERICAL // Integer or Decimal input (Common in GATE)
+  SUBJECTIVE // Text-based long answers (Common in UPSC/KPSC)
+}
+
+enum SessionMode {
+  PRACTICE // No timer, hints allowed
+  MOCK_EXAM // Strict timer, no hints, simulates real GATE/UPSC
+  DIAGNOSTIC // Initial test to map "Mastery"
+}
