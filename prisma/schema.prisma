@@ -117,3 +117,36 @@ model Option {
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   questionId String
 }
+
+model QuestionInteraction {
+  id String @id @default(uuid())
+
+  // Linkages
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  questionId String
+  question   Question    @relation(fields: [questionId], references: [id])
+  sessionId  String
+  session    TestSession @relation(fields: [sessionId], references: [id])
+
+  // Telemetry (The "Big Data" for training)
+  visitCount     Int     @default(0) // How many times they attempted/viewed the question 
+  totalDwellTime Int     @default(0) // How long they looked (ms)
+  isCorrect      Boolean
+  selectedAnswer String?
+
+  // Metadata for AI-Driven Personalization
+  hesitationCount Int     @default(0) // How many times they toggled options
+  isFlagged       Boolean @default(false) // Subjective uncertainty
+  wasHinted       Boolean @default(false) // Did they view the hint/explanation?
+  confidenceLevel Int? // 1-5 scale of self-reported confidence
+
+  // Learning Science Analytics
+  masteryDelta Float? // How much their "Mastery Score" changed
+  forgottenAt  DateTime? // Predicted date of memory decay
+
+  startedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([userId, questionId, sessionId]) // The "Secret Sauce" for clean Big Data. History of how they answered that same question across different months
+}
