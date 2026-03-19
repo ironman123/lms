@@ -69,3 +69,51 @@ model Topic {
   questions      Question[]
   topicMasteries TopicMastery[]
 }
+
+model QuestionPaper {
+  id           String        @id @default(uuid())
+  title        String // e.g., "GATE CSE 2024 Mock 1"
+  year         Int?
+  exam         Exam          @relation(fields: [examId], references: [id])
+  examId       String
+  questions    Question[]
+  createdAt    DateTime      @default(now())
+  testSessions TestSession[]
+}
+
+model Question {
+  id            String       @id @default(uuid())
+  content       String // Supports KaTeX/Markdown
+  type          QuestionType
+  difficulty    Difficulty   @default(MEDIUM)
+  marks         Float        @default(1.0)
+  negativeMarks Float        @default(0.0)
+  explanation   String?
+
+  // Scientist Metadata
+  bloomsTaxonomy    Int     @default(1) // 1-6 (Recall to Create)
+  isVisual          Boolean @default(false)
+  discriminationIdx Float? // Statistical quality of the question
+  avgTimeSeconds    Int     @default(60)
+
+  // Semantic Intelligence (Requires pgvector)
+  embedding Unsupported("vector(1536)")?
+
+  // Relations
+  topic        Topic                 @relation(fields: [topicId], references: [id])
+  topicId      String
+  paper        QuestionPaper?        @relation(fields: [paperId], references: [id])
+  paperId      String?
+  options      Option[]
+  interactions QuestionInteraction[]
+
+  correctAnswer String?
+}
+
+model Option {
+  id         String   @id @default(uuid())
+  text       String
+  isCorrect  Boolean  @default(false)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+}
