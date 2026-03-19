@@ -16,6 +16,12 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserRole {
+  STUDENT
+  ADMIN
+  CONTENT_CREATOR // For people just uploading GATE questions
+}
+
 enum Difficulty {
   EASY
   MEDIUM
@@ -152,18 +158,35 @@ model QuestionInteraction {
 }
 
 model User {
-  id     String  @id @default(uuid())
-  email  String  @unique
-  name   String?
-  region String? // For "Social Good" geographic analysis
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(STUDENT)
+  avatarUrl String? // For the Leaderboard UI
+  clerkId   String?  @unique // To sync with your Auth provider
+
+  // Demographics & Context
+  region     String? // e.g., "Uttar Pradesh", "Tamil Nadu"
+  targetExam String? // e.g., "GATE 2026", "UPSC"
+  college    String? // To compare performance across institutions
 
   // Intelligence Metrics (Aggregated)
-  globalMastery  Float @default(0.0)
-  totalStudyTime Int   @default(0) // Total ms across all sessions
+  globalMastery   Float @default(0.0)
+  totalStudyTime  Int   @default(0)
+  questionsSolved Int   @default(0) // Fast counter for UI
+  accuracyRate    Float @default(0.0) // (Correct / Total)
 
+  // Platform State
+  isPremium  Boolean  @default(false) // For paywalled mock tests
+  onboarded  Boolean  @default(false) // To track first-time setup
+  lastActive DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  // Relations
   sessions       TestSession[]
   interactions   QuestionInteraction[]
   topicMasteries TopicMastery[]
+  activityLogs   ActivityLog[]
 }
 
 model TestSession {
@@ -194,6 +217,8 @@ model ActivityLog {
   metadata Json? // Stores extra info like { fromQ: 4, toQ: 5 }
 
   timestamp DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
 }
 
 model TopicMastery {
