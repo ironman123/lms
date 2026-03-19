@@ -150,3 +150,18 @@ model QuestionInteraction {
 
   @@unique([userId, questionId, sessionId]) // The "Secret Sauce" for clean Big Data. History of how they answered that same question across different months
 }
+
+model User {
+  id     String  @id @default(uuid())
+  email  String  @unique
+  name   String?
+  region String? // For "Social Good" geographic analysis
+
+  // Intelligence Metrics (Aggregated)
+  globalMastery  Float @default(0.0)
+  totalStudyTime Int   @default(0) // Total ms across all sessions
+
+  sessions       TestSession[]
+  interactions   QuestionInteraction[]
+  topicMasteries TopicMastery[]
+}
