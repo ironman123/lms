@@ -1,28 +1,24 @@
+// app/library/category/page.tsx (or wherever this file lives)
+"use client"; // <-- 1. Make this a Client Component
+
+import { useState } from "react"; // <-- 2. Import useState
 import { KPSC_CATEGORIES } from "@/constants";
 import ExamCategoryCard from "@/components/ExamCategoryCard";
-import SearchFilter from "@/components/SearchFilter"; // <-- 1. Import the SearchFilter
-import Link from "next/link";
+import SearchFilter from "@/components/SearchFilter";
 import { Search } from "lucide-react";
 
-// Note: Ensure searchParams is typed as a Promise for Next.js 15 compatibility
-export default async function CategoryIndexPage({
-    searchParams
-}: {
-    searchParams: Promise<{ q?: string }>
-}) {
-    // 2. Await the searchParams and extract the query
-    const { q: query } = await searchParams;
+export default function CategoryIndexPage() {
+    // 3. Initialize local state for the search query
+    const [searchQuery, setSearchQuery] = useState("");
 
-    // 3. Filter the categories based on the search query
-    let filteredCategories = KPSC_CATEGORIES;
-    if (query)
-    {
-        const lowerQuery = query.toLowerCase();
-        filteredCategories = filteredCategories.filter(category =>
+    // 4. Filter the categories instantly based on local state
+    const filteredCategories = KPSC_CATEGORIES.filter(category => {
+        const lowerQuery = searchQuery.toLowerCase();
+        return (
             category.name.toLowerCase().includes(lowerQuery) ||
             category.description.toLowerCase().includes(lowerQuery)
         );
-    }
+    });
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -38,10 +34,13 @@ export default async function CategoryIndexPage({
                     </p>
                 </div>
 
-                {/* 4. Render the Search Bar (Centered to match the header) */}
+                {/* 5. Pass the state and setter down to the SearchFilter */}
                 <div className="flex justify-center mb-16 w-full">
                     <div className="w-full max-w-md">
-                        <SearchFilter />
+                        <SearchFilter
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                        />
                     </div>
                 </div>
 
@@ -61,19 +60,19 @@ export default async function CategoryIndexPage({
                         ))}
                     </div>
                 ) : (
-                    /* 5. Premium Empty State if no categories match the search */
                     <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center bg-white max-w-2xl mx-auto w-full">
                         <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
                         <h3 className="text-lg font-bold text-slate-900 tracking-tight">No categories found</h3>
                         <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                            We couldn't find any categories matching "{query}". Try adjusting your search term.
+                            We couldn't find any categories matching "{searchQuery}". Try adjusting your search term.
                         </p>
-                        <Link
-                            href="/library/category" // <-- Update this to the exact path of this index page
+                        {/* 6. Change the 'Clear search' button to just reset the state */}
+                        <button
+                            onClick={() => setSearchQuery("")}
                             className="mt-6 inline-flex items-center justify-center px-4 py-2 bg-slate-100 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors"
                         >
                             Clear search
-                        </Link>
+                        </button>
                     </div>
                 )}
 

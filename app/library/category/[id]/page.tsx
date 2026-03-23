@@ -1,21 +1,25 @@
-import ExamCard from "@/components/ExamCard"; // Adjust path if needed
+"use client"; // <-- 1. Make it a Client Component
+
+import { useState, use } from "react"; // <-- 2. Import useState and use
+import ExamCard from "@/components/ExamCard";
 import { DUMMY_EXAMS, KPSC_CATEGORIES } from "@/constants";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import SearchFilter from "@/components/SearchFilter"; // <-- Import the new component
+import { ChevronLeft, Search } from "lucide-react";
+import SearchFilter from "@/components/SearchFilter";
 
-export default async function CategoryPage({
+export default function CategoryPage({
     params,
-    searchParams
 }: {
     params: Promise<{ id: string }>;
-    searchParams: Promise<{ q?: string }>; // <-- Add searchParams type
+    // 3. Removed searchParams from props since we don't need the URL anymore
 }) {
-    // 1. Resolve params and searchParams
-    const { id } = await params;
-    const { q: query } = await searchParams;
+    // 4. Unwrap the params using React.use() for Next.js 15 compatibility
+    const { id } = use(params);
 
-    // 2. Find the specific category details
+    // 5. Initialize local state for search
+    const [searchQuery, setSearchQuery] = useState("");
+
+    // 6. Find the specific category details
     const category = KPSC_CATEGORIES.find((c) => c.id === id);
 
     if (!category)
@@ -28,14 +32,13 @@ export default async function CategoryPage({
         );
     }
 
-    // 3. Filter exams by category ID
-    let exams = DUMMY_EXAMS.filter((e) => e.categoryId === id);
+    // 7. Filter exams by category ID FIRST, then by the local search query
+    let filteredExams = DUMMY_EXAMS.filter((e) => e.categoryId === id);
 
-    // 4. If there is a search query, filter the exams further
-    if (query)
+    if (searchQuery)
     {
-        const lowerQuery = query.toLowerCase();
-        exams = exams.filter(e =>
+        const lowerQuery = searchQuery.toLowerCase();
+        filteredExams = filteredExams.filter(e =>
             e.name.toLowerCase().includes(lowerQuery) ||
             e.description.toLowerCase().includes(lowerQuery)
         );
@@ -60,17 +63,21 @@ export default async function CategoryPage({
                 </p>
             </div>
 
-            {/* Render the Search Bar */}
+            {/* Render the Search Bar using Local State */}
             <div className="flex justify-center mb-16 w-full">
                 <div className="w-full max-w-md">
-                    <SearchFilter />
+                    {/* 8. Pass state to SearchFilter. No Suspense needed for local state! */}
+                    <SearchFilter
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                    />
                 </div>
             </div>
 
             {/* Exam Grid */}
-            {exams.length > 0 ? (
+            {filteredExams.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {exams.map((exam) => (
+                    {filteredExams.map((exam) => (
                         <ExamCard
                             key={exam.id}
                             id={exam.id}
@@ -85,13 +92,18 @@ export default async function CategoryPage({
                 </div>
             ) : (
                 <div className="p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center">
+                    <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
                     <p className="text-slate-500 font-medium text-lg">
-                        {query ? `No exams found matching "${query}"` : "No exams found in this category yet."}
+                        {searchQuery ? `No exams found matching "${searchQuery}"` : "No exams found in this category yet."}
                     </p>
-                    {query && (
-                        <Link href={`/category/${id}`} className="mt-2 inline-block text-blue-600 hover:underline">
+                    {searchQuery && (
+                        /* 9. Update Clear Search to reset state instead of navigating */
+                        <button
+                            onClick={() => setSearchQuery("")}
+                            className="mt-4 inline-block text-blue-600 font-medium hover:underline cursor-pointer"
+                        >
                             Clear search
-                        </Link>
+                        </button>
                     )}
                 </div>
             )}
