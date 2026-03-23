@@ -61,7 +61,11 @@ export default async function CategoryPage({
             </div>
 
             {/* Render the Search Bar */}
-            <SearchFilter />
+            <div className="flex justify-center mb-16 w-full">
+                <div className="w-full max-w-md">
+                    <SearchFilter />
+                </div>
+            </div>
 
             {/* Exam Grid */}
             {exams.length > 0 ? (
