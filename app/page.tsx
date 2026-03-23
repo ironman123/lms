@@ -5,10 +5,35 @@ import ExamCard from '@/components/ExamCard'
 import { Button } from '@/components/ui/button'
 import React from 'react'
 import { exams } from '@/constants/index'
+import ExamCategoryCard from '@/components/ExamCategoryCard'
+import Exam from './library/exam/page'
+import { KPSC_CATEGORIES } from '@/constants/index'
+import HeroSection from '@/components/Hero'
 
 const Page = () => {
   return (
     <main>
+      <HeroSection
+        title="Prepare for Your Dream Job"
+        subtitle="Access thousands of practice questions and mock tests for various government exams."
+        backgroundImage="/images/trison-thomas-aZcRBBwfglE-unsplash.jpg"
+      />
+      <h1>Exam Categories</h1>
+      <section className='home-section grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6'>
+        {
+          KPSC_CATEGORIES.map((category) => (
+            <ExamCategoryCard
+              key={category.id}
+              id={category.id}
+              name={category.name}
+              description={category.description}
+              icon={category.icon}
+              image={category.image}
+              color={category.color}
+            />
+          ))
+        }
+      </section>
       <h1>Popular Exams</h1>
       <section className='home-section grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
         {

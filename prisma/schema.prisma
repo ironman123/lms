@@ -41,6 +41,18 @@ enum SessionMode {
   DIAGNOSTIC // Initial test to map "Mastery"
 }
 
+model ExamCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g., "General", "Teaching", "Technical"
+  description String? // e.g., "LDC, VEO, and other administrative posts"
+  icon        String? // SVG path or Emoji for the card icon
+  image       String? // URL for a background or banner image
+  color       String? @default("#1D3557") // Brand color for this category
+
+  exams     Exam[] // One category has many specific exams
+  createdAt DateTime @default(now())
+}
+
 // This is the structure you should use for the Exams/Syllabus
 model Exam {
   id             String          @id @default(uuid())
@@ -51,6 +63,32 @@ model Exam {
   color          String          @default("#0076c5") // Hex color code for UI representation
   categories     Category[] // An exam has many categories (Engineering Math, OS, etc.)
   questionPapers QuestionPaper[]
+  tags           ExamsTagsLink[]
+  examCategory   ExamCategory?   @relation(fields: [examCategoryId], references: [id])
+  examCategoryId String?
+}
+
+model Tag {
+  id    String  @id @default(uuid())
+  name  String  @unique // e.g., "General", "Teaching", "Technical"
+  icon  String? // Optional icon (like '💼', '🏫', '🛠️') for UI representation
+  color String? // Optional hex code for UI accent color (e.g., "#1D3557")
+
+  exams ExamsTagsLink[] // A tag can be linked to many exams
+}
+
+// The Junction (or 'Lookup') Table for the Many-to-Many relationship
+model ExamsTagsLink {
+  id     String @id @default(uuid())
+  examId String
+  exam   Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  // Ensures we can't link the same tag to the same exam twice
+  @@unique([examId, tagId])
 }
 
 model Category {

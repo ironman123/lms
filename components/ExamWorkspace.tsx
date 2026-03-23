@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Clock, Bookmark } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,9 +14,10 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
-import MiniNavbar from "./MiniNavbar";
+import MiniNavbar from "./MiniNavbar"; // Assuming this is your custom tab bar
+import WorkspacePaperCard from "./WorkspacePaperCard"; // The card component for papers in the workspace
 
-// 1. Mock data updated with properties to match our new filters
+// 1. Mock Data
 const tabs = [
     { id: "all", label: "All Papers", count: 12 },
     { id: "pyq", label: "PYQs", count: 5 },
@@ -30,11 +30,9 @@ const data = [
     { id: 2, title: "Full Syllabus Mock 1", type: "Mock", year: "2024", duration: 180, shift: "Evening Shift", pricing: "Paid", subject: "Physics" },
     { id: 3, title: "2023 Shift 2", type: "PYQ", year: "2023", duration: 180, shift: "Evening Shift", pricing: "Free", subject: "Chemistry" },
     { id: 4, title: "Chapter-wise: Mechanics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
-    { id: 5, title: "Chapter-wise: Mechanics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
-    { id: 6, title: "Chapter-wise: Mechanics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
+    { id: 5, title: "Chapter-wise: Thermodynamics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
 ];
 
-// 2. The options that will appear in our accordion filters
 const FILTER_OPTIONS = {
     years: ["2025", "2024", "2023", "2022", "2021"],
     shifts: ["Morning Shift", "Evening Shift"],
@@ -42,12 +40,11 @@ const FILTER_OPTIONS = {
     subjects: ["General Knowledge", "Current Affairs", "Mathematics", "Physics", "Chemistry"],
 };
 
-export default function ExamWorkspace({ examName }: { examName: string }) {
+export default function ExamWorkspace({ examId }: { examId: string }) {
     // --- STATE ---
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
 
-    // State for the advanced sidebar filters
     const [filters, setFilters] = useState({
         years: [] as string[],
         shifts: [] as string[],
@@ -75,7 +72,6 @@ export default function ExamWorkspace({ examName }: { examName: string }) {
         setFilters({ years: [], shifts: [], pricing: [], subjects: [] });
     };
 
-    // The master filter function combining Search, Tabs, and Checkboxes
     const filteredPapers = data.filter((paper) => {
         const matchesSearch = paper.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesTab = activeTab === "all" || paper.type.toLowerCase() === activeTab.toLowerCase();
@@ -89,20 +85,22 @@ export default function ExamWorkspace({ examName }: { examName: string }) {
     });
 
     return (
-        <section className="mt-6 mr-4 flex gap-6 md:flex-row flex-col items-start">
+        // flex-col on mobile, lg:flex-row on desktop. w-full ensures it doesn't overflow.
+        <div className="flex flex-col lg:flex-row gap-6 xl:gap-8 items-start w-full">
 
             {/* --- LEFT SIDEBAR: Search & Filters --- */}
-            <section className="md:w-4/12 flex flex-col gap-6 border border-gray-200 rounded-lg bg-white px-6 py-6 sticky top-6">
+            {/* Fixed width on desktop (280px), full width on mobile */}
+            <aside className="w-full lg:w-3/12 shrink-0 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6 lg:sticky lg:top-8">
 
                 {/* Search */}
-                <div>
-                    <h3 className="font-semibold mb-3 text-lg">Search</h3>
+                <div className="mb-6">
+                    <h3 className="font-bold text-slate-900 mb-3 text-lg tracking-tight">Search</h3>
                     <div className="relative">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input
                             type="text"
                             placeholder="Search papers..."
-                            className="pl-9 bg-gray-50 focus-visible:ring-amber-500"
+                            className="pl-9 bg-slate-50 border-slate-200 rounded-xl focus-visible:ring-slate-900 focus-visible:ring-2 transition-all"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -110,12 +108,12 @@ export default function ExamWorkspace({ examName }: { examName: string }) {
                 </div>
 
                 {/* Advanced Filters */}
-                <div className="flex flex-col h-full">
-                    <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div className="flex flex-col ">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                         <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">Filters</h3>
+                            <h3 className="font-bold text-slate-900 text-lg tracking-tight">Filters</h3>
                             {activeCount > 0 && (
-                                <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-200">
+                                <Badge variant="secondary" className="bg-slate-900 text-white hover:bg-slate-800">
                                     {activeCount}
                                 </Badge>
                             )}
@@ -125,7 +123,7 @@ export default function ExamWorkspace({ examName }: { examName: string }) {
                                 variant="ghost"
                                 size="sm"
                                 onClick={clearAllFilters}
-                                className="text-gray-500 hover:text-red-600 h-8 px-2 text-xs hover:bg-red-100"
+                                className="text-slate-500 hover:text-red-600 h-8 px-2 text-xs hover:bg-red-50 rounded-lg"
                             >
                                 Clear All
                             </Button>
@@ -135,127 +133,92 @@ export default function ExamWorkspace({ examName }: { examName: string }) {
                     <ScrollArea className="h-[400px] pr-4 mt-2">
                         <Accordion type="multiple" defaultValue={["item-year", "item-subject"]} className="w-full">
 
-                            {/* YEAR */}
-                            <AccordionItem value="item-year" className="border-b-0 mb-1">
-                                <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold text-gray-700">Year</AccordionTrigger>
-                                <AccordionContent className="pt-1 pb-3">
-                                    <div className="flex flex-col gap-3">
-                                        {FILTER_OPTIONS.years.map((year) => (
-                                            <label key={year} className="flex items-center space-x-3 cursor-pointer group">
-                                                <Checkbox
-                                                    checked={filters.years.includes(year)}
-                                                    onCheckedChange={() => toggleFilter("years", year)}
-                                                    className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                                                />
-                                                <span className="text-sm text-gray-600 group-hover:text-black">{year}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-
-                            {/* SHIFT */}
-                            <AccordionItem value="item-shift" className="border-b-0 mb-1">
-                                <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold text-gray-700">Shift</AccordionTrigger>
-                                <AccordionContent className="pt-1 pb-3">
-                                    <div className="flex flex-col gap-3">
-                                        {FILTER_OPTIONS.shifts.map((shift) => (
-                                            <label key={shift} className="flex items-center space-x-3 cursor-pointer group">
-                                                <Checkbox
-                                                    checked={filters.shifts.includes(shift)}
-                                                    onCheckedChange={() => toggleFilter("shifts", shift)}
-                                                    className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                                                />
-                                                <span className="text-sm text-gray-600 group-hover:text-black">{shift}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-
-                            {/* PRICING */}
-                            <AccordionItem value="item-pricing" className="border-b-0 mb-1">
-                                <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold text-gray-700">Pricing</AccordionTrigger>
-                                <AccordionContent className="pt-1 pb-3">
-                                    <div className="flex flex-col gap-3">
-                                        {FILTER_OPTIONS.pricing.map((price) => (
-                                            <label key={price} className="flex items-center space-x-3 cursor-pointer group">
-                                                <Checkbox
-                                                    checked={filters.pricing.includes(price)}
-                                                    onCheckedChange={() => toggleFilter("pricing", price)}
-                                                    className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                                                />
-                                                <span className="text-sm text-gray-600 group-hover:text-black">{price}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-
-                            {/* SUBJECT */}
-                            <AccordionItem value="item-subject" className="border-b-0 mb-1">
-                                <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold text-gray-700">Subject</AccordionTrigger>
-                                <AccordionContent className="pt-1 pb-3">
-                                    <div className="flex flex-col gap-3">
-                                        {FILTER_OPTIONS.subjects.map((subject) => (
-                                            <label key={subject} className="flex items-center space-x-3 cursor-pointer group">
-                                                <Checkbox
-                                                    checked={filters.subjects.includes(subject)}
-                                                    onCheckedChange={() => toggleFilter("subjects", subject)}
-                                                    className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                                                />
-                                                <span className="text-sm text-gray-600 group-hover:text-black">{subject}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
+                            {/* DYNAMIC FILTER RENDERER */}
+                            {(Object.keys(FILTER_OPTIONS) as Array<keyof typeof FILTER_OPTIONS>).map((category) => (
+                                <AccordionItem key={category} value={`item-${category}`} className="border-b-0 mb-1">
+                                    <AccordionTrigger className="hover:no-underline py-3 text-sm font-bold text-slate-800 capitalize tracking-tight">
+                                        {category}
+                                    </AccordionTrigger>
+                                    <AccordionContent className="pt-1 pb-3">
+                                        <div className="flex flex-col gap-3">
+                                            {FILTER_OPTIONS[category].map((option) => (
+                                                <label key={option} className="flex items-center space-x-3 cursor-pointer group">
+                                                    <Checkbox
+                                                        checked={filters[category].includes(option)}
+                                                        onCheckedChange={() => toggleFilter(category, option)}
+                                                        className="data-[state=checked]:bg-slate-900 data-[state=checked]:border-slate-900 rounded-[4px]"
+                                                    />
+                                                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                                                        {option}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
 
                         </Accordion>
                     </ScrollArea>
                 </div>
-            </section>
+            </aside>
 
             {/* --- RIGHT MAIN AREA: Tabs & Exam List --- */}
-            <section className="w-full border border-gray-200 rounded-lg bg-white px-6 py-6">
+            {/* min-w-0 is crucial here. It stops the grid from blowing out the page width on mobile */}
+            <section className="flex-1 min-w-0 w-full">
+
                 <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
 
-                    <MiniNavbar tabs={tabs} />
+                    {/* Ensure MiniNavbar handles horizontal overflow nicely for mobile */}
+                    {/* 1. Added 'relative' so the absolute gradients know where to attach */}
+                    <div className="relative lg:sticky lg:top-8 z-20 mb-6 bg-slate-50 py-2 -my-2">
+
+                        {/* Top Fade Mask */}
+                        <div className="absolute -top-8 left-0 w-full h-8 bg-gradient-to-b from-slate-50/0 to-slate-50 pointer-events-none" />
+
+                        {/* Scrollable Tabs */}
+                        <div className="overflow-x-auto hide-scrollbar w-full relative z-10">
+                            <MiniNavbar tabs={tabs} />
+                        </div>
+
+                        {/* Bottom Fade Mask */}
+                        <div className="absolute -bottom-6 left-0 w-full h-6 bg-gradient-to-b from-slate-50 to-slate-50/0 pointer-events-none" />
+
+                    </div>
 
                     {/* Exam List Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {filteredPapers.length > 0 ? (
                             filteredPapers.map((paper) => (
-                                <Card key={paper.id} className="hover:border-amber-400 transition-colors cursor-pointer shadow-sm group">
-                                    <CardHeader className="pb-4">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-xs font-bold px-2.5 py-1 bg-amber-100 text-amber-800 rounded-md">
-                                                {paper.type + " • " + paper.year}
-                                            </span>
-                                            <span className="text-xs text-gray-500 font-bold bg-gray-200 px-2 py-1 rounded-md">
-                                                {paper.duration} mins
-                                            </span>
-                                            <span className={`text-xs font-bold px-2 py-1 rounded-br-lg ${paper.pricing === "Free" ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}>
-                                                {paper.pricing}
-                                            </span>
-                                        </div>
-                                        <CardTitle className="text-lg group-hover:text-amber-700 transition-colors">{paper.title}</CardTitle>
-                                        <CardDescription className="flex flex-col gap-1 mt-1">
-                                            <span>{examName} • Year: {paper.year}</span>
-                                            <span className="text-xs text-gray-400">{paper.subject}</span>
-                                        </CardDescription>
-                                    </CardHeader>
-                                </Card>
+                                // Styled exactly like ExamCard
+                                <WorkspacePaperCard
+                                    key={paper.id}
+                                    id={paper.id}
+                                    title={paper.title}
+                                    type={paper.type}
+                                    year={paper.year}
+                                    pricing={paper.pricing}
+                                    examId={examId}
+                                    subject={paper.subject}
+                                    duration={paper.duration}
+                                    shift={paper.shift}
+                                // color="#0F172A" // Optionally pass the specific color from the parent exam data!
+                                />
                             ))
                         ) : (
-                            <div className="col-span-full py-16 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-xl">
-                                <Search className="w-10 h-10 text-gray-300 mb-3" />
-                                <h3 className="text-lg font-semibold text-gray-900">No papers found</h3>
-                                <p className="text-sm text-gray-500 mt-1 max-w-sm">
+                            // Empty State styled exactly like the CategoryPage empty state
+                            <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center bg-white">
+                                <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
+                                <h3 className="text-lg font-bold text-slate-900 tracking-tight">No papers found</h3>
+                                <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto leading-relaxed">
                                     We couldn't find anything matching your current filters. Try removing some filters or adjusting your search.
                                 </p>
                                 {activeCount > 0 && (
-                                    <Button variant="outline" className="mt-4" onClick={clearAllFilters}>
+                                    <Button
+                                        variant="outline"
+                                        className="mt-6 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50"
+                                        onClick={clearAllFilters}
+                                    >
                                         Clear all filters
                                     </Button>
                                 )}
@@ -265,6 +228,6 @@ export default function ExamWorkspace({ examName }: { examName: string }) {
                 </Tabs>
             </section>
 
-        </section>
+        </div>
     );
 }

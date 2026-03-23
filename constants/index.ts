@@ -75,7 +75,7 @@ export const recentSessions = [
 export const exams = [
   {
     $id: "123",
-    name: "JEE Mains",
+    name: "Kerala PSC General",
     description: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas, voluptate.",
     tags: ["Engineering", "National Level"],
     duration: 180,
@@ -99,7 +99,7 @@ export const exams = [
   },
   {
     $id: "456",
-    name: "NEET",
+    name: "Kerala Teaching",
     description: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas, voluptate.",
     tags: ["Medical", "National Level"],
     duration: 180,
@@ -123,7 +123,7 @@ export const exams = [
   },
   {
     $id: "789",
-    name: "GATE CSE",
+    name: "Kerala Technical",
     description: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas, voluptate.",
     tags: ["Engineering", "National Level"],
     duration: 180,
@@ -152,4 +152,144 @@ export const examsData = [
   { id: 2, title: "Full Syllabus Mock 1", type: "Mock", year: "2024", duration: 180 },
   { id: 3, title: "2023 Shift 2", type: "PYQ", year: "2023", duration: 180 },
   { id: 4, title: "Chapter-wise: Mechanics", type: "Topic", year: "N/A", duration: 60 },
+];
+
+export const KPSC_CATEGORIES = [
+  {
+    id: "general",
+    name: "General",
+    description: "Administrative and ministerial positions across various Kerala State departments.",
+    examCount: 42,
+    // Using Lucide-style naming or paths to clean SVGs
+    icon: "Briefcase",
+    image: "/images/adnan-saifee-zmr9TeA7WjU-unsplash.jpg",
+    color: "#0F172A", // Slate 900 (Professional Navy)
+  },
+  {
+    id: "teaching",
+    name: "Teaching",
+    description: "Academic roles within the General Education and Higher Secondary departments.",
+    examCount: 28,
+    icon: "GraduationCap",
+    image: "/images/fsd-foundation-for-sustainable-development-sJq6t8KvooA-unsplash.jpg",
+    color: "#334155", // Slate 700
+  },
+  {
+    id: "technical",
+    name: "Technical",
+    description: "Specialized engineering, polytechnic, and vocational instructor services.",
+    examCount: 15,
+    icon: "Cpu",
+    image: "/images/melech-charly-nO7dcpGmdIw-unsplash.jpg",
+    color: "#475569", // Slate 600
+  },
+];
+
+export const DUMMY_EXAMS = [
+  // --- GENERAL CATEGORY ---
+  {
+    id: "ldc-2024",
+    categoryId: "general",
+    name: "LDC (Clerk)",
+    description: "Lower Division Clerk for various departments like Secretariat, Revenue, and more. Requires 10th pass qualification.",
+    tags: ["10th Level", "General"],
+    duration: 75,
+    totalMarks: 100,
+    color: "#0F172A",
+    // ADD THIS:
+    syllabus: [
+      {
+        category: "General Knowledge",
+        topics: ["Current Affairs", "Indian Constitution", "Kerala Renaissance"]
+      },
+      {
+        category: "Simple Arithmetic",
+        topics: ["Fractions", "Percentages", "Time and Work"]
+      }
+    ]
+  },
+  {
+    id: "lp-up-assistant",
+    categoryId: "general",
+    name: "LP/UP Assistant",
+    description: "Assistant teacher positions in Lower Primary and Upper Primary schools across the state.",
+    tags: ["Degree", "General"],
+    duration: 90,
+    totalMarks: 100,
+    color: "#0F172A",
+  },
+  {
+    id: "fire-driver",
+    categoryId: "general",
+    name: "Fire & Rescue Driver",
+    description: "Driver-cum-Pump Operator positions in the Kerala Fire and Rescue Services department.",
+    tags: ["10th Level", "Technical-Lite"],
+    duration: 75,
+    totalMarks: 100,
+    color: "#0F172A",
+  },
+
+  // --- TEACHING CATEGORY ---
+  {
+    id: "hsst-physics",
+    categoryId: "teaching",
+    name: "HSST Physics",
+    description: "Higher Secondary School Teacher for Physics. Requires PG and B.Ed with SET qualification.",
+    tags: ["PG Level", "Academic"],
+    duration: 90,
+    totalMarks: 100,
+    color: "#334155",
+  },
+  {
+    id: "ktet-category-3",
+    categoryId: "teaching",
+    name: "K-TET Category III",
+    description: "Kerala Teacher Eligibility Test for High School classes (VIII to X).",
+    tags: ["Eligibility", "Teaching"],
+    duration: 150,
+    totalMarks: 150,
+    color: "#334155",
+  },
+  {
+    id: "set-2024",
+    categoryId: "teaching",
+    name: "State Eligibility Test",
+    description: "Mandatory qualification for appointment as Higher Secondary School Teachers in Kerala.",
+    tags: ["PG Level", "SET"],
+    duration: 120,
+    totalMarks: 120,
+    color: "#334155",
+  },
+
+  // --- TECHNICAL CATEGORY ---
+  {
+    id: "lsgd-overseer",
+    categoryId: "technical",
+    name: "LSGD Overseer Gr. III",
+    description: "Overseer/Draftsman Grade III positions in the Local Self Government Department.",
+    tags: ["Diploma", "Civil"],
+    duration: 75,
+    totalMarks: 100,
+    color: "#475569",
+  },
+  {
+    id: "ieo-2024",
+    categoryId: "technical",
+    name: "Industries Extension Officer",
+    description: "Officer positions in the Industries and Commerce Department requiring an Engineering degree.",
+    tags: ["B.Tech", "Engineering"],
+    duration: 90,
+    totalMarks: 100,
+    color: "#475569",
+  },
+  {
+    id: "junior-instructor",
+    categoryId: "technical",
+    name: "Junior Instructor (ITI)",
+    description: "Instructor positions in various trades for Industrial Training Institutes (ITI).",
+    tags: ["ITI/Diploma", "Technical"],
+    duration: 75,
+    totalMarks: 100,
+    color: "#475569",
+  },
 ];
