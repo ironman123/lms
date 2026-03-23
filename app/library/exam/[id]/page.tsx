@@ -13,7 +13,6 @@ interface PageProps {
 
 export default async function ExamPage({ params }: PageProps) {
     const { id } = await params;
-
     const currentExam = DUMMY_EXAMS.find((exam) => exam.id === id);
 
     if (!currentExam)
@@ -28,12 +27,37 @@ export default async function ExamPage({ params }: PageProps) {
         );
     }
 
-    return (
-        /* 1. Added bg-slate-50 to the wrapper so the white cards stand out */
-        <div className="min-h-screen bg-slate-50">
-            {/* 2. Increased max-w to 1400px for better wide-screen usage */}
-            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    // =========================================================================
+    // 🚀 SIMULATING A DATABASE FETCH 
+    // In the future, this is where you fetch papers based on: currentExam.id
+    // =========================================================================
 
+    const dbTabs = [
+        { id: "all", label: "All Papers", count: 12 },
+        { id: "pyq", label: "PYQs", count: 5 },
+        { id: "mock", label: "Mocks", count: 4 },
+        { id: "notes", label: "Notes", count: 3 },
+    ];
+
+    const dbFilterOptions = {
+        years: ["2025", "2024", "2023", "2022", "2021"],
+        shifts: ["Morning Shift", "Evening Shift"],
+        pricing: ["Free", "Paid"],
+        subjects: ["General Knowledge", "Current Affairs", "Mathematics", "Physics", "Chemistry"],
+    };
+
+    const fetchedPapers = [
+        { id: 1, title: "2024 Session 1", type: "PYQ", year: "2024", duration: 180, shift: "Morning Shift", pricing: "Free", subject: "Mathematics" },
+        { id: 2, title: "Full Syllabus Mock 1", type: "Mock", year: "2024", duration: 180, shift: "Evening Shift", pricing: "Paid", subject: "Physics" },
+        { id: 3, title: "2023 Shift 2", type: "PYQ", year: "2023", duration: 180, shift: "Evening Shift", pricing: "Free", subject: "Chemistry" },
+        { id: 4, title: "Chapter-wise: Mechanics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
+        { id: 5, title: "Chapter-wise: Thermodynamics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
+    ];
+    // =========================================================================
+
+    return (
+        <div className="min-h-screen bg-slate-50">
+            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
                 {/* Header Section */}
                 <div className="mb-8 md:mb-10">
                     <Link
@@ -53,9 +77,6 @@ export default async function ExamPage({ params }: PageProps) {
 
                 {/* Layout Container */}
                 <div className="flex flex-col w-full gap-6 xl:gap-8 items-start">
-
-                    {/* Left Sidebar: Syllabus */}
-                    {/* 3. Changed from lg:w-1/3 to a fixed width so the workspace has more room */}
                     <section className="w-full lg:w-full shrink-0">
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6 lg:sticky lg:top-8">
                             <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center justify-between">
@@ -68,12 +89,15 @@ export default async function ExamPage({ params }: PageProps) {
                         </div>
                     </section>
 
-                    {/* Right Main Area: Workspace */}
-                    {/* flex-1 allows this section to fill all remaining space safely */}
                     <section className="w-full flex-1 min-w-0">
-                        <ExamWorkspace examId={currentExam.id} />
+                        {/* 🔥 Pass the fetched data down to the Client Component! */}
+                        <ExamWorkspace
+                            examId={currentExam.id}
+                            papers={fetchedPapers}
+                            tabs={dbTabs}
+                            filterOptions={dbFilterOptions}
+                        />
                     </section>
-
                 </div>
             </main>
         </div>

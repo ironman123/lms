@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Clock, Bookmark } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs } from "@/components/ui/tabs";
@@ -14,33 +14,43 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
-import MiniNavbar from "./MiniNavbar"; // Assuming this is your custom tab bar
-import WorkspacePaperCard from "./WorkspacePaperCard"; // The card component for papers in the workspace
+import MiniNavbar from "./MiniNavbar";
+import WorkspacePaperCard from "./WorkspacePaperCard";
 
-// 1. Mock Data
-const tabs = [
-    { id: "all", label: "All Papers", count: 12 },
-    { id: "pyq", label: "PYQs", count: 5 },
-    { id: "mock", label: "Mocks", count: 4 },
-    { id: "notes", label: "Notes", count: 3 },
-];
+// 1. Define the Types for the data we expect to receive
+export interface Paper {
+    id: number | string;
+    title: string;
+    type: string;
+    year: string;
+    duration: number;
+    shift: string;
+    pricing: string;
+    subject: string;
+}
 
-const data = [
-    { id: 1, title: "2024 Session 1", type: "PYQ", year: "2024", duration: 180, shift: "Morning Shift", pricing: "Free", subject: "Mathematics" },
-    { id: 2, title: "Full Syllabus Mock 1", type: "Mock", year: "2024", duration: 180, shift: "Evening Shift", pricing: "Paid", subject: "Physics" },
-    { id: 3, title: "2023 Shift 2", type: "PYQ", year: "2023", duration: 180, shift: "Evening Shift", pricing: "Free", subject: "Chemistry" },
-    { id: 4, title: "Chapter-wise: Mechanics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
-    { id: 5, title: "Chapter-wise: Thermodynamics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
-];
+export interface FilterOptions {
+    years: string[];
+    shifts: string[];
+    pricing: string[];
+    subjects: string[];
+}
 
-const FILTER_OPTIONS = {
-    years: ["2025", "2024", "2023", "2022", "2021"],
-    shifts: ["Morning Shift", "Evening Shift"],
-    pricing: ["Free", "Paid"],
-    subjects: ["General Knowledge", "Current Affairs", "Mathematics", "Physics", "Chemistry"],
-};
+export interface TabOption {
+    id: string;
+    label: string;
+    count?: number;
+}
 
-export default function ExamWorkspace({ examId }: { examId: string }) {
+// 2. Add them to the Component Props
+interface ExamWorkspaceProps {
+    examId: string;
+    papers: Paper[];
+    tabs: TabOption[];
+    filterOptions: FilterOptions;
+}
+
+export default function ExamWorkspace({ examId, papers, tabs, filterOptions }: ExamWorkspaceProps) {
     // --- STATE ---
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
@@ -52,7 +62,6 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
         subjects: [] as string[],
     });
 
-    // --- FILTER LOGIC ---
     const activeCount = Object.values(filters).flat().length;
 
     const toggleFilter = (category: keyof typeof filters, value: string) => {
@@ -72,7 +81,8 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
         setFilters({ years: [], shifts: [], pricing: [], subjects: [] });
     };
 
-    const filteredPapers = data.filter((paper) => {
+    // 3. Filter using the passed-in `papers` array instead of hardcoded data
+    const filteredPapers = papers.filter((paper) => {
         const matchesSearch = paper.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesTab = activeTab === "all" || paper.type.toLowerCase() === activeTab.toLowerCase();
 
@@ -85,14 +95,9 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
     });
 
     return (
-        // flex-col on mobile, lg:flex-row on desktop. w-full ensures it doesn't overflow.
         <div className="flex flex-col lg:flex-row gap-6 xl:gap-8 items-start w-full">
-
-            {/* --- LEFT SIDEBAR: Search & Filters --- */}
-            {/* Fixed width on desktop (280px), full width on mobile */}
             <aside className="w-full lg:w-3/12 shrink-0 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6 lg:sticky lg:top-8">
-
-                {/* Search */}
+                {/* Search Input Area */}
                 <div className="mb-6">
                     <h3 className="font-bold text-slate-900 mb-3 text-lg tracking-tight">Search</h3>
                     <div className="relative">
@@ -107,7 +112,7 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
                     </div>
                 </div>
 
-                {/* Advanced Filters */}
+                {/* Filters Area */}
                 <div className="flex flex-col ">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                         <div className="flex items-center gap-2">
@@ -119,12 +124,7 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
                             )}
                         </div>
                         {activeCount > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={clearAllFilters}
-                                className="text-slate-500 hover:text-red-600 h-8 px-2 text-xs hover:bg-red-50 rounded-lg"
-                            >
+                            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-slate-500 hover:text-red-600 h-8 px-2 text-xs hover:bg-red-50 rounded-lg">
                                 Clear All
                             </Button>
                         )}
@@ -132,16 +132,15 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
 
                     <ScrollArea className="h-[400px] pr-4 mt-2">
                         <Accordion type="multiple" defaultValue={["item-year", "item-subject"]} className="w-full">
-
-                            {/* DYNAMIC FILTER RENDERER */}
-                            {(Object.keys(FILTER_OPTIONS) as Array<keyof typeof FILTER_OPTIONS>).map((category) => (
+                            {/* 4. Use the passed-in filterOptions */}
+                            {(Object.keys(filterOptions) as Array<keyof typeof filterOptions>).map((category) => (
                                 <AccordionItem key={category} value={`item-${category}`} className="border-b-0 mb-1">
                                     <AccordionTrigger className="hover:no-underline py-3 text-sm font-bold text-slate-800 capitalize tracking-tight">
                                         {category}
                                     </AccordionTrigger>
                                     <AccordionContent className="pt-1 pb-3">
                                         <div className="flex flex-col gap-3">
-                                            {FILTER_OPTIONS[category].map((option) => (
+                                            {filterOptions[category].map((option) => (
                                                 <label key={option} className="flex items-center space-x-3 cursor-pointer group">
                                                     <Checkbox
                                                         checked={filters[category].includes(option)}
@@ -157,40 +156,25 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
-
                         </Accordion>
                     </ScrollArea>
                 </div>
             </aside>
 
-            {/* --- RIGHT MAIN AREA: Tabs & Exam List --- */}
-            {/* min-w-0 is crucial here. It stops the grid from blowing out the page width on mobile */}
             <section className="flex-1 min-w-0 w-full">
-
                 <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
-
-                    {/* Ensure MiniNavbar handles horizontal overflow nicely for mobile */}
-                    {/* 1. Added 'relative' so the absolute gradients know where to attach */}
                     <div className="relative lg:sticky lg:top-8 z-20 mb-6 bg-slate-50 py-2 -my-2">
-
-                        {/* Top Fade Mask */}
                         <div className="absolute -top-8 left-0 w-full h-8 bg-gradient-to-b from-slate-50/0 to-slate-50 pointer-events-none" />
-
-                        {/* Scrollable Tabs */}
                         <div className="overflow-x-auto hide-scrollbar w-full relative z-10">
-                            <MiniNavbar tabs={tabs} />
+                            {/* 5. Pass the tabs prop down */}
+                            <MiniNavbar tabs={tabs} activeTab={activeTab} />
                         </div>
-
-                        {/* Bottom Fade Mask */}
                         <div className="absolute -bottom-6 left-0 w-full h-6 bg-gradient-to-b from-slate-50 to-slate-50/0 pointer-events-none" />
-
                     </div>
 
-                    {/* Exam List Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {filteredPapers.length > 0 ? (
                             filteredPapers.map((paper) => (
-                                // Styled exactly like ExamCard
                                 <WorkspacePaperCard
                                     key={paper.id}
                                     id={paper.id}
@@ -202,11 +186,9 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
                                     subject={paper.subject}
                                     duration={paper.duration}
                                     shift={paper.shift}
-                                // color="#0F172A" // Optionally pass the specific color from the parent exam data!
                                 />
                             ))
                         ) : (
-                            // Empty State styled exactly like the CategoryPage empty state
                             <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center bg-white">
                                 <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
                                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">No papers found</h3>
@@ -214,11 +196,7 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
                                     We couldn't find anything matching your current filters. Try removing some filters or adjusting your search.
                                 </p>
                                 {activeCount > 0 && (
-                                    <Button
-                                        variant="outline"
-                                        className="mt-6 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50"
-                                        onClick={clearAllFilters}
-                                    >
+                                    <Button variant="outline" className="mt-6 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50" onClick={clearAllFilters}>
                                         Clear all filters
                                     </Button>
                                 )}
@@ -227,7 +205,6 @@ export default function ExamWorkspace({ examId }: { examId: string }) {
                     </div>
                 </Tabs>
             </section>
-
         </div>
     );
 }
