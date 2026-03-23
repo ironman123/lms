@@ -22,7 +22,7 @@ export default function SearchFilter() {
 
         // startTransition keeps the UI responsive while the server fetches new data
         startTransition(() => {
-            router.replace(`${pathname}?${params.toString()}`);
+            router.replace(`${pathname}?${params.toString()}`, { scroll: false });
         });
     };
 
