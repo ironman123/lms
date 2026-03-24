@@ -26,6 +26,7 @@ const Page = () => {
               key={category.id}
               id={category.id}
               name={category.name}
+              slug={category.slug}
               description={category.description}
               icon={category.icon}
               image={category.image}

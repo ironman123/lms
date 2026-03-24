@@ -1,28 +1,40 @@
 import Image from "next/image";
 import Link from "next/link";
+import * as Icons from "lucide-react";
 import { Briefcase, GraduationCap, Cpu } from "lucide-react";
 
 interface CategoryCardProps {
     id: string;
     name: string;
+    slug: string;
     description: string;
     icon: string;
     image: string;
     color: string;
 }
 
-const IconRenderer = ({ name, color }: { name: string; color: string }) => {
-    const icons: Record<string, any> = {
-        Briefcase: <Briefcase size={28} strokeWidth={1.5} />,
-        GraduationCap: <GraduationCap size={28} strokeWidth={1.5} />,
-        Cpu: <Cpu size={28} strokeWidth={1.5} />,
-    };
-    return <div style={{ color }}>{icons[name] || <Briefcase />}</div>;
+interface DynamicIconProps {
+    name: string; // The string from your DB, e.g., "Briefcase"
+    color?: string;
+    size?: number;
+}
+
+const DynamicIcon = ({ name, color, size = 28 }: DynamicIconProps) => {
+    // Access the icon component dynamically from the Lucide library
+    const LucideIcon = (Icons as any)[name];
+
+    if (!LucideIcon)
+    {
+        return <Icons.HelpCircle size={size} color={color} />; // Fallback icon
+    }
+
+    return <LucideIcon color={color} size={size} strokeWidth={1.5} />;
 };
 
-const ExamCategoryCard = ({ id, name, description, icon, image, color }: CategoryCardProps) => {
+const ExamCategoryCard = ({ id, name, slug, description, icon, image, color }: CategoryCardProps) => {
+    console.log("Slug: ", slug);
     return (
-        <Link href={`/library/category/${id}`} className="group block">
+        <Link href={`/library/category/${slug}`} className="group block">
             <article className="relative h-64 flex flex-col justify-end p-6 bg-white border border-slate-200 rounded-xl transition-all duration-500 hover:shadow-2xl hover:border-slate-300 overflow-hidden">
 
                 {/* Background Image: Very subtle, darkened overlay */}
@@ -39,7 +51,7 @@ const ExamCategoryCard = ({ id, name, description, icon, image, color }: Categor
                 {/* Content */}
                 <div className="relative z-20">
                     <div className="mb-4">
-                        <IconRenderer name={icon} color={color} />
+                        <DynamicIcon name={icon} color={color} />
                     </div>
 
                     <h3 className="text-xl font-bold text-slate-900 tracking-tight group-hover:text-black transition-colors">

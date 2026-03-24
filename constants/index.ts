@@ -158,6 +158,7 @@ export const KPSC_CATEGORIES = [
   {
     id: "general",
     name: "General",
+    slug: "general",
     description: "Administrative and ministerial positions across various Kerala State departments.",
     examCount: 42,
     // Using Lucide-style naming or paths to clean SVGs
@@ -168,6 +169,7 @@ export const KPSC_CATEGORIES = [
   {
     id: "teaching",
     name: "Teaching",
+    slug: "teaching",
     description: "Academic roles within the General Education and Higher Secondary departments.",
     examCount: 28,
     icon: "GraduationCap",
@@ -177,6 +179,7 @@ export const KPSC_CATEGORIES = [
   {
     id: "technical",
     name: "Technical",
+    slug: "technical",
     description: "Specialized engineering, polytechnic, and vocational instructor services.",
     examCount: 15,
     icon: "Cpu",

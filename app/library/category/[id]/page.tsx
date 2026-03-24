@@ -20,7 +20,7 @@ export default function CategoryPage({
     const [searchQuery, setSearchQuery] = useState("");
 
     // 6. Find the specific category details
-    const category = KPSC_CATEGORIES.find((c) => c.id === id);
+    const category = KPSC_CATEGORIES.find((c) => c.slug === id);
 
     if (!category)
     {

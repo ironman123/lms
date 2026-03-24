@@ -45,6 +45,7 @@ model ExamCategory {
   id          String  @id @default(uuid())
   name        String  @unique // e.g., "General", "Teaching", "Technical"
   description String? // e.g., "LDC, VEO, and other administrative posts"
+  slug        String  @unique
   icon        String? // SVG path or Emoji for the card icon
   image       String? // URL for a background or banner image
   color       String? @default("#1D3557") // Brand color for this category
