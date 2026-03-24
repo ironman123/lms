@@ -1,17 +1,7 @@
-import Image from "next/image";
+"use client"; // Required for next-cloudinary components
 import Link from "next/link";
+import { CldImage } from "next-cloudinary";
 import * as Icons from "lucide-react";
-import { Briefcase, GraduationCap, Cpu } from "lucide-react";
-
-interface CategoryCardProps {
-    id: string;
-    name: string;
-    slug: string;
-    description: string;
-    icon: string;
-    image: string;
-    color: string;
-}
 
 interface DynamicIconProps {
     name: string; // The string from your DB, e.g., "Briefcase"
@@ -31,40 +21,59 @@ const DynamicIcon = ({ name, color, size = 28 }: DynamicIconProps) => {
     return <LucideIcon color={color} size={size} strokeWidth={1.5} />;
 };
 
-const ExamCategoryCard = ({ id, name, slug, description, icon, image, color }: CategoryCardProps) => {
-    console.log("Slug: ", slug);
+export default function ExamCategoryCard({
+    name,
+    slug,
+    description,
+    icon,
+    image, // This is now your Cloudinary Public ID (e.g., "kpsc/general")
+    color
+}: any) {
     return (
         <Link href={`/library/category/${slug}`} className="group block">
-            <article className="relative h-64 flex flex-col justify-end p-6 bg-white border border-slate-200 rounded-xl transition-all duration-500 hover:shadow-2xl hover:border-slate-300 overflow-hidden">
+            <article className="group relative h-64 flex flex-col justify-end p-6 bg-white border border-slate-300 rounded-xl transition-all duration-500 hover:shadow-2xl hover:border-slate-300 overflow-hidden cursor-pointer">
 
-                {/* Background Image: Very subtle, darkened overlay */}
+                {/* Background Image Container */}
                 <div className="absolute inset-0 z-0">
-                    <div className="absolute inset-0 bg-linear-to-t from-white via-white/80 to-transparent z-10" />
-                    <Image
-                        src={image}
-                        alt=""
+                    {/* Refined Overlay: 
+                   Bottom-heavy gradient ensures text readability while letting 
+                   the top of the image shine through.
+                */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/90 to-transparent z-10 transition-opacity duration-500 group-hover:opacity-80" />
+
+                    <CldImage
+                        src={image} // Cloudinary Public ID
+                        alt={name}
                         fill
-                        className="object-cover opacity-75  group-hover:scale-105 group-hover:opacity-98 transition-all duration-1000"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-1000 ease-in-out"
+                        // Optimization flags
+                        crop="fill"
+                        gravity="auto"
+                        format="auto"
+                        quality="auto"
                     />
                 </div>
 
-                {/* Content */}
+                {/* Content Section */}
                 <div className="relative z-20">
-                    <div className="mb-4">
+                    <div className="mb-4 transform transition-transform duration-500 group-hover:-translate-y-1">
                         <DynamicIcon name={icon} color={color} />
                     </div>
 
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight group-hover:text-black transition-colors">
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight group-hover:text-black transition-colors">
                         {name}
                     </h3>
 
-                    <p className="text-sm text-slate-500 mt-1 mb-4 line-clamp-3 max-w-[240px]">
+                    <p className="text-sm text-slate-500 mt-2 mb-2 line-clamp-2 max-w-[260px] leading-relaxed group-hover:text-slate-700 transition-colors">
                         {description}
                     </p>
+
+                    {/* Subtle "Explore" indicator that appears on hover */}
+                    <div className="h-1 w-0 bg-slate-900 transition-all duration-600 group-hover:w-full mt-2 rounded-full" />
                 </div>
             </article>
         </Link>
     );
-};
+}
 
-export default ExamCategoryCard;

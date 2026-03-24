@@ -163,7 +163,8 @@ export const KPSC_CATEGORIES = [
     examCount: 42,
     // Using Lucide-style naming or paths to clean SVGs
     icon: "Briefcase",
-    image: "/images/adnan-saifee-zmr9TeA7WjU-unsplash.jpg",
+    //image: "/images/adnan-saifee-zmr9TeA7WjU-unsplash.jpg",
+    image: "https://res.cloudinary.com/dhun7sw8b/image/upload/v1774332869/adnan-saifee-zmr9TeA7WjU-unsplash_jpxf7l.jpg",
     color: "#0F172A", // Slate 900 (Professional Navy)
   },
   {
@@ -173,7 +174,8 @@ export const KPSC_CATEGORIES = [
     description: "Academic roles within the General Education and Higher Secondary departments.",
     examCount: 28,
     icon: "GraduationCap",
-    image: "/images/fsd-foundation-for-sustainable-development-sJq6t8KvooA-unsplash.jpg",
+    //image: "/images/fsd-foundation-for-sustainable-development-sJq6t8KvooA-unsplash.jpg",
+    image: "https://res.cloudinary.com/dhun7sw8b/image/upload/v1774332870/fsd-foundation-for-sustainable-development-sJq6t8KvooA-unsplash_xccrim.jpg",
     color: "#334155", // Slate 700
   },
   {
@@ -183,7 +185,8 @@ export const KPSC_CATEGORIES = [
     description: "Specialized engineering, polytechnic, and vocational instructor services.",
     examCount: 15,
     icon: "Cpu",
-    image: "/images/melech-charly-nO7dcpGmdIw-unsplash.jpg",
+    //image: "/images/melech-charly-nO7dcpGmdIw-unsplash.jpg",
+    image: "https://res.cloudinary.com/dhun7sw8b/image/upload/v1774332869/melech-charly-nO7dcpGmdIw-unsplash_ld06e3.jpg",
     color: "#475569", // Slate 600
   },
 ];

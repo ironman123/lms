@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import NavItems from './NavItems'
-import { Show, SignInButton, UserButton, SignedIn, SignedOut } from '@clerk/nextjs'
+import { Show, SignInButton, UserButton } from '@clerk/nextjs'
 
 const Navbar = () => {
     return (
@@ -17,7 +17,7 @@ const Navbar = () => {
                     <UserButton />
                 </Show>
                 <Show when="signed-out" >
-                    <SignInButton>
+                    <SignInButton mode="modal">
                         <button className='button-signin cursor-pointer text-gray-700 hover:text-black hover:scale-105 transition-transform duration-100'>
                             Sign In
                         </button>
