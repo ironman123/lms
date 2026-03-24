@@ -39,19 +39,20 @@ export default function ExamCategoryCard({
                    Bottom-heavy gradient ensures text readability while letting 
                    the top of the image shine through.
                 */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/90 to-transparent z-10 transition-opacity duration-500 group-hover:opacity-80" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/75 to-transparent z-10 transition-opacity duration-500 group-hover:opacity-90" />
 
                     <CldImage
                         src={image} // Cloudinary Public ID
                         alt={name}
                         fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 40vw"
                         className="object-cover opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-1000 ease-in-out"
                         // Optimization flags
                         crop="fill"
                         gravity="auto"
                         format="auto"
                         quality="auto"
+                        dpr="auto"
                     />
                 </div>
 
@@ -65,12 +66,12 @@ export default function ExamCategoryCard({
                         {name}
                     </h3>
 
-                    <p className="text-sm text-slate-500 mt-2 mb-2 line-clamp-2 max-w-[260px] leading-relaxed group-hover:text-slate-700 transition-colors">
+                    <p className="text-sm text-slate-500 mt-2 mb-2 line-clamp-3 max-w-[260px] leading-relaxed group-hover:text-slate-700 transition-colors">
                         {description}
                     </p>
 
                     {/* Subtle "Explore" indicator that appears on hover */}
-                    <div className="h-1 w-0 bg-slate-900 transition-all duration-600 group-hover:w-full mt-2 rounded-full" />
+                    <div className="h-1 w-0 bg-slate-700 transition-all duration-600 group-hover:w-full mt-2 rounded-full" />
                 </div>
             </article>
         </Link>
