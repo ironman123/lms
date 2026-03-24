@@ -1,23 +1,26 @@
-// app/library/category/page.tsx (or wherever this file lives)
-"use client"; // <-- 1. Make this a Client Component
-
-import { useState } from "react"; // <-- 2. Import useState
-import { KPSC_CATEGORIES } from "@/constants";
+import prisma from "@/lib/prisma";
 import ExamCategoryCard from "@/components/ExamCategoryCard";
-import SearchFilter from "@/components/SearchFilter";
+import SearchFilter from "@/components/SearchFilter"; // We'll update this next
 import { Search } from "lucide-react";
+import Link from "next/link";
 
-export default function CategoryIndexPage() {
-    // 3. Initialize local state for the search query
-    const [searchQuery, setSearchQuery] = useState("");
+// Next.js 15 provides searchParams directly to the page props
+export default async function CategoryIndexPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ q?: string }>;
+}) {
+    const query = (await searchParams).q || "";
 
-    // 4. Filter the categories instantly based on local state
-    const filteredCategories = KPSC_CATEGORIES.filter(category => {
-        const lowerQuery = searchQuery.toLowerCase();
-        return (
-            category.name.toLowerCase().includes(lowerQuery) ||
-            category.description.toLowerCase().includes(lowerQuery)
-        );
+    // Fetch real data from Supabase/Prisma
+    const categories = await prisma.examCategory.findMany({
+        where: {
+            OR: [
+                { name: { contains: query, mode: 'insensitive' } },
+                { description: { contains: query, mode: 'insensitive' } },
+            ],
+        },
+        orderBy: { createdAt: 'desc' },
     });
 
     return (
@@ -34,30 +37,18 @@ export default function CategoryIndexPage() {
                     </p>
                 </div>
 
-                {/* 5. Pass the state and setter down to the SearchFilter */}
+                {/* Search Section: The Client Component Bridge */}
                 <div className="flex justify-center mb-16 w-full">
                     <div className="w-full max-w-md">
-                        <SearchFilter
-                            value={searchQuery}
-                            onChange={setSearchQuery}
-                        />
+                        <SearchFilter value={query} />
                     </div>
                 </div>
 
-                {/* Categories Grid or Empty State */}
-                {filteredCategories.length > 0 ? (
+                {/* Grid or Empty State */}
+                {categories.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:gap-8">
-                        {filteredCategories.map((category) => (
-                            <ExamCategoryCard
-                                key={category.id}
-                                id={category.id}
-                                name={category.name}
-                                slug={category.slug}
-                                description={category.description}
-                                icon={category.icon}
-                                image={category.image}
-                                color={category.color}
-                            />
+                        {categories.map((cat) => (
+                            <ExamCategoryCard key={cat.id} {...cat} />
                         ))}
                     </div>
                 ) : (
@@ -65,18 +56,18 @@ export default function CategoryIndexPage() {
                         <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
                         <h3 className="text-lg font-bold text-slate-900 tracking-tight">No categories found</h3>
                         <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                            We couldn't find any categories matching "{searchQuery}". Try adjusting your search term.
+                            We couldn't find any categories matching <span className="font-bold text-slate-900">"{query}"</span>. Try adjusting your search term.
                         </p>
                         {/* 6. Change the 'Clear search' button to just reset the state */}
-                        <button
-                            onClick={() => setSearchQuery("")}
+                        <Link
+                            href="/library/category"
+                            scroll={false}
                             className="mt-6 inline-flex items-center justify-center px-4 py-2 bg-slate-100 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors"
                         >
                             Clear search
-                        </button>
+                        </Link>
                     </div>
                 )}
-
             </main>
         </div>
     );
