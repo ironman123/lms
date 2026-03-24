@@ -20,21 +20,8 @@ import { Card } from '@/components/ui/card';
 import { fi } from 'zod/v4/locales';
 import { startTransition } from 'react';
 
-const syllabusItemSchema = z.object({
-    category: z.string().min(1, 'Category is required'),
-    topics: z.array(z.string().min(1, 'Topic is required')).min(1, 'At least one topic is required'),
-});
+import { ExamFormValues, examSchema } from '@/types/exam';
 
-const examSchema = z.object({
-    name: z.string().min(2, { message: 'Exam name is required' }),
-    description: z.string().min(10, { message: 'Description must be at least 10 characters' }),
-    tags: z.array(z.string().min(1, 'Tag cannot be empty')).min(1, { message: 'At least one tag is required' }),
-    duration: z.coerce.number().min(1, { message: 'Duration must be a positive number' }),
-    totalMarks: z.coerce.number().min(1, { message: 'Total marks must be a positive number' }),
-    syllabus: z.array(syllabusItemSchema).min(1, { message: 'At least one syllabus item is required' }),
-});
-
-type ExamFormValues = z.infer<typeof examSchema>
 
 const NewExamForm = () => {
     const form = useForm<ExamFormValues>({

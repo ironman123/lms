@@ -60,10 +60,10 @@ export default async function CategoryIndexPage({
 
                 <Link
                     href="/library/category/new"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-sm active:scale-95"
+                    className="fixed bottom-8 right-8 z-50 flex items-center justify-center w-12 h-12 bg-slate-900 text-white rounded-full shadow-2xl hover:scale-110 transition-transform active:scale-95"
+                    title="Add New Category"
                 >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Add Category
+                    <Plus className="w-6 h-6" />
                 </Link>
 
                 {/* Search Section: The Client Component Bridge */}
