@@ -38,7 +38,7 @@ export default function SearchFilter({ value }: { value: string }) {
                 }
                 router.replace(`${pathname}?${params.toString()}`, { scroll: false });
             });
-        }, 400);
+        }, 200);
 
         return () => clearTimeout(timer);
     }, [localValue, value, pathname, router]);

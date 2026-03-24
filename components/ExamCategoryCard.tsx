@@ -41,19 +41,19 @@ export default function ExamCategoryCard({
                 */}
                     <div className="absolute inset-0 bg-gradient-to-t from-white via-white/75 to-transparent z-10 transition-opacity duration-500 group-hover:opacity-90" />
 
-                    <CldImage
-                        src={image} // Cloudinary Public ID
-                        alt={name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 40vw"
-                        className="object-cover opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-1000 ease-in-out"
-                        // Optimization flags
-                        crop="fill"
-                        gravity="auto"
-                        format="auto"
-                        quality="auto"
-                        dpr="auto"
-                    />
+                    {image && (
+                        <CldImage
+                            src={image}
+                            alt={name || "Preview"}
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 40vw"
+                            className="object-cover opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-1000 ease-in-out"
+                            crop="fill"
+                            gravity="auto"
+                            format="auto"
+                            quality="auto"
+                        />
+                    )}
                 </div>
 
                 {/* Content Section */}

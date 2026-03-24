@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import ExamCategoryCard from "@/components/ExamCategoryCard";
 import SearchFilter from "@/components/SearchFilter"; // We'll update this next
-import { Search } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 
@@ -57,6 +57,14 @@ export default async function CategoryIndexPage({
                         Select your specialized field to discover tailored exam workspaces, previous year questions, and dedicated mock tests.
                     </p>
                 </div>
+
+                <Link
+                    href="/library/category/new"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-sm active:scale-95"
+                >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Add Category
+                </Link>
 
                 {/* Search Section: The Client Component Bridge */}
                 <div className="flex justify-center mb-16 w-full">
