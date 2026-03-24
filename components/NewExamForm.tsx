@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { Trash2 } from 'lucide-react';
-
+import { createExam } from "@/app/actions/exam-actions";
 import { Button } from '@/components/ui/button';
 import {
     Form,
@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { fi } from 'zod/v4/locales';
+import { startTransition } from 'react';
 
 const syllabusItemSchema = z.object({
     category: z.string().min(1, 'Category is required'),
@@ -33,8 +34,10 @@ const examSchema = z.object({
     syllabus: z.array(syllabusItemSchema).min(1, { message: 'At least one syllabus item is required' }),
 });
 
+type ExamFormValues = z.infer<typeof examSchema>
+
 const NewExamForm = () => {
-    const form = useForm<z.infer<typeof examSchema>>({
+    const form = useForm<ExamFormValues>({
         resolver: zodResolver(examSchema),
         defaultValues: {
             name: '',
@@ -49,6 +52,7 @@ const NewExamForm = () => {
                 }
             ],
         },
+        mode: "onBlur",
     });
 
     // Initialize the Field Array for Syllabus
@@ -57,8 +61,10 @@ const NewExamForm = () => {
         name: "syllabus",
     });
 
-    const onSubmit = (data: z.infer<typeof examSchema>) => {
-        console.log(data);
+    const onSubmit = (data: ExamFormValues) => {
+        startTransition(async () => {
+            await createExam(data);
+        })
     };
 
     return (
