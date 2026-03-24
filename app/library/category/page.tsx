@@ -3,6 +3,26 @@ import ExamCategoryCard from "@/components/ExamCategoryCard";
 import SearchFilter from "@/components/SearchFilter"; // We'll update this next
 import { Search } from "lucide-react";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
+
+const getCachedCategories = unstable_cache(
+    async (query: string) => {
+        return await prisma.examCategory.findMany({
+            where: {
+                OR: [
+                    { name: { contains: query, mode: 'insensitive' } },
+                    { description: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    },
+    ["categories-list"], // 2. A unique key for this cache
+    {
+        revalidate: 3600, // 3. Re-check every 1 hour (as a fallback)
+        tags: ["examCategories"] // 4. A "Tag" so we can manually clear it later
+    }
+);
 
 // Next.js 15 provides searchParams directly to the page props
 export default async function CategoryIndexPage({
@@ -11,17 +31,18 @@ export default async function CategoryIndexPage({
     searchParams: Promise<{ q?: string }>;
 }) {
     const query = (await searchParams).q || "";
+    const categories = await getCachedCategories(query);
 
     // Fetch real data from Supabase/Prisma
-    const categories = await prisma.examCategory.findMany({
-        where: {
-            OR: [
-                { name: { contains: query, mode: 'insensitive' } },
-                { description: { contains: query, mode: 'insensitive' } },
-            ],
-        },
-        orderBy: { createdAt: 'desc' },
-    });
+    // const categories = await prisma.examCategory.findMany({
+    //     where: {
+    //         OR: [
+    //             { name: { contains: query, mode: 'insensitive' } },
+    //             { description: { contains: query, mode: 'insensitive' } },
+    //         ],
+    //     },
+    //     orderBy: { createdAt: 'desc' },
+    // });
 
     return (
         <div className="min-h-screen bg-slate-50">

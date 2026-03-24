@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma"; // Ensure this exports: new PrismaClient()
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { revalidateTag } from "next/cache";
 import { CategoryFormValues } from "@/types/category"; // Import your Zod type
 
 export async function createCategory(values: CategoryFormValues) {
@@ -25,6 +26,7 @@ export async function createCategory(values: CategoryFormValues) {
                 image: values.image, // The Cloudinary Public ID
             },
         });
+
     } catch (error)
     {
         console.error("Database Error:", error);
@@ -32,6 +34,7 @@ export async function createCategory(values: CategoryFormValues) {
     }
 
     // 3. Refresh & Redirect
+    revalidateTag("examCategories", "layout");
     revalidatePath("/library/category");
     redirect("/library/category");
 }
