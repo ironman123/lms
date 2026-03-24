@@ -18,17 +18,12 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { toast } from "sonner";
+import { categorySchema, CategoryFormValues } from "@/types/category";
 
 // 1. Define the Schema
-const categorySchema = z.object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    description: z.string().min(10, "Description is a bit too short"),
-    icon: z.string().min(1, "Please select an icon name (e.g., Briefcase)"),
-    color: z.string().default("#1D3557"),
-    image: z.string().min(5, "Please use a valid image url").default("adnan-saifee-zmr9TeA7WjU-unsplash_jpxf7l.jpg"),
-});
 
-type CategoryFormValues = z.infer<typeof categorySchema>;
+
 
 // ... (Imports for shadcn components: Form, FormControl, etc.)
 
@@ -50,7 +45,15 @@ export default function AddCategoryForm() {
     async function onSubmit(data: CategoryFormValues) {
         startTransition(async () => {
             // We pass the validated values directly to our Server Action
-            await createCategory(data);
+            try
+            {
+                await createCategory(data);
+                toast.success("Category created successfully!");
+                form.reset(); // Clear the form for the next one
+            } catch (error)
+            {
+                toast.error("Something went wrong. Please try again.");
+            }
         });
     }
 
