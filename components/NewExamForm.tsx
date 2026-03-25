@@ -268,6 +268,7 @@ export default function NewExamForm({ categories = [] }: { categories: { id: str
                 <ExamCarouselCard
                     name={watchedValues.name}
                     description={watchedValues.description}
+                    isPreview={true}
                     tags={watchedValues.tags}
                     categoryName={selectedCategory?.name}
                     accentColor={selectedCategory?.color}
