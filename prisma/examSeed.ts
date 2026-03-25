@@ -1,7 +1,4 @@
 import { PrismaClient, QuestionType, Difficulty } from '@prisma/client';
-import * as dotenv from 'dotenv'; // 1. Import dotenv
-
-dotenv.config({ path: '.env.local' });
 
 const prisma = new PrismaClient();
 

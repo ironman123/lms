@@ -28,7 +28,7 @@ const WorkspacePaperCard = ({
 }: WorkspacePaperCardProps) => {
     return (
         <article
-            className="group relative flex flex-col p-6 bg-white border border-slate-100 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl hover:border-transparent"
+            className="group relative w-85 flex flex-col p-6 bg-white border border-slate-100 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl hover:border-transparent"
             style={{ borderTop: `4px solid ${color}` }} // Matches ExamCard subtle color accent
         >
             {/* Header: Tags & Bookmark */}
@@ -58,7 +58,7 @@ const WorkspacePaperCard = ({
                     {title}
                 </h2>
                 <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
-                    {examId} • {subject}
+                    {type} • {subject}
                 </p>
             </div>
 
@@ -82,6 +82,7 @@ const WorkspacePaperCard = ({
                 Start Paper
             </Link>
         </article>
+
     );
 };
 

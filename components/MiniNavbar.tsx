@@ -9,40 +9,38 @@ interface TabOption {
 
 interface MiniNavbarProps {
     tabs: TabOption[];
+    activeTab: string;
 }
 
 const MiniNavbar = ({ tabs }: MiniNavbarProps) => {
     return (
-        /* 1. Parent Container: 
-          Uses slate-100 background with heavy rounded-2xl corners.
-          'justify-start' ensures it scrolls nicely on mobile instead of crushing together.
+        /* 1. Wrapper Div: 
+           Added 'overflow-x-auto' for swiping and 'hide-scrollbar' (custom utility).
+           'flex-nowrap' is critical to prevent tabs from wrapping to the next line.
         */
-        <TabsList className="flex w-full justify-around h-auto p-1.5 bg-slate-100 rounded-2xl border border-slate-200/70">
-            {tabs.map((tab) => (
-                <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    /* 2. Tab Triggers: 
-                      group class added so we can style the child badge.
-                      Active state: Turns solid slate-900 with white text.
-                      Inactive state: text-slate-500, bold, hovers to a slightly darker slate background.
-                    */
-                    className="group flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-slate-500 transition-all hover:text-slate-900 hover:bg-slate-200/50 data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:shadow-md"
-                >
-                    {tab.label}
+        <div className="w-full overflow-x-auto hide-scrollbar -mx-1 px-1">
+            <TabsList className="flex w-max min-w-full justify-around h-auto p-1 bg-slate-100 rounded-2xl border border-slate-200/70 gap-1">
+                {tabs.map((tab) => (
+                    <TabsTrigger
+                        key={tab.id}
+                        value={tab.id}
+                        /* 2. whitespace-nowrap: 
+                           Ensures labels like "All Papers" stay on one line.
+                           'shrink-0' ensures the flexbox doesn't squash the tab.
+                        */
+                        className="group flex shrink-0 items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-500 whitespace-nowrap transition-all hover:text-slate-900 hover:bg-slate-200/50 data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:shadow-md"
+                    >
+                        {tab.label}
 
-                    {/* 3. Count Badge:
-                      Matches the text-[10px] uppercase style of your ExamCard tags.
-                      group-data-[state=active]:... makes it automatically switch to a dark badge when the parent tab is clicked!
-                    */}
-                    {tab.count !== undefined && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-slate-200/80 text-slate-500 transition-colors group-data-[state=active]:bg-slate-800 group-data-[state=active]:text-slate-200">
-                            {tab.count}
-                        </span>
-                    )}
-                </TabsTrigger>
-            ))}
-        </TabsList>
+                        {tab.count !== undefined && (
+                            <span className="px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-extrabold tracking-wider bg-slate-200/80 text-slate-500 transition-colors group-data-[state=active]:bg-slate-800 group-data-[state=active]:text-slate-300">
+                                {tab.count}
+                            </span>
+                        )}
+                    </TabsTrigger>
+                ))}
+            </TabsList>
+        </div>
     );
 };
 
