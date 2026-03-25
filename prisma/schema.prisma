@@ -67,15 +67,16 @@ model Exam {
   tags           ExamsTagsLink[]
   examCategory   ExamCategory?   @relation(fields: [examCategoryId], references: [id])
   examCategoryId String?
+  createdAt      DateTime        @default(now())
 }
 
 model Tag {
-  id    String  @id @default(uuid())
-  name  String  @unique // e.g., "General", "Teaching", "Technical"
-  icon  String? // Optional icon (like '💼', '🏫', '🛠️') for UI representation
-  color String? // Optional hex code for UI accent color (e.g., "#1D3557")
-
-  exams ExamsTagsLink[] // A tag can be linked to many exams
+  id        String          @id @default(uuid())
+  name      String          @unique // e.g., "General", "Teaching", "Technical"
+  icon      String? // Optional icon (like '💼', '🏫', '🛠️') for UI representation
+  color     String? // Optional hex code for UI accent color (e.g., "#1D3557")
+  createdAt DateTime        @default(now())
+  exams     ExamsTagsLink[] // A tag can be linked to many exams
 }
 
 // The Junction (or 'Lookup') Table for the Many-to-Many relationship
@@ -93,11 +94,12 @@ model ExamsTagsLink {
 }
 
 model Category {
-  id     String  @id @default(uuid())
-  name   String // e.g., "General Aptitude"
-  exam   Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
-  examId String
-  topics Topic[] // A category has many topics (Verbal Ability, Numerical)
+  id        String   @id @default(uuid())
+  name      String // e.g., "General Aptitude"
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  examId    String
+  createdAt DateTime @default(now())
+  topics    Topic[] // A category has many topics (Verbal Ability, Numerical)
 }
 
 model Topic {
@@ -113,6 +115,7 @@ model Topic {
 
   questions      Question[]
   topicMasteries TopicMastery[]
+  createdAt      DateTime       @default(now())
 }
 
 model QuestionPaper {
@@ -153,6 +156,7 @@ model Question {
   interactions QuestionInteraction[]
 
   correctAnswer String?
+  createdAt     DateTime @default(now())
 }
 
 model Option {
@@ -161,6 +165,7 @@ model Option {
   isCorrect  Boolean  @default(false)
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   questionId String
+  createdAt  DateTime @default(now())
 }
 
 model QuestionInteraction {
