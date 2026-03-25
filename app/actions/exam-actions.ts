@@ -6,6 +6,10 @@ import { examSchema } from "@/types/exam";
 
 export async function createExam(data: any) {
     const validated = examSchema.parse(data);
+    const slug = data.name
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w\-]+/g, '');
 
     try
     {
@@ -14,6 +18,7 @@ export async function createExam(data: any) {
             const exam = await tx.exam.create({
                 data: {
                     name: validated.name,
+                    slug: slug,
                     description: validated.description,
                     duration: validated.duration,
                     totalMarks: validated.totalMarks,

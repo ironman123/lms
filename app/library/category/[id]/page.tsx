@@ -49,6 +49,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         prisma.examCategory.findUnique({ where: { slug: id } }),
         getExamsData(id, query)
     ]);
+    console.log("Exams: ", exams);
 
     if (!category) notFound();
 
@@ -88,6 +89,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                             <ExamCarouselCard
                                 key={exam.id}
                                 name={exam.name}
+                                slug={exam.slug}
                                 description={exam.description || ""}
                                 tags={exam.tags.map(t => t.tag.name)}
                                 categoryName={category.name}
