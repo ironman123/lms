@@ -14,7 +14,7 @@ export default async function NewExamPage() {
         },
         orderBy: { name: 'asc' }
     });
-    console.log("Categories: ", categories);
+
 
     return (
         <div className="min-h-screen bg-slate-50 py-12">

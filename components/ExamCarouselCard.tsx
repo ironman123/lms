@@ -42,9 +42,9 @@ const ExamCarouselCard = ({
             <div
                 className="p-6 text-white relative overflow-hidden rounded-t-[2rem] transition-all duration-700 ease-in-out"
                 style={{
-                    // Gradient from Dark Slate (0%) to a translucent version of Accent (100%)
-                    background: `linear-gradient(135deg, #0F172A 0%, ${accentColor}33 250%)`,
-                    // Solid fallback for older browsers
+                    // Use backgroundImage for the gradient
+                    backgroundImage: `linear-gradient(135deg, #0F172A 0%, ${accentColor}33 240%)`,
+                    // Use backgroundColor for the solid base
                     backgroundColor: "#0F172A"
                 }}
             >
@@ -88,7 +88,7 @@ const ExamCarouselCard = ({
 
                     {/* Compact Tags */}
                     <div className="flex gap-1">
-                        {tags.slice(0, 2).map((tag, i) => (
+                        {tags.slice(0, 5).map((tag, i) => (
                             <span key={i} className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
                                 #{tag}
                             </span>

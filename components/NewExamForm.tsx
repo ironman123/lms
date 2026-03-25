@@ -132,15 +132,41 @@ export default function NewExamForm({ categories = [] }: { categories: { id: str
                                         <FormMessage />
                                     </FormItem>
                                 )} />
-                                <FormField control={form.control} name="tags" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="font-bold">Tags (;)</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Tech; PSC" value={field.value.join("; ")} onChange={(e) => field.onChange(e.target.value.split(";").map(s => s.trim()))} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                                <FormField
+                                    control={form.control}
+                                    name="tags"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="font-bold">Tags (;)</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="Tech; PSC; Engineering"
+                                                    /* 1. Show raw string with spaces while typing */
+                                                    value={Array.isArray(field.value) ? field.value.join(";") : ""}
+
+                                                    /* 2. Simple split without trimming on every keystroke */
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        field.onChange(val.split(";"));
+                                                    }}
+
+                                                    /* 3. Clean up the spaces ONLY when they leave the field */
+                                                    onBlur={() => {
+                                                        const cleaned = field.value
+                                                            .map((s: string) => s.trim().toLowerCase())
+                                                            .filter((s: string) => s !== "");
+                                                        field.onChange(cleaned);
+                                                    }}
+
+                                                />
+                                            </FormControl>
+                                            <FormDescription className="text-[10px]">
+                                                Duplicates removed and auto-lowercased on blur.
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
                         </div>
 

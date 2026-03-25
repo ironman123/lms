@@ -95,7 +95,7 @@ model ExamsTagsLink {
 model Category {
   id     String  @id @default(uuid())
   name   String // e.g., "General Aptitude"
-  exam   Exam    @relation(fields: [examId], references: [id])
+  exam   Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
   examId String
   topics Topic[] // A category has many topics (Verbal Ability, Numerical)
 }
@@ -119,7 +119,7 @@ model QuestionPaper {
   id           String        @id @default(uuid())
   title        String // e.g., "GATE CSE 2024 Mock 1"
   year         Int?
-  exam         Exam          @relation(fields: [examId], references: [id])
+  exam         Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
   examId       String
   questions    Question[]
   createdAt    DateTime      @default(now())
@@ -147,7 +147,7 @@ model Question {
   // Relations
   topic        Topic                 @relation(fields: [topicId], references: [id])
   topicId      String
-  paper        QuestionPaper?        @relation(fields: [paperId], references: [id])
+  paper        QuestionPaper?        @relation(fields: [paperId], references: [id], onDelete: Cascade)
   paperId      String?
   options      Option[]
   interactions QuestionInteraction[]
