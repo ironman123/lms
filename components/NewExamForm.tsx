@@ -18,7 +18,7 @@ import ExamCarouselCard from './ExamCarouselCard';
 
 
 
-export default function NewExamForm({ categories = [] }: { categories: { id: string, name: string, color: string | null }[] }) {
+export default function NewExamForm({ categories = [] }: { categories: { id: string, name: string, color: string | null | undefined }[] }) {
     const [isPending, startTransition] = useTransition();
 
     const form = useForm<ExamFormValues>({

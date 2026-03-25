@@ -20,7 +20,7 @@ interface ExamCarouselCardProps {
     description?: string; // Added back
     tags?: string[];      // Added back
     categoryName?: string;
-    accentColor?: string;
+    accentColor?: string | null;
     totalMarks: number;
     duration: number;
     syllabus: SyllabusItem[];
