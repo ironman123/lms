@@ -194,7 +194,7 @@ export const KPSC_CATEGORIES = [
 export const DUMMY_EXAMS = [
   // --- GENERAL CATEGORY ---
   {
-    id: "ldc-2024",
+    id: "ldc-clerk",
     categoryId: "general",
     name: "LDC (Clerk)",
     description: "Lower Division Clerk for various departments like Secretariat, Revenue, and more. Requires 10th pass qualification.",

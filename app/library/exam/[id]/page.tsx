@@ -1,96 +1,124 @@
-// app/library/exam/[id]/page.tsx
+import prisma from "@/lib/prisma";
 import SyllabusDropdown from "@/components/SyllabusDropdown";
 import ExamWorkspace from "@/components/ExamWorkspace";
-import { DUMMY_EXAMS } from "@/constants/index";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Database } from "lucide-react";
+import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
+
+// Cache for specific exam details
+const getCachedExam = unstable_cache(
+    async (slug: string) => {
+        return await prisma.exam.findUnique({
+            where: { slug },
+            include: {
+                examCategory: true,
+                tags: { include: { tag: true } },
+                categories: {
+                    include: { topics: true },
+                    orderBy: { createdAt: 'asc' }
+                },
+                questionPapers: {
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+    },
+    ["exam-detail-view"],
+    { revalidate: 3600, tags: ["exams"] }
+);
 
 interface PageProps {
-    params: Promise<{
-        id: string;
-    }>;
+    params: Promise<{ id: string }>;
 }
 
 export default async function ExamPage({ params }: PageProps) {
-    const { id } = await params;
-    const currentExam = DUMMY_EXAMS.find((exam) => exam.id === id);
+    const { id: slug } = await params;
+    const currentExam = await getCachedExam(slug);
 
-    if (!currentExam)
-    {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] bg-slate-50">
-                <h2 className="text-2xl font-bold text-slate-900">Exam Not Found</h2>
-                <Link href="/" className="mt-4 text-blue-600 hover:underline">
-                    Return to Library
-                </Link>
-            </div>
-        );
-    }
+    if (!currentExam) notFound();
 
-    // =========================================================================
-    // 🚀 SIMULATING A DATABASE FETCH 
-    // In the future, this is where you fetch papers based on: currentExam.id
-    // =========================================================================
+    // 1. Transform database categories/topics into the "Syllabus" format
+    const formattedSyllabus = currentExam.categories.map(cat => ({
+        category: cat.name,
+        topics: cat.topics.map(topic => topic.name)
+    }));
+
+    // 2. Dynamic Tabs based on real question papers
+    const pyqCount = currentExam.questionPapers.filter(p => p.year !== null).length;
+    const mockCount = currentExam.questionPapers.filter(p => p.year === null).length;
 
     const dbTabs = [
-        { id: "all", label: "All Papers", count: 12 },
-        { id: "pyq", label: "PYQs", count: 5 },
-        { id: "mock", label: "Mocks", count: 4 },
-        { id: "notes", label: "Notes", count: 3 },
+        { id: "all", label: "All Papers", count: currentExam.questionPapers.length },
+        { id: "pyq", label: "PYQs", count: pyqCount },
+        { id: "mock", label: "Mocks", count: mockCount },
+        { id: "notes", label: "Notes", count: 0 }, // Future-proofing
     ];
+
+    // 3. Map question papers to the format ExamWorkspace expects
+    const fetchedPapers = currentExam.questionPapers.map(paper => ({
+        id: paper.id,
+        title: paper.title,
+        type: paper.year ? "PYQ" : "Mock",
+        year: paper.year?.toString() || "2026",
+        duration: currentExam.duration, // Inherited from Exam
+        shift: "General", // Default for now
+        pricing: "Free",  // Default for now
+        subject: "General", // Default for now
+    }));
 
     const dbFilterOptions = {
-        years: ["2025", "2024", "2023", "2022", "2021"],
-        shifts: ["Morning Shift", "Evening Shift"],
+        years: Array.from(new Set(fetchedPapers.map(p => p.year))),
+        shifts: ["Morning", "Afternoon", "Evening"],
         pricing: ["Free", "Paid"],
-        subjects: ["General Knowledge", "Current Affairs", "Mathematics", "Physics", "Chemistry"],
+        subjects: currentExam.categories.map(c => c.name),
     };
-
-    const fetchedPapers = [
-        { id: 1, title: "2024 Session 1", type: "PYQ", year: "2024", duration: 180, shift: "Morning Shift", pricing: "Free", subject: "Mathematics" },
-        { id: 2, title: "Full Syllabus Mock 1", type: "Mock", year: "2024", duration: 180, shift: "Evening Shift", pricing: "Paid", subject: "Physics" },
-        { id: 3, title: "2023 Shift 2", type: "PYQ", year: "2023", duration: 180, shift: "Evening Shift", pricing: "Free", subject: "Chemistry" },
-        { id: 4, title: "Chapter-wise: Mechanics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
-        { id: 5, title: "Chapter-wise: Thermodynamics", type: "Topic", year: "2022", duration: 60, shift: "Morning Shift", pricing: "Free", subject: "Physics" },
-    ];
-    // =========================================================================
 
     return (
         <div className="min-h-screen bg-slate-50">
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+
                 {/* Header Section */}
                 <div className="mb-8 md:mb-10">
                     <Link
-                        href={`/library/category/${currentExam.categoryId}`}
-                        className="inline-flex items-center text-sm text-slate-400 hover:text-slate-700 transition-colors mb-6"
+                        href={`/library/category/${currentExam.examCategory?.slug}`}
+                        className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mb-6 group"
                     >
-                        <ChevronLeft size={16} className="mr-1" /> Back to Category
+                        <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
+                        Back to {currentExam.examCategory?.name}
                     </Link>
 
-                    <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                        {currentExam.name} <span className="text-slate-400 font-light">Workspace</span>
+                    <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight italic">
+                        {currentExam.name} <span className="text-slate-400 font-light not-italic">Workspace</span>
                     </h1>
                     <p className="mt-2 text-slate-500 max-w-2xl leading-relaxed text-sm sm:text-base">
                         {currentExam.description}
                     </p>
                 </div>
 
-                {/* Layout Container */}
                 <div className="flex flex-col w-full gap-6 xl:gap-8 items-start">
-                    <section className="w-full lg:w-full shrink-0">
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6 lg:sticky lg:top-8">
-                            <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center justify-between">
-                                Syllabus
-                                <span className="text-xs font-medium px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
-                                    {currentExam.syllabus?.length || 0} Modules
+                    {/* Syllabus Section */}
+                    <section className="w-full shrink-0">
+                        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 overflow-hidden relative">
+                            {/* Decorative background accent */}
+                            <div
+                                className="absolute top-0 right-0 w-32 h-32 blur-[80px] opacity-10 rounded-full"
+                                style={{ backgroundColor: currentExam.color }}
+                            />
+
+                            <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center justify-between relative z-10">
+                                Detailed Syllabus
+                                <span className="text-[10px] uppercase tracking-widest font-black px-3 py-1 bg-slate-100 text-slate-500 rounded-lg">
+                                    {formattedSyllabus.length} Modules
                                 </span>
                             </h2>
-                            <SyllabusDropdown data={currentExam.syllabus || []} />
+
+                            <SyllabusDropdown data={formattedSyllabus} />
                         </div>
                     </section>
 
+                    {/* Papers Workspace Section */}
                     <section className="w-full flex-1 min-w-0">
-                        {/* 🔥 Pass the fetched data down to the Client Component! */}
                         <ExamWorkspace
                             examId={currentExam.id}
                             papers={fetchedPapers}
