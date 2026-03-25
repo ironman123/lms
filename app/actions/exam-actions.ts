@@ -1,11 +1,21 @@
-'use server';
-import { revalidatePath } from 'next/cache';
+"use server";
+
+import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import { examSchema } from "@/types/exam";
 
 export async function createExam(data: any) {
-    // 1. Save to Database
-    console.log(data);
-    // 2. Refresh the UI
-    revalidatePath('/library/category/[id]');
+    const validated = examSchema.parse(data);
 
-    return { success: true };
+    await prisma.exam.create({
+        data: {
+            ...validated,
+            // If tags is a string array in Prisma
+            tags: validated.tags.filter(t => t !== ""),
+            // If syllabus is a JSON column
+            syllabus: validated.syllabus as any,
+        }
+    });
+
+    revalidatePath("/library/exams");
 }

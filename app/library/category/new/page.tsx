@@ -13,7 +13,7 @@ export default function NewCategoryPage() {
                     className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-8 transition-colors"
                 >
                     <ChevronLeft className="w-4 h-4 mr-1" />
-                    Back to Library
+                    Back to Categories
                 </Link>
 
                 {/* Header */}

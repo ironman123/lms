@@ -1,63 +1,48 @@
-'use client';
+import prisma from "@/lib/prisma";
+import NewExamForm from "@/components/NewExamForm";
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
 
-import React, { useState } from 'react';
-import { Tabs, TabsContent } from '@/components/ui/tabs'; // Ensure correct path
-import NewExamForm from '@/components/NewExamForm';
-import MiniNavbar from '@/components/MiniNavbar'; // Your dynamic tab switcher
-
-const tabs = [
-    { id: "exam", label: "Add Exam", count: 0 },
-    { id: "pyqs", label: "Add PYQs", count: 12 },
-    { id: "mock", label: "Add Mocks", count: 4 },
-    { id: "notes", label: "Add Notes", count: 3 },
-];
-
-const New = () => {
-    // We start with "exam" as the default so the form is visible immediately
-    const [activeTab, setActiveTab] = useState("exam");
+export default async function NewExamPage() {
+    // Fetch categories here. Since this is a Server Component, 
+    // this code runs on the backend, not the user's browser.
+    const categories = await prisma.examCategory.findMany({
+        select: {
+            id: true,
+            name: true,
+            color: true,
+        },
+        orderBy: { name: 'asc' }
+    });
+    console.log("Categories: ", categories);
 
     return (
-        <div className="w-full px-2 py-4 md:p-8 space-y-6 max-w-5xl mx-auto">
-            <article className='flex items-center justify-between'>
-                <h1 className="text-2xl font-bold text-slate-900">Content Management</h1>
-            </article>
+        <div className="min-h-screen bg-slate-50 py-12">
+            <div className="max-w-5xl mx-auto px-4">
 
-            <section className="w-full border  border-gray-200 rounded-lg bg-white p-6 shadow-sm">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                {/* Back Link */}
+                <Link
+                    href="/library/exam"
+                    className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-8 transition-colors"
+                >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Back to Exams
+                </Link>
 
-                    {/* Your dynamic switcher component */}
-                    <MiniNavbar tabs={tabs} />
+                {/* Header */}
+                <div className="mb-10">
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                        Create <span className="text-slate-400 font-light">New Exam</span>
+                    </h1>
+                    <p className="text-slate-500 mt-2">
+                        Add a new exam classification like "Degree Level", "Technical", or "10th Level".
+                    </p>
+                </div>
 
-                    {/* Content for "Add Exam" */}
-                    <TabsContent value="exam" className="block mt-6 w-full">
-                        <NewExamForm />
-                    </TabsContent>
-
-                    {/* Content for "Add PYQs" */}
-                    <TabsContent value="pyqs" className="mt-6">
-                        <div className="p-8 border-2 border-dashed rounded-lg text-center text-slate-500">
-                            PYQ Upload Form Component goes here
-                        </div>
-                    </TabsContent>
-
-                    {/* Content for "Add Mocks" */}
-                    <TabsContent value="mock" className="mt-6">
-                        <div className="p-8 border-2 border-dashed rounded-lg text-center text-slate-500">
-                            Mock Test Creator Component goes here
-                        </div>
-                    </TabsContent>
-
-                    {/* Content for "Add Notes" */}
-                    <TabsContent value="notes" className="mt-6">
-                        <div className="p-8 border-2 border-dashed rounded-lg text-center text-slate-500">
-                            Notes & Study Material Component goes here
-                        </div>
-                    </TabsContent>
-
-                </Tabs>
-            </section>
+                {/* Pass the data down as a prop */}
+                <NewExamForm categories={categories} />
+            </div>
         </div>
     );
-};
 
-export default New;
+}
