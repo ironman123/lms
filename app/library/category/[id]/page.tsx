@@ -1,112 +1,124 @@
-"use client"; // <-- 1. Make it a Client Component
+// app/library/category/[id]/page.tsx
 
-import { useState, use } from "react"; // <-- 2. Import useState and use
-import ExamCard from "@/components/ExamCard";
-import { DUMMY_EXAMS, KPSC_CATEGORIES } from "@/constants";
+import prisma from "@/lib/prisma";
+import ExamCarouselCard from "@/components/ExamCarouselCard";
 import Link from "next/link";
 import { ChevronLeft, Search } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
+import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 
-export default function CategoryPage({
-    params,
-}: {
+// 1. Create a dynamic cache function that includes the query in the key
+const getExamsData = (slug: string, query: string) =>
+    unstable_cache(
+        async () => {
+            return await prisma.exam.findMany({
+                where: {
+                    examCategory: { slug: slug },
+                    ...(query ? {
+                        OR: [
+                            { name: { contains: query, mode: "insensitive" } },
+                            { description: { contains: query, mode: "insensitive" } },
+                        ]
+                    } : {})
+                },
+                include: {
+                    tags: { include: { tag: true } },
+                    categories: { include: { topics: true } },
+                    examCategory: true,
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+        },
+        [`exams-${slug}-${query}`], // Dynamic key ensures search results are cached correctly
+        { revalidate: 3600, tags: ["exams"] }
+    )();
+
+interface PageProps {
     params: Promise<{ id: string }>;
-    // 3. Removed searchParams from props since we don't need the URL anymore
-}) {
-    // 4. Unwrap the params using React.use() for Next.js 15 compatibility
-    const { id } = use(params);
+    searchParams: Promise<{ q?: string }>;
+}
 
-    // 5. Initialize local state for search
-    const [searchQuery, setSearchQuery] = useState("");
+export default async function CategoryPage({ params, searchParams }: PageProps) {
+    const { id } = await params; // This is the slug (e.g., 'general')
+    const query = (await searchParams).q || "";
 
-    // 6. Find the specific category details
-    const category = KPSC_CATEGORIES.find((c) => c.slug === id);
+    // 2. Fetch Category info and exams in parallel
+    // We fetch category directly so we always have the most fresh metadata (color, description)
+    const [category, exams] = await Promise.all([
+        prisma.examCategory.findUnique({ where: { slug: id } }),
+        getExamsData(id, query)
+    ]);
 
-    if (!category)
-    {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <h2 className="text-2xl font-bold text-slate-900">Category Not Found</h2>
-                <Link href="/" className="mt-4 text-blue-600 hover:underline">Return Home</Link>
-            </div>
-        );
-    }
-
-    // 7. Filter exams by category ID FIRST, then by the local search query
-    let filteredExams = DUMMY_EXAMS.filter((e) => e.categoryId === id);
-
-    if (searchQuery)
-    {
-        const lowerQuery = searchQuery.toLowerCase();
-        filteredExams = filteredExams.filter(e =>
-            e.name.toLowerCase().includes(lowerQuery) ||
-            e.description.toLowerCase().includes(lowerQuery)
-        );
-    }
+    if (!category) notFound();
 
     return (
-        <main className="max-w-7xl mx-auto px-6 py-12">
-            {/* Back Button & Header */}
-            <div className="mb-8">
-                <Link
-                    href="/"
-                    className="inline-flex items-center text-sm text-slate-400 hover:text-slate-900 transition-colors mb-6"
-                >
-                    <ChevronLeft size={16} className="mr-1" /> Back to Library
-                </Link>
+        <div className="min-h-screen bg-slate-50">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
 
-                <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-                    {category.name} <span className="text-slate-400 font-light">Exams</span>
-                </h1>
-                <p className="mt-2 text-slate-500 max-w-2xl leading-relaxed">
-                    {category.description}
-                </p>
-            </div>
+                <div className="mb-12">
+                    <Link
+                        href="/library/category"
+                        className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mb-6 group"
+                    >
+                        <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
+                        Back to Categories
+                    </Link>
 
-            {/* Render the Search Bar using Local State */}
-            <div className="flex justify-center mb-16 w-full">
-                <div className="w-full max-w-md">
-                    {/* 8. Pass state to SearchFilter. No Suspense needed for local state! */}
-                    <SearchFilter
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                    />
+                    <div className="max-w-3xl">
+                        {/* We use the category data fetched on THIS page */}
+                        <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4 italic">
+                            {category.name} <span className="text-slate-400 font-light not-italic">Exams</span>
+                        </h1>
+                        <p className="text-lg text-slate-500 leading-relaxed">
+                            {category.description || `Explore specialized ${category.name} exam resources.`}
+                        </p>
+                    </div>
                 </div>
-            </div>
 
-            {/* Exam Grid */}
-            {filteredExams.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredExams.map((exam) => (
-                        <ExamCard
-                            key={exam.id}
-                            id={exam.id}
-                            name={exam.name}
-                            description={exam.description}
-                            tags={exam.tags}
-                            duration={exam.duration}
-                            totalMarks={exam.totalMarks}
-                            color={exam.color}
-                        />
-                    ))}
+                <div className="flex justify-center mb-16 w-full">
+                    <div className="w-full max-w-md">
+                        <SearchFilter value={query} />
+                    </div>
                 </div>
-            ) : (
-                <div className="p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center">
-                    <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
-                    <p className="text-slate-500 font-medium text-lg">
-                        {searchQuery ? `No exams found matching "${searchQuery}"` : "No exams found in this category yet."}
-                    </p>
-                    {searchQuery && (
-                        /* 9. Update Clear Search to reset state instead of navigating */
-                        <button
-                            onClick={() => setSearchQuery("")}
-                            className="mt-4 inline-block text-blue-600 font-medium hover:underline cursor-pointer"
-                        >
-                            Clear search
-                        </button>
-                    )}
-                </div>
-            )}
-        </main>
+
+                {exams.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 xl:gap-10 items-start">
+                        {exams.map((exam) => (
+                            <ExamCarouselCard
+                                key={exam.id}
+                                name={exam.name}
+                                description={exam.description || ""}
+                                tags={exam.tags.map(t => t.tag.name)}
+                                categoryName={category.name}
+                                accentColor={category.color}
+                                totalMarks={exam.totalMarks}
+                                duration={exam.duration}
+                                syllabus={exam.categories.map(cat => ({
+                                    category: cat.name,
+                                    topics: cat.topics.map(topic => topic.name)
+                                }))}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-[2rem] text-center bg-white max-w-2xl mx-auto w-full">
+                        <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
+                        <h3 className="text-lg font-bold text-slate-900 tracking-tight">No exams found</h3>
+                        <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                            We couldn't find any exams in {category.name} matching <span className="font-bold text-slate-900">"{query}"</span>.
+                        </p>
+                        {
+                            <Link
+                                href={`/library/category/${id}`}
+                                className="mt-6 inline-flex items-center justify-center px-4 py-2 bg-slate-100 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                            >
+                                Clear search
+                            </Link>
+                        }
+                    </div>
+                )}
+            </main>
+        </div>
     );
 }
