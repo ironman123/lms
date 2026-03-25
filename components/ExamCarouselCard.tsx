@@ -1,8 +1,7 @@
 "use client";
 
-import { Trophy, Clock, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trophy, Clock, LayoutGrid } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
     Carousel,
     CarouselContent,
@@ -18,6 +17,8 @@ interface SyllabusItem {
 
 interface ExamCarouselCardProps {
     name: string;
+    description?: string; // Added back
+    tags?: string[];      // Added back
     categoryName?: string;
     accentColor?: string;
     totalMarks: number;
@@ -27,6 +28,8 @@ interface ExamCarouselCardProps {
 
 const ExamCarouselCard = ({
     name,
+    description,
+    tags = [],
     categoryName = "Category",
     accentColor = "#1D3557",
     totalMarks,
@@ -35,46 +38,68 @@ const ExamCarouselCard = ({
 }: ExamCarouselCardProps) => {
     return (
         <Card className="overflow-hidden border-slate-200 shadow-2xl bg-white rounded-[2rem] w-full max-w-[400px]">
-            {/* 1. DARK HEADER AREA */}
-            <div className="bg-[#0F172A] p-8 text-white relative overflow-hidden">
-                {/* Visual Glow Effect */}
+            {/* 1. DARK HEADER AREA (Compact) */}
+            <div
+                className="p-6 text-white relative overflow-hidden rounded-t-[2rem] transition-all duration-700 ease-in-out"
+                style={{
+                    // Gradient from Dark Slate (0%) to a translucent version of Accent (100%)
+                    background: `linear-gradient(135deg, #0F172A 0%, ${accentColor}33 250%)`,
+                    // Solid fallback for older browsers
+                    backgroundColor: "#0F172A"
+                }}
+            >
+                {/* Refined Corner Glow (reduced opacity for balance) */}
                 <div
-                    className="absolute -top-20 -right-20 w-40 h-40 blur-[80px] opacity-50 rounded-full"
+                    className="absolute -top-16 -right-16 w-36 h-36 blur-[60px] opacity-90 rounded-full transition-colors duration-700"
                     style={{ backgroundColor: accentColor }}
                 />
 
-                <div className="flex justify-between items-start mb-6 relative z-10">
+                <div className="flex justify-between items-center mb-4 relative z-10">
                     <span
-                        className="px-3 py-1 rounded-lg bg-white/10 border border-white/20 text-[10px] font-black uppercase tracking-widest transition-colors duration-500"
-                        style={{
-                            borderColor: `${accentColor}60` // Optional: Makes the border a 20% transparent version of the accent color
-                        }}
+                        className="px-2.5 py-0.5 rounded-md bg-white/10 border text-[9px] font-black uppercase tracking-widest transition-all duration-500"
+                        style={{ borderColor: `${accentColor}60` }}
                     >
-                        {categoryName || "General"}
+                        {categoryName}
                     </span>
-                    <div className="flex items-center gap-2 text-amber-400 font-bold">
-                        <Trophy size={16} />
-                        <span className="text-sm">{totalMarks || 0} Marks</span>
+                    <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                        <Trophy size={14} />
+                        <span className="text-xs">{totalMarks || 0} Marks</span>
                     </div>
                 </div>
 
-                <h2 className="text-2xl font-black mb-4 leading-tight relative z-10 break-words">
+                <h2 className="text-xl font-black mb-1 leading-tight relative z-10 truncate">
                     {name || "Exam Title"}
                 </h2>
 
-                <div className="flex items-center gap-4 text-slate-400 text-[11px] font-black uppercase tracking-wider relative z-10">
-                    <div className="flex items-center gap-1.5">
-                        <Clock size={14} className="text-slate-500" /> {duration || 0} Mins
+                {/* Description Snippet */}
+                <p className="text-[11px] text-slate-300 line-clamp-2 mb-4 relative z-10 leading-relaxed max-w-[90%]">
+                    {description || "No description provided."}
+                </p>
+
+                <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-3 text-slate-300 text-[10px] font-black uppercase tracking-wider">
+                        <div className="flex items-center gap-1">
+                            <Clock size={12} /> {duration || 0}m
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <LayoutGrid size={12} /> {syllabus.length}s
+                        </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <LayoutGrid size={14} className="text-slate-500" /> {syllabus.length} Sections
+
+                    {/* Compact Tags */}
+                    <div className="flex gap-1">
+                        {tags.slice(0, 2).map((tag, i) => (
+                            <span key={i} className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                                #{tag}
+                            </span>
+                        ))}
                     </div>
                 </div>
             </div>
 
-            {/* 2. SYLLABUS AREA (THE FLIPPING INTERFACE) */}
-            <div className="p-8">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.25em] mb-6">
+            {/* 2. SYLLABUS AREA (Compact Carousel) */}
+            <div className="p-6">
+                <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-[0.25em] mb-4">
                     Syllabus Explorer
                 </h4>
 
@@ -82,37 +107,27 @@ const ExamCarouselCard = ({
                     <CarouselContent>
                         {syllabus.map((section, i) => (
                             <CarouselItem key={i}>
-                                <div className="p-1">
-                                    <div className="border border-slate-200 bg-slate-50 rounded-2xl overflow-hidden shadow-sm">
-                                        {/* Inner Header */}
-                                        <div className="p-4 border-b border-slate-200 bg-white">
-                                            <p
-                                                className="text-[10px] font-black uppercase mb-1 tracking-wider"
-                                                style={{ color: accentColor }}
-                                            >
-                                                Section {i + 1}
-                                            </p>
-                                            <h5 className="text-sm font-black text-slate-800 truncate">
-                                                {section.category || "Untitled Section"}
+                                <div className="p-0.5">
+                                    <div className="border border-slate-200 bg-slate-50 rounded-xl overflow-hidden shadow-sm">
+                                        <div className="p-3 border-b border-slate-200 bg-white flex justify-between items-center">
+                                            <h5 className="text-xs font-black text-slate-800 truncate max-w-[150px]">
+                                                {section.category || "Untitled"}
                                             </h5>
+                                            <p className="text-[10px] font-black uppercase tracking-tighter" style={{ color: accentColor }}>
+                                                Sec {i + 1}
+                                            </p>
                                         </div>
 
-                                        {/* Inner Content - Fixed Height */}
-                                        <div className="p-4 h-[180px] overflow-y-auto custom-scrollbar">
-                                            <div className="flex flex-wrap gap-2">
+                                        <div className="p-3 h-[140px] overflow-y-auto custom-scrollbar">
+                                            <div className="flex flex-wrap gap-1.5">
                                                 {section.topics.length > 0 && section.topics[0] !== "" ? (
                                                     section.topics.map((topic, j) => topic && (
-                                                        <span
-                                                            key={j}
-                                                            className="text-[11px] font-bold px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-700 shadow-sm"
-                                                        >
+                                                        <span key={j} className="text-[10px] font-bold px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 shadow-sm">
                                                             {topic}
                                                         </span>
                                                     ))
                                                 ) : (
-                                                    <p className="text-[11px] text-slate-300 italic font-medium">
-                                                        No topics added yet...
-                                                    </p>
+                                                    <p className="text-[10px] text-slate-300 italic">No topics...</p>
                                                 )}
                                             </div>
                                         </div>
@@ -122,10 +137,9 @@ const ExamCarouselCard = ({
                         ))}
                     </CarouselContent>
 
-                    {/* Navigation Buttons */}
-                    <div className="flex justify-center gap-4 mt-6">
-                        <CarouselPrevious className="static translate-y-0 h-10 w-10 border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all active:scale-95" />
-                        <CarouselNext className="static translate-y-0 h-10 w-10 border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all active:scale-95" />
+                    <div className="flex justify-center gap-3 mt-4">
+                        <CarouselPrevious className="static translate-y-0 h-8 w-8 border-slate-200 shadow-none" />
+                        <CarouselNext className="static translate-y-0 h-8 w-8 border-slate-200 shadow-none" />
                     </div>
                 </Carousel>
             </div>
