@@ -121,6 +121,7 @@ export default async function ExamPage({ params }: PageProps) {
                     <section className="w-full flex-1 min-w-0">
                         <ExamWorkspace
                             examId={currentExam.id}
+                            examSlug={currentExam.slug}
                             papers={fetchedPapers}
                             tabs={dbTabs}
                             filterOptions={dbFilterOptions}
