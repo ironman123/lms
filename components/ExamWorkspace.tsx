@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/accordion";
 import MiniNavbar from "./MiniNavbar";
 import WorkspacePaperCard from "./WorkspacePaperCard";
+import { exams } from "@/constants";
 
 // Types remain the same as your provided code...
 export interface Paper {
@@ -44,12 +45,13 @@ export interface TabOption {
 
 interface ExamWorkspaceProps {
     examId: string;
+    examSlug: string;
     papers: Paper[];
     tabs: TabOption[];
     filterOptions: FilterOptions;
 }
 
-export default function ExamWorkspace({ examId, papers = [], tabs = [], filterOptions }: ExamWorkspaceProps) {
+export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = [], filterOptions }: ExamWorkspaceProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
 
@@ -176,6 +178,7 @@ export default function ExamWorkspace({ examId, papers = [], tabs = [], filterOp
                                     key={paper.id}
                                     {...paper}
                                     examId={examId}
+                                    examSlug={examSlug}
                                 />
                             ))
                         ) : (

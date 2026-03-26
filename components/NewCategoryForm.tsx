@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { CheckCircle2, ImageIcon, LayoutGrid, Type, Palette } from "lucide-react";
 import { CldUploadWidget } from "next-cloudinary";
 import { Button } from '@/components/ui/button';
-import { createCategory } from "@/app/actions/category-actions";
+import { createCategory } from "@/app/(main)/actions/category-actions";
 import { useTransition } from "react";
 import ExamCategoryCard from "./ExamCategoryCard";
 import {

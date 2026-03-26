@@ -8,6 +8,7 @@ interface WorkspacePaperCardProps {
     year: string;
     pricing: string;
     examId: string;
+    examSlug: string;
     subject: string;
     duration: number;
     shift: string;
@@ -19,6 +20,7 @@ const WorkspacePaperCard = ({
     title,
     type,
     year,
+    examSlug,
     pricing,
     examId,
     subject,
@@ -26,6 +28,7 @@ const WorkspacePaperCard = ({
     shift,
     color = "#0F172A" // Fallback to slate-900 if no color is provided
 }: WorkspacePaperCardProps) => {
+
     return (
         <article
             className="group relative w-85 flex flex-col p-6 bg-white border border-slate-100 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl hover:border-transparent"
@@ -75,7 +78,7 @@ const WorkspacePaperCard = ({
 
             {/* Action Button: Matches ExamCard style */}
             <Link
-                href={`/workspace/paper/${id}`} // Adjust this route to wherever the actual test takes place
+                href={`/library/exam/${examSlug}/paper/${id}`} // Adjust this route to wherever the actual test takes place
                 className="flex items-center justify-center w-full mt-4 py-2.5 text-white text-xs font-bold rounded-xl transition-all hover:brightness-150 group-hover:shadow-lg group-hover:shadow-slate-200"
                 style={{ backgroundColor: color }}
             >

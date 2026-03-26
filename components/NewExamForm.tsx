@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Trash2, Plus, BookOpen, Clock, Trophy, Tag, LayoutList, Info, ChevronRight } from 'lucide-react';
 import { useTransition } from 'react';
 import { examSchema, ExamFormValues } from '@/types/exam';
-import { createExam } from "@/app/actions/exam-actions";
+import { createExam } from "@/app/(main)/actions/exam-actions";
 import { toast } from "sonner";
 
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
