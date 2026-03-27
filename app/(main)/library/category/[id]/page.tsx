@@ -23,9 +23,25 @@ const getExamsData = (slug: string, query: string) =>
                     } : {})
                 },
                 include: {
-                    tags: { include: { tag: true } },
-                    categories: { include: { topics: true } },
+                    tags: {
+                        include: {
+                            tag: true
+                        }
+                    },
                     examCategory: true,
+
+                    // -----------------------------------------
+                    // THE FIX: Fetch syllabus via the new bridge
+                    // -----------------------------------------
+                    examTopics: {
+                        include: {
+                            topic: {
+                                include: {
+                                    category: true // This grabs the parent Category (e.g., "Math") for this topic
+                                }
+                            }
+                        }
+                    },
                 },
                 orderBy: { createdAt: 'desc' }
             });
@@ -96,10 +112,26 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                                 accentColor={category.color}
                                 totalMarks={exam.totalMarks}
                                 duration={exam.duration}
-                                syllabus={exam.categories.map(cat => ({
-                                    category: cat.name,
-                                    topics: cat.topics.map(topic => topic.name)
-                                }))}
+                                syllabus={Object.values(
+                                    exam.examTopics.reduce((acc, current) => {
+                                        const categoryName = current.topic.category.name;
+                                        const topicName = current.topic.name;
+
+                                        // If the category doesn't exist in our accumulator yet, create it
+                                        if (!acc[categoryName])
+                                        {
+                                            acc[categoryName] = {
+                                                category: categoryName,
+                                                topics: []
+                                            };
+                                        }
+
+                                        // Push the current topic into that category's array
+                                        acc[categoryName].topics.push(topicName);
+
+                                        return acc;
+                                    }, {} as Record<string, { category: string; topics: string[] }>)
+                                )}
                             />
                         ))}
                     </div>

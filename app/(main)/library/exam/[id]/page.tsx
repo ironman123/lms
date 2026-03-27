@@ -14,9 +14,15 @@ const getCachedExam = unstable_cache(
             include: {
                 examCategory: true,
                 tags: { include: { tag: true } },
-                categories: {
-                    include: { topics: true },
-                    orderBy: { createdAt: 'asc' }
+                // 1. UPDATED: Fetch the syllabus through the new bridge table
+                examTopics: {
+                    include: {
+                        topic: {
+                            include: {
+                                category: true // Fetch the parent Subject/Category
+                            }
+                        }
+                    }
                 },
                 questionPapers: {
                     orderBy: { createdAt: 'desc' }
@@ -38,13 +44,26 @@ export default async function ExamPage({ params }: PageProps) {
 
     if (!currentExam) notFound();
 
-    // 1. Transform database categories/topics into the "Syllabus" format
-    const formattedSyllabus = currentExam.categories.map(cat => ({
-        category: cat.name,
-        topics: cat.topics.map(topic => topic.name)
-    }));
+    // 2. UPDATED: Transform the flat examTopics array into the grouped "Syllabus" format
+    const formattedSyllabus = Object.values(
+        currentExam.examTopics.reduce((acc, current) => {
+            const categoryName = current.topic.category.name;
+            const topicName = current.topic.name;
 
-    // 2. Dynamic Tabs based on real question papers
+            if (!acc[categoryName])
+            {
+                acc[categoryName] = {
+                    category: categoryName,
+                    topics: []
+                };
+            }
+
+            acc[categoryName].topics.push(topicName);
+            return acc;
+        }, {} as Record<string, { category: string; topics: string[] }>)
+    );
+
+    // Dynamic Tabs based on real question papers
     const pyqCount = currentExam.questionPapers.filter(p => p.year !== null).length;
     const mockCount = currentExam.questionPapers.filter(p => p.year === null).length;
 
@@ -55,7 +74,7 @@ export default async function ExamPage({ params }: PageProps) {
         { id: "notes", label: "Notes", count: 0 }, // Future-proofing
     ];
 
-    // 3. Map question papers to the format ExamWorkspace expects
+    // Map question papers to the format ExamWorkspace expects
     const fetchedPapers = currentExam.questionPapers.map(paper => ({
         id: paper.id,
         title: paper.title,
@@ -71,7 +90,8 @@ export default async function ExamPage({ params }: PageProps) {
         years: Array.from(new Set(fetchedPapers.map(p => p.year))),
         shifts: ["Morning", "Afternoon", "Evening"],
         pricing: ["Free", "Paid"],
-        subjects: currentExam.categories.map(c => c.name),
+        // 3. UPDATED: Dynamically map subjects from our newly formatted syllabus
+        subjects: formattedSyllabus.map(s => s.category),
     };
 
     return (

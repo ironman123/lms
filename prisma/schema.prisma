@@ -33,10 +33,11 @@ model Exam {
   examCategoryId String?
   createdAt      DateTime        @default(now())
   slug           String          @unique
-  categories     Category[]
+  //categories     Category[]
   examCategory   ExamCategory?   @relation(fields: [examCategoryId], references: [id])
   tags           ExamsTagsLink[]
   questionPapers QuestionPaper[]
+  examTopics     ExamTopic[]
 }
 
 model Tag {
@@ -61,10 +62,10 @@ model ExamsTagsLink {
 
 model Category {
   id        String   @id @default(uuid())
-  name      String
-  examId    String
+  name      String   @unique
+  //examId    String
+  //exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
   topics    Topic[]
 }
 
@@ -79,6 +80,18 @@ model Topic {
   parent         Topic?         @relation("SubTopics", fields: [parentId], references: [id])
   children       Topic[]        @relation("SubTopics")
   topicMasteries TopicMastery[]
+  examTopics     ExamTopic[]
+}
+
+model ExamTopic {
+  id        String   @id @default(uuid())
+  examId    String
+  topicId   String
+  createdAt DateTime @default(now())
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, topicId])
 }
 
 model QuestionPaper {
