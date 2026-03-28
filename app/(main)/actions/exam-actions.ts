@@ -16,27 +16,29 @@ export async function createExam(data: any) {
     try
     {
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Create the base Exam (No changes needed here)
+            // 1. Create the base Exam
             const exam = await tx.exam.create({
                 data: {
-                    name: validated.name,
+                    name: validated.name.trim(), // Good practice to trim the name too
                     slug: slug,
-                    description: validated.description,
+                    description: validated.description?.trim(),
                     duration: validated.duration,
                     totalMarks: validated.totalMarks,
                     examCategoryId: validated.examCategoryId,
                 },
             });
 
-            // 2. Handle Tags (Many-to-Many) - Keeping your existing logic
+            // 2. Handle Tags (Many-to-Many)
             if (validated.tags && validated.tags.length > 0)
             {
                 for (const tagName of validated.tags)
                 {
+                    const safeTagName = tagName.trim(); // Sanitized input
+
                     const tag = await tx.tag.upsert({
-                        where: { name: tagName },
+                        where: { name: safeTagName },
                         update: {},
-                        create: { name: tagName },
+                        create: { name: safeTagName },
                     });
 
                     await tx.examsTagsLink.create({
@@ -54,16 +56,18 @@ export async function createExam(data: any) {
                 for (const item of validated.syllabus)
                 {
 
+                    const safeCategoryName = item.category.trim(); // Sanitized input
+
                     // A. Check if the GLOBAL Category (Subject) already exists
                     let category = await tx.category.findFirst({
-                        where: { name: item.category },
+                        where: { name: safeCategoryName },
                     });
 
                     // B. If it doesn't exist, create it
                     if (!category)
                     {
                         category = await tx.category.create({
-                            data: { name: item.category },
+                            data: { name: safeCategoryName },
                         });
                     }
 
@@ -73,10 +77,12 @@ export async function createExam(data: any) {
                         for (const topicName of item.topics)
                         {
 
+                            const safeTopicName = topicName.trim(); // Sanitized input
+
                             // Check if this GLOBAL Topic already exists under this Category
                             let topic = await tx.topic.findFirst({
                                 where: {
-                                    name: topicName,
+                                    name: safeTopicName,
                                     categoryId: category.id
                                 },
                             });
@@ -86,7 +92,7 @@ export async function createExam(data: any) {
                             {
                                 topic = await tx.topic.create({
                                     data: {
-                                        name: topicName,
+                                        name: safeTopicName,
                                         categoryId: category.id,
                                     },
                                 });
@@ -98,7 +104,6 @@ export async function createExam(data: any) {
                                 data: {
                                     examId: exam.id,
                                     topicId: topic.id,
-                                    // weightage: ... // You can add weightage here later if passed from the frontend
                                 },
                             });
                         }
