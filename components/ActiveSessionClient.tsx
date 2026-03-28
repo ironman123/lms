@@ -6,39 +6,83 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Flag, Hash, Menu } from "lucide-react"; // Added Menu for mobile toggle if needed later
+import { ChevronLeft, ChevronRight, Flag, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function ActiveSessionClient({ paper, mode }: any) {
+// 1. IMPORT THE OVERLAY & HOOK
+import DevMetricsOverlay from "./DevMetricsOverlay";
+import { useExamTelemetry } from "@/app/(main)/hooks/useExamTelemetry";
+
+export default function ActiveSessionClient({ paper, mode, sessionId, userId }: any) {
+    // ==========================================
+    // 1. FAST UI STATE (For instant screen updates)
+    // ==========================================
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [showAnswer, setShowAnswer] = useState(false);
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [flagged, setFlagged] = useState<Set<string>>(new Set());
-    const [showAnswer, setShowAnswer] = useState(false);
 
     const currentQuestion = paper.questions[currentIndex];
     const totalQuestions = paper.questions.length;
     const isLastQuestion = currentIndex === totalQuestions - 1;
 
     const progress = useMemo(() =>
-        totalQuestions > 0 ? (Object.keys(answers).length / totalQuestions) * 100 : 0
-        , [answers, totalQuestions]);
+        totalQuestions > 0 ? (Object.keys(answers).length / totalQuestions) * 100 : 0,
+        [answers, totalQuestions]);
 
-    const toggleFlag = () => {
+    // ==========================================
+    // 2. BACKGROUND TELEMETRY (For database tracking)
+    // ==========================================
+    const {
+        currentMetrics,
+        recentActivities,
+        handleNavigation,
+        handleAnswerSelection,
+        toggleFlag: telemetryToggleFlag,
+    } = useExamTelemetry(sessionId, currentQuestion.id);
+
+    // ==========================================
+    // 3. COMBINED ACTIONS (Updates UI + Telemetry)
+    // ==========================================
+    const onNavigate = (newIndex: number) => {
+        setCurrentIndex(newIndex);
+        setShowAnswer(false);
+        handleNavigation(paper.questions[newIndex].id); // Trigger Telemetry Dwell Time calc
+    };
+
+    const onSelectOption = (optionId: string, isCorrect: boolean) => {
+        setAnswers(prev => ({ ...prev, [currentQuestion.id]: optionId })); // Update UI instantly
+        setShowAnswer(false);
+        handleAnswerSelection(currentQuestion.id, optionId, isCorrect); // Trigger Telemetry Hesitation check
+    };
+
+    const onToggleFlag = () => {
+        // Update local React UI instantly
         const newFlagged = new Set(flagged);
         if (newFlagged.has(currentQuestion.id)) newFlagged.delete(currentQuestion.id);
         else newFlagged.add(currentQuestion.id);
         setFlagged(newFlagged);
+
+        // Update Telemetry Vault
+        telemetryToggleFlag(currentQuestion.id);
     };
 
     return (
         <div className="flex h-full w-full bg-slate-50/50 p-1 pt-3 overflow-hidden">
 
+            {/* DEV OVERLAY */}
+            <DevMetricsOverlay
+                sessionMode={mode}
+                sessionId={sessionId}
+                userId={userId}
+                metrics={currentMetrics}
+                recentActivities={recentActivities}
+            />
+
             {/* MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col min-w-0 h-full p-2">
                 <ScrollArea className="flex-1 p-1">
                     <div className="max-w-4xl mx-auto flex flex-col justify-center min-h-[70vh]">
-
-                        {/* THE QUESTION CARD */}
                         <Card className="rounded-[1.5rem] md:rounded-[2rem] border-slate-200 shadow-sm overflow-hidden bg-white">
                             <CardHeader className="border-b border-slate-50 bg-slate-50/30 px-4 py-3 md:px-8 md:py-4 flex-row items-center justify-between space-y-0">
                                 <div className="flex items-center gap-2 md:gap-4">
@@ -46,7 +90,7 @@ export default function ActiveSessionClient({ paper, mode }: any) {
                                         Q {currentIndex + 1}
                                     </Badge>
                                     <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 truncate max-w-[120px] md:max-w-none">
-                                        <Hash size={10} /> {currentQuestion.topic.name}
+                                        <Hash size={10} /> {currentQuestion.topic?.name || "Topic"}
                                     </span>
                                 </div>
                                 <Badge className={cn("font-black italic text-[9px] md:text-[10px] uppercase px-2 py-0",
@@ -60,7 +104,7 @@ export default function ActiveSessionClient({ paper, mode }: any) {
                                     {currentQuestion.content}
                                 </h2>
 
-                                {/* Options List - More Compact */}
+                                {/* Options List */}
                                 <div className="grid gap-2 md:gap-3">
                                     {currentQuestion.options.map((option: any, i: number) => {
                                         const isSelected = answers[currentQuestion.id] === option.id;
@@ -69,12 +113,10 @@ export default function ActiveSessionClient({ paper, mode }: any) {
                                         return (
                                             <button
                                                 key={option.id}
-                                                onClick={() => { setAnswers({ ...answers, [currentQuestion.id]: option.id }); setShowAnswer(false); }}
+                                                onClick={() => onSelectOption(option.id, option.isCorrect)}
                                                 className={cn(
                                                     "group flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all duration-200 text-left",
-                                                    isSelected
-                                                        ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                                                        : "border-slate-100 bg-white hover:border-slate-200",
+                                                    isSelected ? "border-slate-900 bg-slate-900 text-white shadow-md" : "border-slate-100 bg-white hover:border-slate-200",
                                                     mode === 'practice' && showAnswer && isCorrect && "border-green-500 bg-green-50 text-slate-900",
                                                     mode === 'practice' && showAnswer && isSelected && !isCorrect && "border-red-500 bg-red-50 text-slate-900"
                                                 )}
@@ -92,18 +134,17 @@ export default function ActiveSessionClient({ paper, mode }: any) {
                                 </div>
                             </CardContent>
                         </Card>
-
                     </div>
                 </ScrollArea>
 
-                {/* COMPACT BOTTOM NAV - Full width on mobile */}
+                {/* COMPACT BOTTOM NAV */}
                 <div className="h-14 md:h-16 bg-white border border-slate-200 rounded-2xl md:rounded-3xl mx-1 md:mx-4 mb-2 px-3 md:px-6 flex items-center justify-between shadow-sm shrink-0">
                     <div className="flex gap-1 md:gap-2">
                         <Button variant="ghost" size="sm" className="rounded-xl font-black italic text-[9px] md:text-[10px] px-2 h-9"
-                            disabled={currentIndex === 0} onClick={() => setCurrentIndex(i => i - 1)}>
+                            disabled={currentIndex === 0} onClick={() => onNavigate(currentIndex - 1)}>
                             <ChevronLeft className="mr-0.5 h-3 w-3" /> PREV
                         </Button>
-                        <Button variant="ghost" size="sm" className={cn("rounded-xl font-black italic text-[9px] md:text-[10px] px-2 h-9", flagged.has(currentQuestion.id) && "text-amber-500")} onClick={toggleFlag}>
+                        <Button variant="ghost" size="sm" className={cn("rounded-xl font-black italic text-[9px] md:text-[10px] px-2 h-9", flagged.has(currentQuestion.id) && "text-amber-500")} onClick={onToggleFlag}>
                             <Flag className={cn("mr-0.5 h-3 w-3", flagged.has(currentQuestion.id) && "fill-current")} /> FLAG
                         </Button>
                     </div>
@@ -116,9 +157,9 @@ export default function ActiveSessionClient({ paper, mode }: any) {
                         )}
                         <Button
                             size="sm"
-                            className={cn("rounded-xl font-black italic text-[9px] md:text-[10px] bg-slate-900 text-white px-5 md:px-8 h-9 transition-opacity")}
+                            className="rounded-xl font-black italic text-[9px] md:text-[10px] bg-slate-900 text-white px-5 md:px-8 h-9 transition-opacity"
                             disabled={isLastQuestion}
-                            onClick={() => { setCurrentIndex(i => i + 1); setShowAnswer(false); }}
+                            onClick={() => onNavigate(currentIndex + 1)}
                         >
                             {isLastQuestion ? "FINAL" : "NEXT"} <ChevronRight className="ml-1 h-3 w-3" />
                         </Button>
@@ -126,7 +167,7 @@ export default function ActiveSessionClient({ paper, mode }: any) {
                 </div>
             </div>
 
-            {/* RIGHT SIDEBAR: NAVIGATION MAP - Hidden on mobile, shown on large screens */}
+            {/* RIGHT SIDEBAR */}
             <aside className="hidden xl:flex w-72 flex-col bg-white border border-slate-200 rounded-3xl m-4 ml-0 overflow-hidden shadow-sm shrink-0">
                 <div className="p-6 border-b border-slate-50 bg-slate-50/30">
                     <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Navigation</h3>
@@ -143,13 +184,11 @@ export default function ActiveSessionClient({ paper, mode }: any) {
                             return (
                                 <button
                                     key={q.id}
-                                    onClick={() => { setCurrentIndex(i); setShowAnswer(false); }}
+                                    onClick={() => onNavigate(i)}
                                     className={cn(
                                         "aspect-square rounded-xl flex items-center justify-center text-[10px] font-black transition-all border-2 relative",
-                                        isCurrent
-                                            ? "border-slate-900 bg-white text-slate-900 shadow-md scale-110 z-10"
-                                            : isAnswered
-                                                ? "bg-slate-900 border-slate-900 text-white"
+                                        isCurrent ? "border-slate-900 bg-white text-slate-900 shadow-md scale-110 z-10"
+                                            : isAnswered ? "bg-slate-900 border-slate-900 text-white"
                                                 : "bg-white border-slate-100 text-slate-300 hover:border-slate-200"
                                     )}
                                 >
