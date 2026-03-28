@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import StartExamButton from "@/components/StartExamButton";
 import { Timer, ClipboardCheck, AlertCircle, BookOpen, Layers, Trophy } from "lucide-react";
 import Link from "next/link";
 
@@ -146,9 +147,16 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ id:
                             <Button asChild variant="outline" className="flex-1 h-16 rounded-2xl border-2 border-slate-200 font-black text-lg hover:bg-slate-50 transition-all hover:scale-[1.02] active:scale-95">
                                 <Link href={`/exam/${id}/paper/${paperId}/practice`}>Practice</Link>
                             </Button>
-                            <Button asChild className="flex-1 h-16 rounded-2xl bg-slate-900 font-black text-lg hover:bg-slate-800 shadow-2xl transition-all hover:scale-[1.02] active:scale-95 text-white">
+                            <StartExamButton
+                                examId={id}
+                                paperId={paperId}
+                                mode="MOCK_EXAM"
+                                label="Start Exam"
+                                variant="default"
+                            />
+                            {/* <Button asChild className="flex-1 h-16 rounded-2xl bg-slate-900 font-black text-lg hover:bg-slate-800 shadow-2xl transition-all hover:scale-[1.02] active:scale-95 text-white">
                                 <Link href={`/exam/${id}/paper/${paperId}/mock`}>Start Exam</Link>
-                            </Button>
+                            </Button> */}
                         </div>
                     </div>
                 </Card>
