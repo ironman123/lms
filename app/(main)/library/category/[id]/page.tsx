@@ -33,14 +33,9 @@ const getExamsData = (slug: string, query: string) =>
                     // -----------------------------------------
                     // THE FIX: Fetch syllabus via the new bridge
                     // -----------------------------------------
-                    examTopics: {
-                        include: {
-                            topic: {
-                                include: {
-                                    category: true // This grabs the parent Category (e.g., "Math") for this topic
-                                }
-                            }
-                        }
+                    syllabusEntries: {
+                        include: { category: true },
+                        orderBy: { topicPath: 'asc' },
                     },
                 },
                 orderBy: { createdAt: 'desc' }
@@ -113,9 +108,9 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                                 totalMarks={exam.totalMarks}
                                 duration={exam.duration}
                                 syllabus={Object.values(
-                                    exam.examTopics.reduce((acc, current) => {
-                                        const categoryName = current.topic.category.name;
-                                        const topicName = current.topic.name;
+                                    exam.syllabusEntries.reduce((acc, entry) => {
+                                        const categoryName = entry.category.name;
+                                        const leafName = entry.topicPath.split('>').at(-1)!.trim();
 
                                         // If the category doesn't exist in our accumulator yet, create it
                                         if (!acc[categoryName])
@@ -127,7 +122,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                                         }
 
                                         // Push the current topic into that category's array
-                                        acc[categoryName].topics.push(topicName);
+                                        acc[categoryName].topics.push(leafName);
 
                                         return acc;
                                     }, {} as Record<string, { category: string; topics: string[] }>)
