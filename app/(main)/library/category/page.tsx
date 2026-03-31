@@ -34,6 +34,7 @@ export default async function CategoryIndexPage({
     const query = (await searchParams).q || "";
     const categories = await getCachedCategories(query);
 
+    const isAdmin = true;
     // Fetch real data from Supabase/Prisma
     // const categories = await prisma.examCategory.findMany({
     //     where: {
@@ -58,14 +59,15 @@ export default async function CategoryIndexPage({
                         Select your specialized field to discover tailored exam workspaces, previous year questions, and dedicated mock tests.
                     </p>
                 </div>
-
-                <Link
-                    href="/library/category/new"
-                    className="fixed bottom-8 right-8 z-50 flex items-center justify-center w-12 h-12 bg-slate-900 text-white rounded-full shadow-2xl hover:scale-110 transition-transform active:scale-95"
-                    title="Add New Category"
-                >
-                    <Plus className="w-6 h-6" />
-                </Link>
+                {isAdmin && (
+                    <Link
+                        href="/library/category/new"
+                        className="fixed bottom-8 right-8 z-50 flex items-center justify-center w-12 h-12 bg-slate-900 text-white rounded-full shadow-2xl hover:scale-110 transition-transform active:scale-95"
+                        title="Add New Category"
+                    >
+                        <Plus className="w-6 h-6" />
+                    </Link>
+                )}
 
                 {/* Search Section: The Client Component Bridge */}
                 <div className="flex justify-center mb-16 w-full">

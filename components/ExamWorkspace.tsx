@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, FilterX } from "lucide-react";
+import Link from "next/link";
+import { Search, FilterX, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs } from "@/components/ui/tabs";
@@ -54,6 +55,8 @@ interface ExamWorkspaceProps {
 export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = [], filterOptions }: ExamWorkspaceProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
+
+    const isAdmin = true;
 
     const [filters, setFilters] = useState({
         years: [] as string[],
@@ -191,6 +194,15 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                             </div>
                         )}
                     </div>
+                    {isAdmin && (
+                        <Link
+                            href={`/library/exam/${examSlug}/paper/new?examId=${examId}`}
+                            className="fixed bottom-8 right-8 z-50 flex items-center justify-center w-12 h-12 bg-slate-900 text-white rounded-full shadow-2xl hover:scale-110 transition-transform active:scale-95"
+                            title="Add New Question Paper"
+                        >
+                            <Plus className="w-6 h-6" size={16} />
+                        </Link>
+                    )}
                 </Tabs>
             </section>
         </div>
