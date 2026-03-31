@@ -372,17 +372,7 @@ export default function NewExamForm({ categories = [], initialData }: NewExamFor
                         </div>
 
                         <div className="flex gap-3">
-                            {isEditing && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="border-red-200 text-red-600 hover:bg-red-50"
-                                    onClick={handleDelete}
-                                    disabled={isDeleting}
-                                >
-                                    {isDeleting ? "Deleting..." : "Delete Exam"}
-                                </Button>
-                            )}
+
                             <Button
                                 type="submit"
                                 className="flex-1 h-14 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl"
@@ -393,6 +383,17 @@ export default function NewExamForm({ categories = [], initialData }: NewExamFor
                                     : (isEditing ? "Save Changes" : "Publish Exam Content")
                                 }
                             </Button>
+                            {isEditing && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="border-red-200 text-red-600 hover:bg-red-50 text-red-600 hover:text-red-700 h-14 rounded-xl"
+                                    onClick={handleDelete}
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? "Deleting..." : "Delete Exam"}
+                                </Button>
+                            )}
                         </div>
                     </form>
                 </Form>
