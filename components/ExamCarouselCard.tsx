@@ -104,54 +104,55 @@ const ExamCarouselCard = ({
                         </div>
                     </div>
                 </div>
+            </Wrapper>
 
-                {/* 2. SYLLABUS AREA (Compact Carousel) */}
-                <div className="p-6">
-                    <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-[0.25em] mb-4">
-                        Syllabus Explorer
-                    </h4>
+            {/* 2. SYLLABUS AREA (Compact Carousel) */}
+            <div className="p-6">
+                <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-[0.25em] mb-4">
+                    Syllabus Explorer
+                </h4>
 
-                    <Carousel className="w-full">
-                        <CarouselContent>
-                            {syllabus.map((section, i) => (
-                                <CarouselItem key={i}>
-                                    <div className="p-0.5">
-                                        <div className="border border-slate-200 bg-slate-50 rounded-xl overflow-hidden shadow-sm">
-                                            <div className="p-3 border-b border-slate-200 bg-white flex justify-between items-center">
-                                                <h5 className="text-xs font-black text-slate-800 truncate max-w-[150px]">
-                                                    {section.category || "Untitled"}
-                                                </h5>
-                                                <p className="text-[10px] font-black uppercase tracking-tighter" style={{ color: accentColor }}>
-                                                    Sec {i + 1}
-                                                </p>
-                                            </div>
+                <Carousel className="w-full">
+                    <CarouselContent>
+                        {syllabus.map((section, i) => (
+                            <CarouselItem key={i}>
+                                <div className="p-0.5">
+                                    <div className="border border-slate-200 bg-slate-50 rounded-xl overflow-hidden shadow-sm">
+                                        <div className="p-3 border-b border-slate-200 bg-white flex justify-between items-center">
+                                            <h5 className="text-xs font-black text-slate-800 truncate max-w-[150px]">
+                                                {section.category || "Untitled"}
+                                            </h5>
+                                            <p className="text-[10px] font-black uppercase tracking-tighter" style={{ color: accentColor }}>
+                                                Sec {i + 1}
+                                            </p>
+                                        </div>
 
-                                            <div className="p-3 h-[140px] overflow-y-auto custom-scrollbar">
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {section.topics.length > 0 && section.topics[0] !== "" ? (
-                                                        section.topics.map((topic, j) => topic && (
-                                                            <span key={j} className="text-[10px] font-bold px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 shadow-sm">
-                                                                {topic}
-                                                            </span>
-                                                        ))
-                                                    ) : (
-                                                        <p className="text-[10px] text-slate-300 italic">No topics...</p>
-                                                    )}
-                                                </div>
+                                        <div className="p-3 h-[140px] overflow-y-auto custom-scrollbar">
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {section.topics.length > 0 && section.topics[0] !== "" ? (
+                                                    section.topics.map((topic, j) => topic && (
+                                                        <span key={j} className="text-[10px] font-bold px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 shadow-sm">
+                                                            {topic}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-[10px] text-slate-300 italic">No topics...</p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                </CarouselItem>
-                            ))}
-                        </CarouselContent>
+                                </div>
+                            </CarouselItem>
+                        ))}
+                    </CarouselContent>
 
-                        <div className="flex justify-center gap-3 mt-4">
-                            <CarouselPrevious className="static translate-y-0 h-8 w-8 border-slate-200 shadow-none" />
-                            <CarouselNext className="static translate-y-0 h-8 w-8 border-slate-200 shadow-none" />
-                        </div>
-                    </Carousel>
-                </div>
-            </Wrapper>
+                    <div className="flex justify-center gap-3 mt-4">
+                        <CarouselPrevious className="static translate-y-0 h-8 w-8 border-slate-200 shadow-none" />
+                        <CarouselNext className="static translate-y-0 h-8 w-8 border-slate-200 shadow-none" />
+                    </div>
+                </Carousel>
+            </div>
+
         </Card>
     );
 };
