@@ -14,6 +14,7 @@ import DevMetricsOverlay from "./DevMetricsOverlay";
 import { useExamTelemetry } from "@/app/(main)/hooks/useExamTelemetry";
 
 export default function ActiveSessionClient({ paper, mode, sessionId, userId }: any) {
+    console.log("Paper: ", paper)
     // ==========================================
     // 1. FAST UI STATE (For instant screen updates)
     // ==========================================
