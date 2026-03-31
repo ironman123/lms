@@ -29,6 +29,7 @@ export default function ExamCategoryCard({
     image, // This is now your Cloudinary Public ID (e.g., "kpsc/general")
     color
 }: any) {
+    console.log("Process:", process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME);
     return (
         <Link href={`/library/category/${slug}`} className="group block">
             <article className="group relative h-64 flex flex-col justify-end p-6 bg-white border border-slate-300 rounded-xl transition-all duration-500 hover:shadow-2xl hover:border-slate-300 overflow-hidden cursor-pointer">

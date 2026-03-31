@@ -7,6 +7,7 @@ import { unstable_cache } from "next/cache";
 
 const getCachedCategories = unstable_cache(
     async (query: string) => {
+        //console.log("Prisma: ###", prisma.examCategory)
         return await prisma.examCategory.findMany({
             where: {
                 OR: [

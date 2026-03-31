@@ -28,9 +28,14 @@
 
 
 import { PrismaClient } from '@prisma/client';
+import { defineConfig, env } from "prisma/config";
+
+const databaseUrl = process.env.DATABASE_URL;
+
+console.log("##########", databaseUrl);
 
 const prismaClientSingleton = () => {
-    return new PrismaClient();
+    return new PrismaClient({ log: ["query"], });
 };
 
 declare global {
