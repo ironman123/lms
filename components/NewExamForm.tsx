@@ -2,10 +2,10 @@
 
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Trash2, Plus, BookOpen, Clock, Trophy, Tag, LayoutList, Info, ChevronRight } from 'lucide-react';
-import { useTransition } from 'react';
+import { Trash2, Plus, BookOpen, Clock, Trophy, Tag, LayoutList, Info, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
+import { useTransition, useState } from 'react';
 import { examSchema, ExamFormValues } from '@/types/exam';
-import { createExam } from "@/app/(main)/actions/exam-actions";
+import { createExam, deleteExam, updateExam } from "@/app/(main)/actions/exam-actions";
 import { toast } from "sonner";
 
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -15,24 +15,85 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ExamCarouselCard from './ExamCarouselCard';
+import { parseSyllabusPDF } from "@/app/(main)/actions/ocr-syllabus";
 
+interface NewExamFormProps {
+    categories: { id: string; name: string; color: string | null | undefined }[];
+    initialData?: ExamFormValues & { id: string };  // present = edit mode
+}
 
+export default function NewExamForm({ categories = [], initialData }: NewExamFormProps) {
 
-export default function NewExamForm({ categories = [] }: { categories: { id: string, name: string, color: string | null | undefined }[] }) {
     const [isPending, startTransition] = useTransition();
+    const [isScanning, setIsScanning] = useState(false);
+
+    const isEditing = !!initialData;
 
     const form = useForm<ExamFormValues>({
         resolver: zodResolver(examSchema),
-        defaultValues: {
+        defaultValues: initialData ?? {
             name: '',
             description: '',
             examCategoryId: '',
+            categoryNumber: '',
             tags: [],
             duration: 180,
             totalMarks: 100,
             syllabus: [{ category: '', topics: [] }],
         },
     });
+
+    // NewExamForm.tsx — only this function changes
+    const handleMagicImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsScanning(true);
+        const toastId = toast.loading("AI is analyzing syllabus structure...");
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64 = reader.result as string;
+            const result = await parseSyllabusPDF(base64);
+
+            if (result.success)
+            {
+                const d = result.data;
+
+                // Always overwrite — user can correct manually after import
+                if (d.examName) form.setValue("name", d.examName);
+                if (d.categoryNumber) form.setValue("categoryNumber", d.categoryNumber);
+                if (d.description) form.setValue("description", d.description);
+                if (d.duration) form.setValue("duration", d.duration);
+                if (d.totalMarks) form.setValue("totalMarks", d.totalMarks);
+                if (d.tags?.length) form.setValue("tags", d.tags);
+
+                // Always set syllabus
+                form.setValue("syllabus", d.syllabus);
+
+                // Trigger validation so fields show updated values
+                form.trigger();
+
+                const filled = [
+                    d.examName && "name",
+                    d.categoryNumber && "category #",
+                    d.description && "description",
+                    d.duration && "duration",
+                    d.totalMarks && "marks",
+                    d.tags?.length && `${d.tags.length} tags`,
+                ].filter(Boolean).join(", ");
+
+                toast.success(`Imported: ${filled}`, { id: toastId });
+            } else
+            {
+                toast.error(result.error ?? "Failed to parse PDF", { id: toastId });
+            }
+
+            setIsScanning(false);
+            e.target.value = "";
+        };
+        reader.readAsDataURL(file);
+    };
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
@@ -46,14 +107,35 @@ export default function NewExamForm({ categories = [] }: { categories: { id: str
         startTransition(async () => {
             try
             {
-                await createExam(data);
-                toast.success("Exam published successfully!");
-                form.reset();
+                if (isEditing)
+                {
+                    await updateExam(initialData!.id, data);
+                    toast.success("Exam updated successfully!");
+                } else
+                {
+                    await createExam(data);
+                    toast.success("Exam published successfully!");
+                    form.reset();
+                }
             } catch (error)
             {
                 toast.error("Failed to create exam.");
             }
         });
+    };
+
+    const [isDeleting, setIsDeleting] = useState(false);
+    const handleDelete = async () => {
+        if (!confirm("Delete this exam? This cannot be undone.")) return;
+        setIsDeleting(true);
+        try
+        {
+            await deleteExam(initialData!.id);
+        } catch
+        {
+            toast.error("Failed to delete exam.");
+            setIsDeleting(false);
+        }
     };
 
     return (
@@ -99,7 +181,22 @@ export default function NewExamForm({ categories = [] }: { categories: { id: str
                                     )}
                                 />
                             </div>
-
+                            <FormField control={form.control} name="categoryNumber" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="font-bold">Category Number</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="e.g. 17, PHY, CS-01"
+                                            {...field}
+                                            value={field.value ?? ""}
+                                        />
+                                    </FormControl>
+                                    <FormDescription className="text-[10px]">
+                                        Auto-filled from PDF or Google Search.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
                             <FormField
                                 control={form.control}
                                 name="description"
@@ -168,6 +265,26 @@ export default function NewExamForm({ categories = [] }: { categories: { id: str
                                     )}
                                 />
                             </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="file"
+                                id="syllabus-upload"
+                                className="hidden"
+                                accept=".pdf,image/*"
+                                onChange={handleMagicImport}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={isScanning}
+                                className="border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                                onClick={() => document.getElementById('syllabus-upload')?.click()}
+                            >
+                                {isScanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                Magic Import
+                            </Button>
                         </div>
 
                         <div className="space-y-6 pt-6 border-t">
@@ -254,9 +371,29 @@ export default function NewExamForm({ categories = [] }: { categories: { id: str
                             ))}
                         </div>
 
-                        <Button type="submit" className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all" disabled={isPending}>
-                            {isPending ? "Publishing..." : "Publish Exam Content"}
-                        </Button>
+                        <div className="flex gap-3">
+                            {isEditing && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="border-red-200 text-red-600 hover:bg-red-50"
+                                    onClick={handleDelete}
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? "Deleting..." : "Delete Exam"}
+                                </Button>
+                            )}
+                            <Button
+                                type="submit"
+                                className="flex-1 h-14 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl"
+                                disabled={isPending}
+                            >
+                                {isPending
+                                    ? (isEditing ? "Saving..." : "Publishing...")
+                                    : (isEditing ? "Save Changes" : "Publish Exam Content")
+                                }
+                            </Button>
+                        </div>
                     </form>
                 </Form>
             </div>

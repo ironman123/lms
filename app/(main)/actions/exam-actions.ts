@@ -2,123 +2,240 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-// Assuming examSchema is updated. It should look something like:
-// syllabus: z.array(z.object({ category: z.string(), topics: z.array(z.string()) }))
 import { examSchema } from "@/types/exam";
+import { redirect } from "next/navigation";
 
 export async function createExam(data: any) {
     const validated = examSchema.parse(data);
-    const slug = data.name
+
+    const slug = validated.name
         .toLowerCase()
         .replace(/\s+/g, '-')
         .replace(/[^\w\-]+/g, '');
 
-    try
+    // 1. Upsert all categories up front, build name→id map
+    const categoryNames = [...new Set(
+        (validated.syllabus ?? []).map((item: any) => item.category.trim())
+    )] as string[];
+
+    const categoryMap = new Map<string, string>();
+
+    if (categoryNames.length > 0)
     {
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Create the base Exam
-            const exam = await tx.exam.create({
-                data: {
-                    name: validated.name.trim(), // Good practice to trim the name too
-                    slug: slug,
-                    description: validated.description?.trim(),
-                    duration: validated.duration,
-                    totalMarks: validated.totalMarks,
-                    examCategoryId: validated.examCategoryId,
-                },
-            });
+        const results = await prisma.$transaction(
+            categoryNames.map(name =>
+                prisma.category.upsert({
+                    where: { name },
+                    update: {},
+                    create: { name },
+                    select: { id: true, name: true },
+                })
+            )
+        );
+        results.forEach(r => categoryMap.set(r.name, r.id));
+    }
 
-            // 2. Handle Tags (Many-to-Many)
-            if (validated.tags && validated.tags.length > 0)
-            {
-                for (const tagName of validated.tags)
-                {
-                    const safeTagName = tagName.trim(); // Sanitized input
+    // 2. Also resolve topicIds (leaf nodes) for soft-linking — optional but useful
+    //    Collect all leaf topic names per category to do one bulk fetch
+    const leafLookups: { categoryId: string; path: string }[] = [];
+    for (const item of (validated.syllabus ?? []))
+    {
+        const catId = categoryMap.get(item.category.trim())!;
+        for (const topicPath of item.topics)
+        {
+            leafLookups.push({ categoryId: catId, path: topicPath.trim() });
+        }
+    }
 
-                    const tag = await tx.tag.upsert({
-                        where: { name: safeTagName },
-                        update: {},
-                        create: { name: safeTagName },
-                    });
+    // Fetch existing leaf topics so we can attach topicId where possible
+    const leafNames = leafLookups.map(l => {
+        const parts = l.path.split('>');
+        return parts[parts.length - 1].trim();
+    });
+    const existingTopics = await prisma.topic.findMany({
+        where: {
+            name: { in: leafNames },
+            isLeaf: true,
+        },
+        select: { id: true, name: true, categoryId: true },
+    });
+    // name+categoryId → id (good enough for soft link)
+    const topicLookup = new Map(
+        existingTopics.map(t => [`${t.categoryId}|${t.name}`, t.id])
+    );
 
-                    await tx.examsTagsLink.create({
-                        data: {
-                            examId: exam.id,
-                            tagId: tag.id,
-                        },
-                    });
-                }
-            }
-
-            // 3. Handle Syllabus (Categories and Topics mapped via ExamTopic bridge)
-            if (validated.syllabus && validated.syllabus.length > 0)
-            {
-                for (const item of validated.syllabus)
-                {
-
-                    const safeCategoryName = item.category.trim(); // Sanitized input
-
-                    // A. Check if the GLOBAL Category (Subject) already exists
-                    let category = await tx.category.findFirst({
-                        where: { name: safeCategoryName },
-                    });
-
-                    // B. If it doesn't exist, create it
-                    if (!category)
-                    {
-                        category = await tx.category.create({
-                            data: { name: safeCategoryName },
-                        });
-                    }
-
-                    // C. Handle Topics under this Category
-                    if (item.topics && item.topics.length > 0)
-                    {
-                        for (const topicName of item.topics)
-                        {
-
-                            const safeTopicName = topicName.trim(); // Sanitized input
-
-                            // Check if this GLOBAL Topic already exists under this Category
-                            let topic = await tx.topic.findFirst({
-                                where: {
-                                    name: safeTopicName,
-                                    categoryId: category.id
-                                },
-                            });
-
-                            // If it doesn't exist, create it so future exams can use it
-                            if (!topic)
-                            {
-                                topic = await tx.topic.create({
-                                    data: {
-                                        name: safeTopicName,
-                                        categoryId: category.id,
-                                    },
-                                });
-                            }
-
-                            // D. Create the Bridge Record (ExamTopic)
-                            // This specifically maps the global Topic to this specific Exam
-                            await tx.examTopic.create({
-                                data: {
-                                    examId: exam.id,
-                                    topicId: topic.id,
-                                },
-                            });
-                        }
-                    }
-                }
-            }
-
-            return exam;
+    // 3. Single transaction — just create exam + entries
+    const result = await prisma.$transaction(async (tx) => {
+        const exam = await tx.exam.create({
+            data: {
+                name: validated.name.trim(),
+                slug,
+                description: validated.description?.trim(),
+                duration: validated.duration,
+                totalMarks: validated.totalMarks,
+                examCategoryId: validated.examCategoryId,
+            },
         });
 
-        revalidatePath("/library/exams");
-        return { success: true, id: result.id };
-    } catch (error)
+        // Tags
+        if (validated.tags?.length > 0)
+        {
+            const tags = await Promise.all(
+                validated.tags.map((tagName: string) =>
+                    tx.tag.upsert({
+                        where: { name: tagName.trim() },
+                        update: {},
+                        create: { name: tagName.trim() },
+                        select: { id: true },
+                    })
+                )
+            );
+            await tx.examsTagsLink.createMany({
+                data: tags.map(tag => ({ examId: exam.id, tagId: tag.id })),
+                skipDuplicates: true,
+            });
+        }
+
+        // Syllabus entries — one row per topic path, that's it
+        const syllabusRows = [];
+        for (const item of (validated.syllabus ?? []))
+        {
+            const catName = item.category.trim();
+            const catId = categoryMap.get(catName)!;
+
+            for (const topicPath of item.topics)
+            {
+                const path = topicPath.trim();
+                if (!path) continue;
+
+                const leafName = path.split('>').at(-1)!.trim();
+                const topicId = topicLookup.get(`${catId}|${leafName}`) ?? null;
+
+                syllabusRows.push({
+                    examId: exam.id,
+                    categoryId: catId,
+                    topicPath: path,
+                    topicId,
+                });
+            }
+        }
+
+        if (syllabusRows.length > 0)
+        {
+            await tx.examSyllabusEntry.createMany({
+                data: syllabusRows,
+                skipDuplicates: true,
+            });
+        }
+
+        return exam;
+    });
+
+    revalidatePath("/library/exams");
+    return { success: true, id: result.id };
+}
+
+
+export async function updateExam(id: string, data: any) {
+    const validated = examSchema.parse(data);
+
+    const slug = validated.name
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w\-]+/g, '');
+
+    // Upsert categories
+    const categoryNames = [...new Set(
+        (validated.syllabus ?? []).map((item: any) => item.category.trim())
+    )] as string[];
+
+    const categoryMap = new Map<string, string>();
+    if (categoryNames.length > 0)
     {
-        console.error("PRISMA_ERROR:", error);
-        throw new Error("Failed to create exam record.");
+        const results = await prisma.$transaction(
+            categoryNames.map(name =>
+                prisma.category.upsert({
+                    where: { name },
+                    update: {},
+                    create: { name },
+                    select: { id: true, name: true },
+                })
+            )
+        );
+        results.forEach(r => categoryMap.set(r.name, r.id));
     }
+
+    await prisma.$transaction(async (tx) => {
+        // Update exam fields
+        await tx.exam.update({
+            where: { id },
+            data: {
+                name: validated.name.trim(),
+                slug,
+                description: validated.description?.trim(),
+                duration: validated.duration,
+                totalMarks: validated.totalMarks,
+                examCategoryId: validated.examCategoryId,
+                categoryNumber: validated.categoryNumber ?? null,
+            },
+        });
+
+        // Replace tags
+        await tx.examsTagsLink.deleteMany({ where: { examId: id } });
+        if (validated.tags?.length > 0)
+        {
+            const tags = await Promise.all(
+                validated.tags.map((tagName: string) =>
+                    tx.tag.upsert({
+                        where: { name: tagName.trim() },
+                        update: {},
+                        create: { name: tagName.trim() },
+                        select: { id: true },
+                    })
+                )
+            );
+            await tx.examsTagsLink.createMany({
+                data: tags.map(tag => ({ examId: id, tagId: tag.id })),
+                skipDuplicates: true,
+            });
+        }
+
+        // Replace syllabus entries entirely
+        await tx.examSyllabusEntry.deleteMany({ where: { examId: id } });
+        const syllabusRows = [];
+        for (const item of (validated.syllabus ?? []))
+        {
+            const catId = categoryMap.get(item.category.trim())!;
+            for (const topicPath of item.topics)
+            {
+                const path = topicPath.trim();
+                if (!path) continue;
+                syllabusRows.push({ examId: id, categoryId: catId, topicPath: path });
+            }
+        }
+        if (syllabusRows.length > 0)
+        {
+            await tx.examSyllabusEntry.createMany({
+                data: syllabusRows,
+                skipDuplicates: true,
+            });
+        }
+    });
+
+    revalidatePath("/library/exams");
+    revalidatePath(`/library/exam/${slug}`);
+    return { success: true };
+}
+
+export async function deleteExam(id: string) {
+    const exam = await prisma.exam.findUnique({
+        where: { id },
+        select: { slug: true, examCategoryId: true }
+    });
+
+    await prisma.exam.delete({ where: { id } });
+
+    revalidatePath("/library/exams");
+    if (exam?.examCategoryId) revalidatePath(`/library/category/${exam.examCategoryId}`);
+    redirect("/library/exams");
 }
