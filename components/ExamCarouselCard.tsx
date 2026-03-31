@@ -66,6 +66,7 @@ const ExamCarouselCard = ({
 
     const router = useRouter();
 
+
     const Wrapper = isPreview ? "div" : Link;
     const wrapperProps = isPreview ? {} : { href: `/library/exam/${slug}` };
     return (

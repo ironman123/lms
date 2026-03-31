@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import SyllabusDropdown from "@/components/SyllabusDropdown";
 import ExamWorkspace from "@/components/ExamWorkspace";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
 
@@ -34,6 +34,8 @@ interface PageProps {
 export default async function ExamPage({ params }: PageProps) {
     const { id: slug } = await params;
     const currentExam = await getCachedExam(slug);
+    //----DUMMY----Mock for now///
+    const isAdmin = true;
 
     if (!currentExam) notFound();
 
@@ -97,16 +99,20 @@ export default async function ExamPage({ params }: PageProps) {
                         <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
                         Back to {currentExam.examCategory?.name}
                     </Link>
-                    <Link
-                        href={`/library/exam/${currentExam.id}/edit`}
-                        className="inline-flex items-center text-sm font-bold px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
-                    >
-                        Edit Exam
-                    </Link>
 
-                    <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight italic">
+                    <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight italic block">
                         {currentExam.name} <span className="text-slate-400 font-light not-italic">Workspace</span>
                     </h1>
+                    {isAdmin && (
+                        <Link
+                            href={`/library/exam/${currentExam.id}/edit`}
+                            className="inline-flex mt-3 mb-2 items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors shadow-sm"
+                        >
+                            <Pencil size={14} />
+                            Edit Exam
+                        </Link>
+                    )}
+
                     <p className="mt-2 text-slate-500 max-w-2xl leading-relaxed text-sm sm:text-base">
                         {currentExam.description}
                     </p>
