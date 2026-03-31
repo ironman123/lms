@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { examSchema } from "@/types/exam";
 import { redirect } from "next/navigation";
 
@@ -131,6 +131,7 @@ export async function createExam(data: any) {
         return exam;
     });
 
+    revalidateTag("exams");
     revalidatePath("/library/exams");
     return { success: true, id: result.id };
 }
@@ -222,6 +223,7 @@ export async function updateExam(id: string, data: any) {
         }
     });
 
+    revalidateTag("exams");
     revalidatePath("/library/exams");
     revalidatePath(`/library/exam/${slug}`);
     return { success: true };
@@ -235,6 +237,7 @@ export async function deleteExam(id: string) {
 
     await prisma.exam.delete({ where: { id } });
 
+    revalidateTag("exams");
     revalidatePath("/library/exams");
     if (exam?.examCategoryId) revalidatePath(`/library/category/${exam.examCategoryId}`);
     redirect("/library/exams");

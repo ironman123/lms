@@ -1,5 +1,6 @@
 // app/library/category/[id]/page.tsx
 
+import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import ExamCarouselCard from "@/components/ExamCarouselCard";
 import Link from "next/link";
@@ -7,6 +8,9 @@ import { ChevronLeft, Search } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
+import { deleteExam } from "@/app/(main)/actions/exam-actions";
+
+
 
 // 1. Create a dynamic cache function that includes the query in the key
 const getExamsData = (slug: string, query: string) =>
@@ -54,13 +58,17 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     const { id } = await params; // This is the slug (e.g., 'general')
     const query = (await searchParams).q || "";
 
+    // ━━━ DUMMY MOCK FOR NOW ━━━
+    const isAdmin = true;
+
     // 2. Fetch Category info and exams in parallel
     // We fetch category directly so we always have the most fresh metadata (color, description)
     const [category, exams] = await Promise.all([
         prisma.examCategory.findUnique({ where: { slug: id } }),
         getExamsData(id, query)
     ]);
-    console.log("Exams: ", exams);
+
+    // console.log("Exams: ", exams);
 
     if (!category) notFound();
 
@@ -96,39 +104,47 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
                 {exams.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 xl:gap-10 items-start">
-                        {exams.map((exam) => (
-                            <ExamCarouselCard
-                                key={exam.id}
-                                name={exam.name}
-                                slug={exam.slug}
-                                description={exam.description || ""}
-                                tags={exam.tags.map(t => t.tag.name)}
-                                categoryName={category.name}
-                                accentColor={category.color}
-                                totalMarks={exam.totalMarks}
-                                duration={exam.duration}
-                                syllabus={Object.values(
-                                    exam.syllabusEntries.reduce((acc, entry) => {
-                                        const categoryName = entry.category.name;
-                                        const leafName = entry.topicPath.split('>').at(-1)!.trim();
+                        {exams.map((exam) => {
+                            // 🔥 FIX: Bind the actions here, inside the map where `exam.id` exists
 
-                                        // If the category doesn't exist in our accumulator yet, create it
-                                        if (!acc[categoryName])
-                                        {
-                                            acc[categoryName] = {
-                                                category: categoryName,
-                                                topics: []
-                                            };
-                                        }
+                            const boundDelete = deleteExam.bind(null, exam.id);
+                            return (
+                                <ExamCarouselCard
+                                    key={exam.id}
+                                    id={exam.id}
+                                    name={exam.name}
+                                    slug={exam.slug}
+                                    description={exam.description || ""}
+                                    tags={exam.tags.map(t => t.tag.name)}
+                                    categoryName={category.name}
+                                    accentColor={category.color}
+                                    totalMarks={exam.totalMarks}
+                                    duration={exam.duration}
+                                    isAdmin={isAdmin}
+                                    onDelete={boundDelete}
+                                    syllabus={Object.values(
+                                        exam.syllabusEntries.reduce((acc, entry) => {
+                                            const categoryName = entry.category.name;
+                                            const leafName = entry.topicPath.split('>').at(-1)!.trim();
 
-                                        // Push the current topic into that category's array
-                                        acc[categoryName].topics.push(leafName);
+                                            // If the category doesn't exist in our accumulator yet, create it
+                                            if (!acc[categoryName])
+                                            {
+                                                acc[categoryName] = {
+                                                    category: categoryName,
+                                                    topics: []
+                                                };
+                                            }
 
-                                        return acc;
-                                    }, {} as Record<string, { category: string; topics: string[] }>)
-                                )}
-                            />
-                        ))}
+                                            // Push the current topic into that category's array
+                                            acc[categoryName].topics.push(leafName);
+
+                                            return acc;
+                                        }, {} as Record<string, { category: string; topics: string[] }>)
+                                    )}
+                                />
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-[2rem] text-center bg-white max-w-2xl mx-auto w-full">
