@@ -24,20 +24,22 @@ model ExamCategory {
 }
 
 model Exam {
-  id             String          @id @default(uuid())
-  name           String          @unique
-  description    String?
-  duration       Int
-  totalMarks     Int
-  color          String          @default("#0076c5")
-  examCategoryId String?
-  createdAt      DateTime        @default(now())
-  slug           String          @unique
+  id              String              @id @default(uuid())
+  name            String              @unique
+  description     String?
+  duration        Int
+  categoryNumber  String?             @unique
+  totalMarks      Int
+  color           String              @default("#0076c5")
+  examCategoryId  String?
+  createdAt       DateTime            @default(now())
+  slug            String              @unique
   //categories     Category[]
-  examCategory   ExamCategory?   @relation(fields: [examCategoryId], references: [id])
-  tags           ExamsTagsLink[]
-  questionPapers QuestionPaper[]
-  examTopics     ExamTopic[]
+  examCategory    ExamCategory?       @relation(fields: [examCategoryId], references: [id])
+  tags            ExamsTagsLink[]
+  questionPapers  QuestionPaper[]
+  //examTopics     ExamTopic[]
+  syllabusEntries ExamSyllabusEntry[]
 }
 
 model Tag {
@@ -61,37 +63,69 @@ model ExamsTagsLink {
 }
 
 model Category {
-  id        String   @id @default(uuid())
-  name      String   @unique
+  id                  String              @id @default(uuid())
+  name                String              @unique
   //examId    String
   //exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  topics    Topic[]
+  createdAt           DateTime            @default(now())
+  topics              Topic[]
+  examSyllabusEntries ExamSyllabusEntry[]
 }
 
 model Topic {
-  id             String         @id @default(uuid())
-  name           String
-  categoryId     String
-  parentId       String?
-  createdAt      DateTime       @default(now())
-  questions      Question[]
-  category       Category       @relation(fields: [categoryId], references: [id])
-  parent         Topic?         @relation("SubTopics", fields: [parentId], references: [id])
-  children       Topic[]        @relation("SubTopics")
-  topicMasteries TopicMastery[]
-  examTopics     ExamTopic[]
+  id         String   @id @default(uuid())
+  name       String
+  categoryId String
+  parentId   String?
+  createdAt  DateTime @default(now())
+
+  level     Int     @default(0) // 0 = Chapter, 1 = Topic, 2 = Sub-topic
+  isLeaf    Boolean @default(true) // Quick check: Can I attach a question here?
+  weightage String? // To store things like "12 marks" from your PDF
+  slug      String?
+
+  questions       Question[]
+  category        Category            @relation(fields: [categoryId], references: [id])
+  parent          Topic?              @relation("SubTopics", fields: [parentId], references: [id])
+  children        Topic[]             @relation("SubTopics")
+  topicMasteries  TopicMastery[]
+  //examTopics     ExamTopic[]
+  syllabusEntries ExamSyllabusEntry[]
+
+  // This prevents two "Moment of Inertia" topics under the same parent
+  @@unique([name, parentId])
+  // This allows you to find top-level chapters by name + category
+  @@unique([name, categoryId])
+  // Index for faster tree traversal
+  @@index([parentId])
 }
 
-model ExamTopic {
-  id        String   @id @default(uuid())
-  examId    String
-  topicId   String
-  createdAt DateTime @default(now())
-  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+// model ExamTopic {
+//   id        String   @id @default(uuid())
+//   examId    String
+//   topicId   String
+//   createdAt DateTime @default(now())
+//   exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+//   topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
-  @@unique([examId, topicId])
+//   @@unique([examId, topicId])
+// }
+
+model ExamSyllabusEntry {
+  id         String   @id @default(uuid())
+  examId     String
+  categoryId String
+  topicPath  String // "Mechanics > Rotational Motion > Moment of Inertia"
+  topicId    String? // soft FK to canonical Topic leaf node
+  weightage  String?
+  createdAt  DateTime @default(now())
+
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+  topic    Topic?   @relation(fields: [topicId], references: [id])
+
+  @@unique([examId, topicPath])
+  @@index([examId, categoryId])
 }
 
 model QuestionPaper {
