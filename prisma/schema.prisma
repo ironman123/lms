@@ -132,10 +132,10 @@ model QuestionPaper {
   id           String        @id @default(uuid())
   title        String
   year         Int?
-  examId       String
+  examId       String?
   createdAt    DateTime      @default(now())
   questions    Question[]
-  exam         Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  exam         Exam?         @relation(fields: [examId], references: [id], onDelete: Cascade)
   testSessions TestSession[]
 
   @@unique([examId, title])
@@ -154,13 +154,14 @@ model Question {
   discriminationIdx Float?
   avgTimeSeconds    Int                    @default(60)
   embedding         Unsupported("vector")?
-  topicId           String
+  topicId           String?
+  topicPath         String?
   paperId           String?
   correctAnswer     String?
   createdAt         DateTime               @default(now())
   options           Option[]
   paper             QuestionPaper?         @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  topic             Topic                  @relation(fields: [topicId], references: [id])
+  topic             Topic?                 @relation(fields: [topicId], references: [id])
   interactions      QuestionInteraction[]
 }
 
