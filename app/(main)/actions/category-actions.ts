@@ -34,7 +34,7 @@ export async function createCategory(values: CategoryFormValues) {
     }
 
     // 3. Refresh & Redirect
-    revalidateTag("examCategories", "layout");
+    revalidateTag("examCategories");
     revalidatePath("/library/category");
     redirect("/library/category");
 }
