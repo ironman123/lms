@@ -3,31 +3,41 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
+import { paperSchema } from "@/types/paper";
 
 // Zod Schema
-const paperSchema = z.object({
-    title: z.string().min(3, "Title is required"),
-    year: z.coerce.number().nullable().optional(), // If null = Mock, If number = PYQ
-    examId: z.string().min(1, "Exam ID is required"),
-});
+// const paperSchema = z.object({
+//     title: z.string().min(3, "Title is required"),
+//     year: z.coerce.number().nullable().optional(), // If null = Mock, If number = PYQ
+//     examId: z.string().nullable().optional(),
+//     //examId: z.string().min(1, "Exam ID is required"),
+// });
 
 export async function createQuestionPaper(data: any, examSlug: string) {
-    const validated = paperSchema.parse(data);
+    try
+    {
+        const validated = paperSchema.parse(data);
 
-    const paper = await prisma.questionPaper.create({
-        data: {
-            title: validated.title,
-            year: validated.year || null,
-            examId: validated.examId,
-        }
-    });
+        const paper = await prisma.questionPaper.create({
+            data: {
+                title: validated.title,
+                year: validated.year || null,
+                examId: validated.examId ?? null,
+            }
+        });
 
-    revalidateTag("exams");
-    revalidatePath(`/library/exam/${examSlug}`);
+        revalidateTag("exams");
+        revalidatePath(`/library/exam/${examSlug}`);
 
-    // Redirect straight to the builder so they can start adding questions
-    redirect(`/library/exam/${examSlug}/paper/${paper.id}`);
+        // Return the ID so the client can redirect us
+        return { success: true, id: paper.id };
+
+    } catch (error: any)
+    {
+        // 🔥 THIS WILL PRINT THE EXACT CAUSE OF THE 500 ERROR IN YOUR TERMINAL
+        console.error("❌ CREATE PAPER ERROR:", error);
+        throw new Error(error.message || "Failed to create paper in database");
+    }
 }
 
 export async function updateQuestionPaper(paperId: string, data: any, examSlug: string) {
@@ -56,4 +66,18 @@ export async function deleteQuestionPaper(paperId: string, examSlug: string) {
     revalidateTag("exams");
     revalidatePath(`/library/exam/${examSlug}`);
     return { success: true };
+}
+
+export async function getExamSyllabusEntries(examId: string) {
+    return prisma.examSyllabusEntry.findMany({
+        where: { examId },
+        select: {
+            id: true,
+            topicPath: true,
+            categoryId: true,
+            category: { select: { name: true } },
+            topicId: true,
+        },
+        orderBy: { topicPath: "asc" },
+    });
 }
