@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import {
     Sparkles, Loader2, Plus, CheckCircle2,
     FileText, BookOpen, AlertCircle, Save
@@ -9,7 +9,7 @@ import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-pap
 import { createQuestionPaper } from "@/app/(main)/actions/paper-actions";
 import { toast } from "sonner";
 
-import QuestionCard from "./QuestionCard";
+import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
 
 // ── Shared Types (Exported so QuestionCard can use them) ──────────────
 
@@ -101,12 +101,82 @@ function parsedToQuestion(pq: ParsedQuestion, index: number): Question {
         negativeMarks: 0,
         options,
         correctAnswer: pq.correctAnswer,
-        explanation: null,
+        explanation: pq.explanation ?? null,
         topicId: "",
         topicPath: "",
         categoryId: "",
         saved: false,
     };
+}
+
+// ── Bento Grid ────────────────────────────────────────────────────
+
+function QuestionGrid({
+    questions,
+    onScrollTo,
+    onSaveAll,
+}: {
+    questions: Question[];
+    onScrollTo: (index: number) => void;
+    onSaveAll: () => void;
+}) {
+    const savedCount = questions.filter(q => q.saved).length;
+    const unsavedCount = questions.length - savedCount;
+
+    return (
+        <div className="sticky top-0 z-10 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                    Questions · {questions.length}
+                </span>
+                {unsavedCount > 0 && (
+                    <button
+                        type="button"
+                        onClick={onSaveAll}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors"
+                    >
+                        <Save size={12} /> Save all unsaved ({unsavedCount})
+                    </button>
+                )}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+                {questions.map((q, i) => (
+                    <button
+                        key={i}
+                        type="button"
+                        onClick={() => onScrollTo(i)}
+                        title={q.content.slice(0, 60)}
+                        className={`w-9 h-9 rounded-lg text-[11px] font-bold transition-transform hover:scale-110 active:scale-95 border ${q.saved
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-red-50 text-red-600 border-red-200"
+                            }`}
+                    >
+                        {String(q.number).padStart(2, "0")}
+                    </button>
+                ))}
+            </div>
+
+            {questions.length > 0 && (
+                <>
+                    <div className="flex gap-4 mt-3">
+                        <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-sm bg-green-400 inline-block" /> Saved
+                        </span>
+                        <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-sm bg-red-400 inline-block" /> Unsaved
+                        </span>
+                    </div>
+                    <div className="mt-2.5 h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-green-400 rounded-full transition-all duration-500"
+                            style={{ width: `${questions.length ? (savedCount / questions.length) * 100 : 0}%` }}
+                        />
+                    </div>
+                </>
+            )}
+        </div>
+    );
 }
 
 // ── Main Component ────────────────────────────────────────────────────
@@ -129,6 +199,77 @@ export default function PaperBuilder({
 
     const savedCount = questions.filter(q => q.saved).length;
     const totalCount = questions.length;
+
+
+    const cardRefs = useRef<(QuestionCardHandle | null)[]>([]);
+    const [isSavingAll, setIsSavingAll] = useState(false);
+
+    // 2. Add your handleSaveAll function
+    const handleSaveAll = async () => {
+        setIsSavingAll(true);
+        let failedCount = 0;
+        let firstFailedIndex: number | null = null;
+
+        try
+        {
+            // 1. Get only the unsaved questions
+            const unsaved = questions
+                .map((q, i) => ({ q, i }))
+                .filter(({ q }) => !q.saved);
+
+            if (unsaved.length === 0) return;
+
+            // 2. Loop through them and try to save each one independently
+            for (const { i } of unsaved)
+            {
+                try
+                {
+                    // This triggers handleSave inside the specific QuestionCard
+                    await cardRefs.current[i]?.save();
+                } catch (error)
+                {
+                    // If this specific card fails, count it and remember its index, 
+                    // but DO NOT break the loop! Keep saving the others.
+                    failedCount++;
+                    if (firstFailedIndex === null)
+                    {
+                        firstFailedIndex = i;
+                    }
+                }
+            }
+
+            // 3. Report the results
+            if (failedCount > 0)
+            {
+                toast.error(`${failedCount} question(s) couldn't be saved. Check them manually.`);
+
+                // Scroll the user to the first broken card so they don't have to hunt for it
+                if (firstFailedIndex !== null && scrollRefs.current)
+                {
+                    scrollRefs.current[firstFailedIndex]?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center"
+                    });
+                }
+            } else
+            {
+                toast.success("All questions saved successfully!");
+            }
+
+        } catch (error)
+        {
+            console.error("Unexpected error during save all:", error);
+        } finally
+        {
+            setIsSavingAll(false);
+        }
+    };
+
+    const scrollRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+    const scrollToQuestion = (index: number) => {
+        scrollRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
 
     const handleMagicImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -157,6 +298,7 @@ export default function PaperBuilder({
                 {
                     const parsed = d.questions.map((pq, i) => parsedToQuestion(pq, i));
                     setQuestions(parsed);
+                    console.log("QUESTIONS: ", parsed);
                     toast.success(
                         `Imported: "${d.title ?? "paper"}" · ${d.questions.length} questions extracted`,
                         { id: toastId }
@@ -315,9 +457,17 @@ export default function PaperBuilder({
                                 </span>
                             )}
                         </div>
-
+                        {questions.length > 0 && (
+                            <QuestionGrid
+                                questions={questions}
+                                onScrollTo={scrollToQuestion}
+                                onSaveAll={handleSaveAll}
+                            />
+                        )}
                         {questions.map((q, i) => (
                             <QuestionCard
+                                ref={el => { cardRefs.current[i] = el; }}
+                                wrapperRef={el => { scrollRefs.current[i] = el; }}
                                 key={i}
                                 q={q}
                                 index={i}
