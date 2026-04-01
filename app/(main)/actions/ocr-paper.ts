@@ -14,6 +14,7 @@ export interface ParsedQuestion {
     content: string;
     options: ParsedOption[];
     correctAnswer: string | null;
+    explanation: string | null;
     type: "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE";
 }
 
@@ -74,8 +75,12 @@ export async function parsePaperPDF(
 
     try
     {
-        // We use gemini-1.5-flash as it is fast and supports PDF natively
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            generationConfig: {
+                responseMimeType: "application/json",
+            }
+        });
 
         const result = await generateWithRetry(model, [
             {
@@ -87,8 +92,8 @@ export async function parsePaperPDF(
             { text: buildExtractionPrompt() }
         ]);
 
-        const raw = result.response.text().replace(/```json|```/g, "").trim();
-        console.log(`[OCR] Response length: ${raw.length} chars`);
+        const raw = result.response.text();
+        console.log(`[OCR] Response length: ${raw.length} chars`, raw);
 
         return parseResponse(raw);
     } catch (err: any)
@@ -115,6 +120,8 @@ EXTRACTION RULES:
    - Set questions to [] and put answers in answerKey object
 6. Preserve exact language — do not translate Malayalam or any other language
 7. correctAnswer may appear as: bold text, "(A)", "Ans: B", at end of paper, or in a key table
+8. For explanation: write 1-2 sentences explaining WHY the correct answer is correct. 
+   - Only include if you are confident. Set to null if unsure or if it's a pure recall fact.
 
 OUTPUT — valid JSON only, no markdown fences, no explanation:
 {
@@ -132,6 +139,7 @@ OUTPUT — valid JSON only, no markdown fences, no explanation:
         { "label": "D", "text": "Thrissur" }
       ],
       "correctAnswer": "B",
+      "explanation": "Give a reasonable but brief explaination for the correct Answer",
       "type": "MCQ"
     }
   ],
@@ -173,6 +181,7 @@ function parseResponse(
             text: (o.text ?? "").trim(),
         })).filter((o: any) => o.label && o.text),
         correctAnswer: q.correctAnswer ?? answerKey[String(q.number)] ?? null,
+        explanation: q.explanation ?? null,
         type: q.type ?? "MCQ",
     })).filter((q: any) => q.content);
 
