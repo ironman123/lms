@@ -1,43 +1,65 @@
+import PaperBuilder from "@/components/PaperBuilder";
+import prisma from "@/lib/prisma";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import PaperForm from "@/components/PaperForm"; // You will build this
+import { notFound } from "next/navigation";
 
 interface PageProps {
-    params: Promise<{ id: string }>; // This is the exam slug
-    searchParams: Promise<{ examId?: string }>;
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ examId?: string }>; // Add searchParams to the interface
 }
 
 export default async function NewPaperPage({ params, searchParams }: PageProps) {
+    // 1. Extract the slug from the URL path (e.g., /library/exam/temp-1)
     const { id: examSlug } = await params;
+
+    // 2. Extract the examId from the query string (e.g., ?examId=...)
     const { examId } = await searchParams;
 
-    if (!examId) return <div>Missing Exam ID</div>;
+    // 3. Query the database using the SLUG, not the ID!
+    // const exam = await prisma.exam.findUnique({
+    //     where: { slug: examSlug },
+    //     select: { id: true, name: true, slug: true }
+    // });
+
+    const [exam, syllabusEntries] = await Promise.all([
+        prisma.exam.findUnique({
+            where: { slug: examSlug },
+            select: { id: true, name: true, slug: true }
+        }),
+        prisma.examSyllabusEntry.findMany({
+            where: { exam: { slug: examSlug } },
+            select: {
+                id: true,
+                topicPath: true,
+                categoryId: true,
+                category: { select: { name: true } },
+                topicId: true,
+            },
+            orderBy: { topicPath: "asc" },
+        }),
+    ]);
+
+    if (!exam) notFound();
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12">
-            <div className="max-w-2xl mx-auto px-4">
+        <div className="min-h-screen bg-[#F8F7F4]">
+            <div className="max-w-3xl mx-auto px-4 pt-8">
                 <Link
-                    href={`/library/exam/${examSlug}`}
-                    className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-8 transition-colors"
+                    href={`/library/exam/${exam.slug}`}
+                    className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mb-6 group"
                 >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    Back to Workspace
+                    <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
+                    Back to {exam.name}
                 </Link>
-
-                <div className="mb-8">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                        Create <span className="text-slate-400 font-light">Question Paper</span>
-                    </h1>
-                    <p className="text-slate-500 mt-2">
-                        Set up the container for your questions. Leave the year blank if this is a Mock test.
-                    </p>
-                </div>
-
-                <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-                    {/* Pass the IDs down to your Client Component form */}
-                    <PaperForm examId={examId} examSlug={examSlug} />
-                </div>
             </div>
+
+            {/* Use the validated data from the database query to feed your builder */}
+            <PaperBuilder
+                examId={exam.id}
+                examSlug={exam.slug}
+                syllabusEntries={syllabusEntries}
+            />
         </div>
     );
 }
