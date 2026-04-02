@@ -284,6 +284,7 @@ export default function PaperBuilder({
     const [year, setYear] = useState<number | "">(initialPaper?.year ?? "");
     const [questions, setQuestions] = useState<Question[]>(initialQuestions);
     const [paperId, setPaperId] = useState<string | null>(initialPaper?.id ?? null);
+    const paperIdRef = useRef<string | null>(initialPaper?.id ?? null);
     //const [paperSaved, setPaperSaved] = useState(!!initialPaper);
     const [paperSaved, setPaperSaved] = useState(false);
 
@@ -304,6 +305,11 @@ export default function PaperBuilder({
 
     const scrollToQuestion = (index: number) => {
         scrollRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+
+    const updatePaperId = (id: string) => {
+        paperIdRef.current = id;
+        setPaperId(id);
     };
 
     const handleSaveAll = async () => {
@@ -417,10 +423,12 @@ export default function PaperBuilder({
         startSavingPaper(async () => {
             try
             {
-                if (initialPaper)
+                const existingId = initialPaper?.id ?? paperIdRef.current;
+
+                if (existingId)
                 {
                     // Update existing paper
-                    await updateQuestionPaper(initialPaper.id, {
+                    await updateQuestionPaper(existingId, {
                         title: title.trim(),
                         year: year || null,
                         examIds: selectedExamIds,
@@ -435,7 +443,9 @@ export default function PaperBuilder({
                         year: year || null,
                         examIds: selectedExamIds,
                     }, examSlug);
-                    setPaperId(result.id);
+
+                    const newPaperId = result.id;
+                    updatePaperId(newPaperId);
                     setPaperSaved(true);
                     toast.success("Paper created — now save your questions");
                 }
@@ -539,21 +549,18 @@ export default function PaperBuilder({
                         >
                             {isSavingPaper ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                             {isSavingPaper
-                                ? (initialPaper ? "Saving..." : "Creating...")
-                                : (initialPaper ? "Save Changes" : "Create Paper")
+                                ? (paperId ? "Saving..." : "Creating...")
+                                : (paperId ? "Save Changes" : "Create Paper")
                             }
                         </button>
                         {paperSaved && (
                             <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
                                 <CheckCircle2 size={14} />
-                                {initialPaper ? "Changes saved" : "Paper created — add questions below"}
+                                {paperId && !initialPaper ? "Paper created — add questions below" : "Changes saved"}
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-emerald-600 font-bold">
-                        <CheckCircle2 size={16} />
-                        Paper created — questions will be saved to it
-                    </div>
+
                 </div>
 
                 {/* ── Not-saved-paper warning ── */}
@@ -591,7 +598,7 @@ export default function PaperBuilder({
                                 key={i}
                                 q={q}
                                 index={i}
-                                paperId={paperId}
+                                paperId={paperIdRef.current}
                                 examSlug={examSlug}
                                 syllabusEntries={syllabusEntries}
                                 onUpdate={updated => updateQuestion_(i, updated)}

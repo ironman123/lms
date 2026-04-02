@@ -6,8 +6,6 @@ import { defineConfig, } from "prisma/config";
 
 const databaseUrl = process.env.DATABASE_URL;
 
-console.log("##########", databaseUrl);
-
 if (!databaseUrl)
 {
   throw new Error("CRITICAL: DATABASE_URL is not defined in your environment variables.");

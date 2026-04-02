@@ -64,21 +64,31 @@ export async function createQuestionPaper(data: any, examSlug: string) {
 }
 
 export async function updateQuestionPaper(paperId: string, data: any, examSlug: string) {
+    if (!paperId)
+    {
+        throw new Error("Paper ID is required for update");
+    }
     const validated = paperSchema.parse(data);
 
     await prisma.$transaction([
-        // Update paper metadata
         prisma.questionPaper.update({
             where: { id: paperId },
             data: {
                 title: validated.title,
-                year: validated.year || null,
-            },
+                year: validated.year ?? null,
+            }
         }),
-        // Replace exam links — delete old, insert new
-        prisma.examQuestionPaperLink.deleteMany({ where: { paperId } }),
-        ...validated.examIds.map(examId =>
-            prisma.examQuestionPaperLink.create({ data: { paperId, examId } })
+        // Delete existing exam links
+        prisma.examQuestionPaperLink.deleteMany({
+            where: { paperId }
+        }),
+        // Re-create exam links
+        ...(validated.examIds?.length > 0
+            ? [prisma.examQuestionPaperLink.createMany({
+                data: validated.examIds.map((examId: string) => ({ examId, paperId })),
+                skipDuplicates: true,
+            })]
+            : []
         ),
     ]);
 
