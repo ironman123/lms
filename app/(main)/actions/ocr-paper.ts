@@ -93,6 +93,8 @@ export async function parsePaperPDF(
         ]);
 
         const raw = result.response.text();
+        console.log(`[OCR] Response length: ${raw.length} chars`);
+        console.log(`[OCR] RAW RESPONSE:`, raw.slice(0, 2000));
         console.log(`[OCR] Response length: ${raw.length} chars`, raw);
 
         return parseResponse(raw);
@@ -139,7 +141,7 @@ OUTPUT — valid JSON only, no markdown fences, no explanation:
         { "label": "D", "text": "Thrissur" }
       ],
       "correctAnswer": "B",
-      "explanation": "Give a reasonable but brief explaination for the correct Answer",
+      "explanation": "Thiruvananthapuram is the capital and largest city of Kerala, serving as the seat of the state government.",
       "type": "MCQ"
     }
   ],

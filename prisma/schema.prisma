@@ -24,22 +24,23 @@ model ExamCategory {
 }
 
 model Exam {
-  id              String              @id @default(uuid())
-  name            String              @unique
-  description     String?
-  duration        Int
-  categoryNumber  String?             @unique
-  totalMarks      Int
-  color           String              @default("#0076c5")
-  examCategoryId  String?
-  createdAt       DateTime            @default(now())
-  slug            String              @unique
+  id                     String                  @id @default(uuid())
+  name                   String                  @unique
+  description            String?
+  duration               Int
+  categoryNumber         String?                 @unique
+  totalMarks             Int
+  color                  String                  @default("#0076c5")
+  examCategoryId         String?
+  createdAt              DateTime                @default(now())
+  slug                   String                  @unique
   //categories     Category[]
-  examCategory    ExamCategory?       @relation(fields: [examCategoryId], references: [id])
-  tags            ExamsTagsLink[]
-  questionPapers  QuestionPaper[]
+  examCategory           ExamCategory?           @relation(fields: [examCategoryId], references: [id])
+  tags                   ExamsTagsLink[]
+  //questionPapers         QuestionPaper[]
   //examTopics     ExamTopic[]
-  syllabusEntries ExamSyllabusEntry[]
+  syllabusEntries        ExamSyllabusEntry[]
+  examQuestionPaperLinks ExamQuestionPaperLink[]
 }
 
 model Tag {
@@ -128,17 +129,33 @@ model ExamSyllabusEntry {
   @@index([examId, categoryId])
 }
 
-model QuestionPaper {
-  id           String        @id @default(uuid())
-  title        String
-  year         Int?
-  examId       String?
-  createdAt    DateTime      @default(now())
-  questions    Question[]
-  exam         Exam?         @relation(fields: [examId], references: [id], onDelete: Cascade)
-  testSessions TestSession[]
+model ExamQuestionPaperLink {
+  id        String   @id @default(uuid())
+  examId    String
+  paperId   String
+  createdAt DateTime @default(now())
 
-  @@unique([examId, title])
+  exam  Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  paper QuestionPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, paperId])
+  @@index([examId])
+  @@index([paperId])
+}
+
+model QuestionPaper {
+  id        String     @id @default(uuid())
+  title     String
+  year      Int?
+  createdAt DateTime   @default(now())
+  questions Question[]
+  //exam      Exam?      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  //examId    String?
+
+  testSessions           TestSession[]
+  examQuestionPaperLinks ExamQuestionPaperLink[]
+
+  //@@unique([examId, title])
 }
 
 model Question {

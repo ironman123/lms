@@ -13,6 +13,24 @@ import { paperSchema } from "@/types/paper";
 //     //examId: z.string().min(1, "Exam ID is required"),
 // });
 
+// Link
+export async function linkPaperToExam(paperId: string, examId: string) {
+    await prisma.examQuestionPaperLink.upsert({
+        where: { examId_paperId: { examId, paperId } },
+        update: {},
+        create: { examId, paperId },
+    });
+    revalidatePath(`/library/exam/${examId}`);
+}
+
+// Unlink
+export async function unlinkPaperFromExam(paperId: string, examId: string) {
+    await prisma.examQuestionPaperLink.delete({
+        where: { examId_paperId: { examId, paperId } },
+    });
+    revalidatePath(`/library/exam/${examId}`);
+}
+
 export async function createQuestionPaper(data: any, examSlug: string) {
     try
     {
@@ -22,15 +40,20 @@ export async function createQuestionPaper(data: any, examSlug: string) {
             data: {
                 title: validated.title,
                 year: validated.year || null,
-                examId: validated.examId ?? null,
+                ...(data.examIds && data.examIds.length > 0 && {
+                    examQuestionPaperLinks: {
+                        create: data.examIds.map((id: string) => ({ examId: id }))
+                    }
+                })
             }
         });
 
         revalidateTag("exams");
-        revalidatePath(`/library/exam/${examSlug}`);
+        if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
+        //revalidatePath(`/library/exam/${examSlug}`);
 
         // Return the ID so the client can redirect us
-        return { success: true, id: paper.id };
+        return { success: true, id: paper.id, title: paper.title, year: paper.year };
 
     } catch (error: any)
     {

@@ -17,8 +17,13 @@ const getCachedExam = unstable_cache(
                     include: { category: true },
                     //orderBy: { topicPath: 'asc' },
                 },
-                questionPapers: {
-                    orderBy: { createdAt: 'desc' }
+                examQuestionPaperLinks: {
+                    include: {
+                        paper: true // This grabs the actual QuestionPaper data!
+                    },
+                    orderBy: {
+                        createdAt: "desc"
+                    }
                 }
             }
         });
@@ -34,6 +39,7 @@ interface PageProps {
 export default async function ExamPage({ params }: PageProps) {
     const { id: slug } = await params;
     const currentExam = await getCachedExam(slug);
+
     //----DUMMY----Mock for now///
     const isAdmin = true;
 
@@ -59,17 +65,21 @@ export default async function ExamPage({ params }: PageProps) {
         }, {} as Record<string, { category: string; topics: string[] }>)
     );
 
-    const pyqCount = currentExam.questionPapers.filter(p => p.year !== null).length;
-    const mockCount = currentExam.questionPapers.filter(p => p.year === null).length;
+    // 🔥 FIX: Extract the papers array from the link table!
+    const questionPapers = currentExam.examQuestionPaperLinks.map(link => link.paper);
+
+    // Now use `questionPapers` for all your math and filtering:
+    const pyqCount = questionPapers.filter(p => p.year !== null).length;
+    const mockCount = questionPapers.filter(p => p.year === null).length;
 
     const dbTabs = [
-        { id: "all", label: "All Papers", count: currentExam.questionPapers.length },
+        { id: "all", label: "All Papers", count: questionPapers.length },
         { id: "pyq", label: "PYQs", count: pyqCount },
         { id: "mock", label: "Mocks", count: mockCount },
         { id: "notes", label: "Notes", count: 0 },
     ];
 
-    const fetchedPapers = currentExam.questionPapers.map(paper => ({
+    const fetchedPapers = questionPapers.map(paper => ({
         id: paper.id,
         title: paper.title,
         type: paper.year ? "PYQ" : "Mock",

@@ -7,7 +7,7 @@ export const paperSchema = z.object({
         .min(1990)
         .max(new Date().getFullYear())
         .optional(),
-    examId: z.string().nullable().optional()
+    examIds: z.array(z.string()).optional(),
 });
 
 export type PaperFormValues = z.infer<typeof paperSchema>;

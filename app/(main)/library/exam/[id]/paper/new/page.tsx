@@ -16,6 +16,11 @@ export default async function NewPaperPage({ params, searchParams }: PageProps) 
     // 2. Extract the examId from the query string (e.g., ?examId=...)
     const { examId } = await searchParams;
 
+    const allExams = await prisma.exam.findMany({
+        select: { id: true, name: true },
+        orderBy: { createdAt: 'desc' }
+    });
+
     // 3. Query the database using the SLUG, not the ID!
     // const exam = await prisma.exam.findUnique({
     //     where: { slug: examSlug },
@@ -43,7 +48,7 @@ export default async function NewPaperPage({ params, searchParams }: PageProps) 
     if (!exam) notFound();
 
     return (
-        <div className="min-h-screen bg-[#F8F7F4]">
+        <div className="min-h-screen bg-[#F8F7F4]" >
             <div className="max-w-3xl mx-auto px-4 pt-8">
                 <Link
                     href={`/library/exam/${exam.slug}`}
@@ -59,7 +64,8 @@ export default async function NewPaperPage({ params, searchParams }: PageProps) 
                 examId={exam.id}
                 examSlug={exam.slug}
                 syllabusEntries={syllabusEntries}
+                exams={allExams}
             />
-        </div>
+        </div >
     );
 }

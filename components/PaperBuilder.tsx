@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import {
     Sparkles, Loader2, Plus, CheckCircle2,
-    FileText, BookOpen, AlertCircle, Save
+    FileText, BookOpen, AlertCircle, Save, Search, X
 } from "lucide-react";
 import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-paper";
 import { createQuestionPaper } from "@/app/(main)/actions/paper-actions";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
 
-// ── Shared Types (Exported so QuestionCard can use them) ──────────────
+// ── Shared Types ──────────────────────────────────────────────────────────────
 
 export interface Option {
     label: string;
@@ -49,6 +49,7 @@ export interface PaperBuilderProps {
     examSlug?: string;
     categories?: { id: string; name: string }[];
     syllabusEntries?: SyllabusEntry[];
+    exams?: { id: string; name: string }[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -109,6 +110,90 @@ function parsedToQuestion(pq: ParsedQuestion, index: number): Question {
     };
 }
 
+// ── Exam Picker (Fixed Multi-Select) ───────────────────────────────────────────
+
+function ExamPicker({
+    exams, value, onChange,
+}: {
+    exams: { id: string; name: string }[];
+    value: string[];
+    onChange: (examIds: string[]) => void;
+}) {
+    const [query, setQuery] = useState("");
+
+    const availableExams = exams.filter(e =>
+        !value.includes(e.id) &&
+        e.name.toLowerCase().includes(query.toLowerCase())
+    );
+
+    const selectedExams = exams.filter(e => value.includes(e.id));
+
+    const toggleExam = (id: string) => {
+        if (value.includes(id))
+        {
+            onChange(value.filter(v => v !== id)); // Remove
+        } else
+        {
+            onChange([...value, id]); // Add
+        }
+        setQuery(""); // Reset search after picking
+    };
+
+    return (
+        <div className="relative space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                Assign to Exams <span className="font-normal normal-case">— optional</span>
+            </label>
+
+            {selectedExams.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedExams.map(exam => (
+                        <div key={exam.id} className="flex items-center gap-1 pl-2 pr-1 py-1 bg-purple-50 border border-purple-200 rounded-md">
+                            <p className="text-[10px] font-bold text-purple-800">{exam.name}</p>
+                            <button
+                                type="button"
+                                onClick={() => toggleExam(exam.id)}
+                                className="text-purple-400 hover:text-purple-700 hover:bg-purple-100 rounded-sm p-0.5"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div className="border border-slate-200 rounded-lg bg-white overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
+                    <Search size={12} className="text-slate-400 shrink-0" />
+                    <input
+                        type="text"
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="Search exams to add..."
+                        className="flex-1 text-sm outline-none text-slate-700 placeholder:text-slate-300"
+                    />
+                </div>
+                <div className="max-h-32 overflow-y-auto divide-y divide-slate-50">
+                    {availableExams.length === 0 ? (
+                        <p className="text-xs text-slate-400 px-3 py-3 text-center">No more exams found</p>
+                    ) : (
+                        availableExams.map(e => (
+                            <button
+                                key={e.id}
+                                type="button"
+                                onClick={() => toggleExam(e.id)}
+                                className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors"
+                            >
+                                <p className="text-xs font-medium text-slate-700">{e.name}</p>
+                            </button>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Bento Grid ────────────────────────────────────────────────────
 
 function QuestionGrid({
@@ -140,7 +225,7 @@ function QuestionGrid({
                 )}
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 max-h-[90px] overflow-y-auto">
                 {questions.map((q, i) => (
                     <button
                         key={i}
@@ -185,7 +270,8 @@ export default function PaperBuilder({
     examId,
     examSlug = "",
     categories = [],
-    syllabusEntries = []
+    syllabusEntries = [],
+    exams = []
 }: PaperBuilderProps) {
 
     const [title, setTitle] = useState("");
@@ -193,6 +279,9 @@ export default function PaperBuilder({
     const [questions, setQuestions] = useState<Question[]>([]);
     const [paperId, setPaperId] = useState<string | null>(null);
     const [paperSaved, setPaperSaved] = useState(false);
+
+    // 🔥 Added the state for our new Multi-Select ExamPicker!
+    const [selectedExamIds, setSelectedExamIds] = useState<string[]>(examId ? [examId] : []);
 
     const [isScanning, setIsScanning] = useState(false);
     const [isSavingPaper, startSavingPaper] = useTransition();
@@ -202,9 +291,13 @@ export default function PaperBuilder({
 
 
     const cardRefs = useRef<(QuestionCardHandle | null)[]>([]);
+    const scrollRefs = useRef<(HTMLDivElement | null)[]>([]);
     const [isSavingAll, setIsSavingAll] = useState(false);
 
-    // 2. Add your handleSaveAll function
+    const scrollToQuestion = (index: number) => {
+        scrollRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+
     const handleSaveAll = async () => {
         setIsSavingAll(true);
         let failedCount = 0;
@@ -212,48 +305,42 @@ export default function PaperBuilder({
 
         try
         {
-            // 1. Get only the unsaved questions
             const unsaved = questions
                 .map((q, i) => ({ q, i }))
                 .filter(({ q }) => !q.saved);
 
             if (unsaved.length === 0) return;
 
-            // 2. Loop through them and try to save each one independently
-            for (const { i } of unsaved)
+            const CHUNK_SIZE = 15;
+            for (let c = 0; c < unsaved.length; c += CHUNK_SIZE)
             {
-                try
-                {
-                    // This triggers handleSave inside the specific QuestionCard
-                    await cardRefs.current[i]?.save();
-                } catch (error)
-                {
-                    // If this specific card fails, count it and remember its index, 
-                    // but DO NOT break the loop! Keep saving the others.
-                    failedCount++;
-                    if (firstFailedIndex === null)
+                const chunk = unsaved.slice(c, c + CHUNK_SIZE);
+                const results = await Promise.allSettled(
+                    chunk.map(({ i }) => cardRefs.current[i]?.save() ?? Promise.resolve())
+                );
+
+                results.forEach((result, ri) => {
+                    if (result.status === "rejected")
                     {
-                        firstFailedIndex = i;
+                        failedCount++;
+                        if (firstFailedIndex === null)
+                        {
+                            firstFailedIndex = chunk[ri].i;
+                        }
                     }
-                }
+                });
             }
 
-            // 3. Report the results
             if (failedCount > 0)
             {
-                toast.error(`${failedCount} question(s) couldn't be saved. Check them manually.`);
-
-                // Scroll the user to the first broken card so they don't have to hunt for it
-                if (firstFailedIndex !== null && scrollRefs.current)
+                toast.error(`${failedCount} question(s) couldn't be saved — check them manually.`);
+                if (firstFailedIndex !== null)
                 {
-                    scrollRefs.current[firstFailedIndex]?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center"
-                    });
+                    scrollToQuestion(firstFailedIndex);
                 }
             } else
             {
-                toast.success("All questions saved successfully!");
+                toast.success("All questions saved!");
             }
 
         } catch (error)
@@ -263,12 +350,6 @@ export default function PaperBuilder({
         {
             setIsSavingAll(false);
         }
-    };
-
-    const scrollRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-    const scrollToQuestion = (index: number) => {
-        scrollRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
     };
 
     const handleMagicImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,7 +379,6 @@ export default function PaperBuilder({
                 {
                     const parsed = d.questions.map((pq, i) => parsedToQuestion(pq, i));
                     setQuestions(parsed);
-                    console.log("QUESTIONS: ", parsed);
                     toast.success(
                         `Imported: "${d.title ?? "paper"}" · ${d.questions.length} questions extracted`,
                         { id: toastId }
@@ -332,7 +412,7 @@ export default function PaperBuilder({
                 const result = await createQuestionPaper({
                     title: title.trim(),
                     year: year || null,
-                    examId: examId ?? null,
+                    examIds: selectedExamIds, // 🔥 Linked to our new state!
                 }, examSlug);
 
                 setPaperId(result.id);
@@ -393,7 +473,7 @@ export default function PaperBuilder({
                         Paper Details
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_140px] gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-4">
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Title</label>
                             <input
@@ -416,6 +496,17 @@ export default function PaperBuilder({
                                 className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
                             />
                         </div>
+
+                        {/* 🔥 Multi-select Exam Picker! */}
+                        {!paperSaved && (
+                            <div>
+                                <ExamPicker
+                                    exams={exams}
+                                    value={selectedExamIds}
+                                    onChange={setSelectedExamIds}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {!paperSaved ? (
