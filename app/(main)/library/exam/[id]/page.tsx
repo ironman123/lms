@@ -65,7 +65,6 @@ export default async function ExamPage({ params }: PageProps) {
         }, {} as Record<string, { category: string; topics: string[] }>)
     );
 
-    // 🔥 FIX: Extract the papers array from the link table!
     const questionPapers = currentExam.examQuestionPaperLinks.map(link => link.paper);
 
     // Now use `questionPapers` for all your math and filtering:

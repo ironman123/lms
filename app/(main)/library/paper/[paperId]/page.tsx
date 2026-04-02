@@ -12,7 +12,11 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ id:
     const paper = await prisma.questionPaper.findUnique({
         where: { id: paperId },
         include: {
-            exam: true,
+            examQuestionPaperLinks: {
+                include: {
+                    exam: true
+                }
+            },
             questions: {
                 select: {
                     type: true,
@@ -29,6 +33,10 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ id:
     });
 
     if (!paper) notFound();
+    const currentExam = paper.examQuestionPaperLinks.find(link => link.examId === id)?.exam
+        || paper.examQuestionPaperLinks[0]?.exam;
+
+    const examDuration = currentExam?.duration || 0;
 
     // 1. Dynamic Total Marks Calculation
     const totalMarks = paper.questions.reduce((sum, q) => sum + (q.marks || 0), 0);
@@ -68,7 +76,7 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ id:
                                 <div className="p-3 bg-white rounded-2xl shadow-sm text-blue-600"><Timer size={20} /></div>
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Time</p>
-                                    <p className="font-black text-slate-900">{paper.exam.duration}m</p>
+                                    <p className="font-black text-slate-900">{examDuration}m</p>
                                 </div>
                             </div>
                             <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex items-center gap-4">

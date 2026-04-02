@@ -78,7 +78,7 @@ const WorkspacePaperCard = ({
 
             {/* Action Button: Matches ExamCard style */}
             <Link
-                href={`/library/exam/${examSlug}/paper/${id}`} // Adjust this route to wherever the actual test takes place
+                href={`/library/paper/${id}`} // Adjust this route to wherever the actual test takes place
                 className="flex items-center justify-center w-full mt-4 py-2.5 text-white text-xs font-bold rounded-xl transition-all hover:brightness-150 group-hover:shadow-lg group-hover:shadow-slate-200"
                 style={{ backgroundColor: color }}
             >

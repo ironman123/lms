@@ -1,3 +1,4 @@
+//exam/[id]/paper/new/page.tsx
 import PaperBuilder from "@/components/PaperBuilder";
 import prisma from "@/lib/prisma";
 import { ChevronLeft } from "lucide-react";
@@ -48,7 +49,7 @@ export default async function NewPaperPage({ params, searchParams }: PageProps) 
     if (!exam) notFound();
 
     return (
-        <div className="min-h-screen bg-[#F8F7F4]" >
+        <div className="min-h-screen w-full bg-[#F8F7F4]" >
             <div className="max-w-3xl mx-auto px-4 pt-8">
                 <Link
                     href={`/library/exam/${exam.slug}`}

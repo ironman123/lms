@@ -66,17 +66,25 @@ export async function createQuestionPaper(data: any, examSlug: string) {
 export async function updateQuestionPaper(paperId: string, data: any, examSlug: string) {
     const validated = paperSchema.parse(data);
 
-    await prisma.questionPaper.update({
-        where: { id: paperId },
-        data: {
-            title: validated.title,
-            year: validated.year || null,
-        }
-    });
+    await prisma.$transaction([
+        // Update paper metadata
+        prisma.questionPaper.update({
+            where: { id: paperId },
+            data: {
+                title: validated.title,
+                year: validated.year || null,
+            },
+        }),
+        // Replace exam links — delete old, insert new
+        prisma.examQuestionPaperLink.deleteMany({ where: { paperId } }),
+        ...validated.examIds.map(examId =>
+            prisma.examQuestionPaperLink.create({ data: { paperId, examId } })
+        ),
+    ]);
 
     revalidateTag("exams");
     revalidatePath(`/library/exam/${examSlug}`);
-    redirect(`/library/exam/${examSlug}`);
+    //redirect(`/library/exam/${examSlug}`);
 }
 
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {

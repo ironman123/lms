@@ -6,7 +6,7 @@ import {
     FileText, BookOpen, AlertCircle, Save, Search, X
 } from "lucide-react";
 import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-paper";
-import { createQuestionPaper } from "@/app/(main)/actions/paper-actions";
+import { createQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
 import { toast } from "sonner";
 
 import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
@@ -50,6 +50,9 @@ export interface PaperBuilderProps {
     categories?: { id: string; name: string }[];
     syllabusEntries?: SyllabusEntry[];
     exams?: { id: string; name: string }[];
+    initialPaper?: { id: string; title: string; year: number | null };
+    initialQuestions?: Question[];
+    linkedExamIds?: string[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -271,17 +274,22 @@ export default function PaperBuilder({
     examSlug = "",
     categories = [],
     syllabusEntries = [],
-    exams = []
+    exams = [],
+    initialPaper,
+    linkedExamIds,
+    initialQuestions = [],
 }: PaperBuilderProps) {
 
-    const [title, setTitle] = useState("");
-    const [year, setYear] = useState<number | "">("");
-    const [questions, setQuestions] = useState<Question[]>([]);
-    const [paperId, setPaperId] = useState<string | null>(null);
+    const [title, setTitle] = useState(initialPaper?.title ?? "");
+    const [year, setYear] = useState<number | "">(initialPaper?.year ?? "");
+    const [questions, setQuestions] = useState<Question[]>(initialQuestions);
+    const [paperId, setPaperId] = useState<string | null>(initialPaper?.id ?? null);
+    //const [paperSaved, setPaperSaved] = useState(!!initialPaper);
     const [paperSaved, setPaperSaved] = useState(false);
 
     // 🔥 Added the state for our new Multi-Select ExamPicker!
-    const [selectedExamIds, setSelectedExamIds] = useState<string[]>(examId ? [examId] : []);
+    const [selectedExamIds, setSelectedExamIds] = useState<string[]>(linkedExamIds ?? (examId ? [examId] : []));
+
 
     const [isScanning, setIsScanning] = useState(false);
     const [isSavingPaper, startSavingPaper] = useTransition();
@@ -409,15 +417,28 @@ export default function PaperBuilder({
         startSavingPaper(async () => {
             try
             {
-                const result = await createQuestionPaper({
-                    title: title.trim(),
-                    year: year || null,
-                    examIds: selectedExamIds, // 🔥 Linked to our new state!
-                }, examSlug);
-
-                setPaperId(result.id);
-                setPaperSaved(true);
-                toast.success("Paper created — now save your questions");
+                if (initialPaper)
+                {
+                    // Update existing paper
+                    await updateQuestionPaper(initialPaper.id, {
+                        title: title.trim(),
+                        year: year || null,
+                        examIds: selectedExamIds,
+                    }, examSlug);
+                    setPaperSaved(true);
+                    toast.success("Paper updated!");
+                } else
+                {
+                    // Create new paper
+                    const result = await createQuestionPaper({
+                        title: title.trim(),
+                        year: year || null,
+                        examIds: selectedExamIds,
+                    }, examSlug);
+                    setPaperId(result.id);
+                    setPaperSaved(true);
+                    toast.success("Paper created — now save your questions");
+                }
             } catch (err: any)
             {
                 toast.error(`Failed: ${err.message}`);
@@ -480,7 +501,7 @@ export default function PaperBuilder({
                                 type="text"
                                 value={title}
                                 onChange={e => setTitle(e.target.value)}
-                                disabled={paperSaved}
+                                //disabled={paperSaved}
                                 placeholder="e.g. KPSC Assistant Grade II - 2023"
                                 className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
                             />
@@ -491,25 +512,25 @@ export default function PaperBuilder({
                                 type="number"
                                 value={year}
                                 onChange={e => setYear(e.target.value ? parseInt(e.target.value) : "")}
-                                disabled={paperSaved}
+                                //disabled={paperSaved}
                                 placeholder="2023"
                                 className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
                             />
                         </div>
 
                         {/* 🔥 Multi-select Exam Picker! */}
-                        {!paperSaved && (
-                            <div>
-                                <ExamPicker
-                                    exams={exams}
-                                    value={selectedExamIds}
-                                    onChange={setSelectedExamIds}
-                                />
-                            </div>
-                        )}
+                        {/* {!paperSaved && ( */}
+                        <div>
+                            <ExamPicker
+                                exams={exams}
+                                value={selectedExamIds}
+                                onChange={setSelectedExamIds}
+                            />
+                        </div>
+                        {/* )} */}
                     </div>
 
-                    {!paperSaved ? (
+                    <div className="flex items-center gap-3">
                         <button
                             type="button"
                             onClick={handleSavePaper}
@@ -517,18 +538,26 @@ export default function PaperBuilder({
                             className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50"
                         >
                             {isSavingPaper ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                            {isSavingPaper ? "Creating..." : "Create Paper"}
+                            {isSavingPaper
+                                ? (initialPaper ? "Saving..." : "Creating...")
+                                : (initialPaper ? "Save Changes" : "Create Paper")
+                            }
                         </button>
-                    ) : (
-                        <div className="flex items-center gap-2 text-sm text-emerald-600 font-bold">
-                            <CheckCircle2 size={16} />
-                            Paper created — questions will be saved to it
-                        </div>
-                    )}
+                        {paperSaved && (
+                            <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                                <CheckCircle2 size={14} />
+                                {initialPaper ? "Changes saved" : "Paper created — add questions below"}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-emerald-600 font-bold">
+                        <CheckCircle2 size={16} />
+                        Paper created — questions will be saved to it
+                    </div>
                 </div>
 
                 {/* ── Not-saved-paper warning ── */}
-                {!paperSaved && questions.length > 0 && (
+                {!paperId && !initialPaper && questions.length > 0 && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
                         <AlertCircle size={16} className="shrink-0" />
                         Create the paper first, then use "Save Question" on each question below.
