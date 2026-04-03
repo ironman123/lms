@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
 import { unstable_cache } from "next/cache";
+import { deleteQuestionPaper } from "../../actions/paper-actions";
 
 const getPapersData = (query: string, page: number) =>
     unstable_cache(
@@ -93,11 +94,13 @@ export default async function PaperLibraryPage({
                         <div className="flex flex-wrap gap-6">
                             {pyq.map(p => {
                                 const exam = p.examQuestionPaperLinks[0]?.exam;
+                                const boundDelete = deleteQuestionPaper.bind(null, p.id, "");
                                 return (
                                     <WorkspacePaperCard
                                         key={p.id}
                                         id={p.id}
                                         title={p.title}
+                                        onDelete={boundDelete}
                                         isAdmin={isAdmin}
                                         type="PYQ"
                                         year={p.year?.toString() ?? ""}
@@ -123,12 +126,14 @@ export default async function PaperLibraryPage({
                         <div className="flex flex-wrap gap-6">
                             {mock.map(p => {
                                 const exam = p.examQuestionPaperLinks[0]?.exam;
+                                const boundDelete = deleteQuestionPaper.bind(null, p.id, "");
                                 return (
                                     <WorkspacePaperCard
                                         key={p.id}
                                         id={p.id}
                                         title={p.title}
                                         isAdmin={isAdmin}
+                                        onDelete={boundDelete}
                                         type="Mock"
                                         year="Mock"
                                         pricing="Free"

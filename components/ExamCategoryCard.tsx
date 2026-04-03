@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { CldImage } from "next-cloudinary";
 import * as Icons from "lucide-react";
-import { Pencil, Trash2, Edit } from "lucide-react";
+import { Trash2, Edit } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 

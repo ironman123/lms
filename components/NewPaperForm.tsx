@@ -12,7 +12,7 @@ import { parsePaperPDF } from "@/app/(main)/actions/ocr-paper";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import QuestionBuilder from '@/components/QuestionBuilder';
+//import QuestionBuilder from '@/components/QuestionBuilder';
 
 interface NewPaperFormProps {
     examId: string;
@@ -106,16 +106,16 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
             setIsDeleting(false);
         }
     };
-    if (createdPaper)
-    {
-        return (
-            <QuestionBuilder
-                paperId={createdPaper.id}
-                examSlug={examSlug}
-                initialQuestions={[]}
-            />
-        );
-    }
+    // if (createdPaper)
+    // {
+    //     return (
+    //         <QuestionBuilder
+    //             paperId={createdPaper.id}
+    //             examSlug={examSlug}
+    //             initialQuestions={[]}
+    //         />
+    //     );
+    // }
 
     return (
         <Form {...form}>

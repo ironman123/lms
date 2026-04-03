@@ -285,8 +285,8 @@ export default function PaperBuilder({
     const [questions, setQuestions] = useState<Question[]>(initialQuestions);
     const [paperId, setPaperId] = useState<string | null>(initialPaper?.id ?? null);
     const paperIdRef = useRef<string | null>(initialPaper?.id ?? null);
-    //const [paperSaved, setPaperSaved] = useState(!!initialPaper);
-    const [paperSaved, setPaperSaved] = useState(false);
+    const [paperSaved, setPaperSaved] = useState(!!initialPaper);
+    //const [paperSaved, setPaperSaved] = useState(false);
 
     // 🔥 Added the state for our new Multi-Select ExamPicker!
     const [selectedExamIds, setSelectedExamIds] = useState<string[]>(linkedExamIds ?? (examId ? [examId] : []));
