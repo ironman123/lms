@@ -19,10 +19,11 @@ import { parseSyllabusPDF } from "@/app/(main)/actions/ocr-syllabus";
 
 interface NewExamFormProps {
     categories: { id: string; name: string; color: string | null | undefined }[];
+    defaultCategoryId?: string;
     initialData?: ExamFormValues & { id: string };  // present = edit mode
 }
 
-export default function NewExamForm({ categories = [], initialData }: NewExamFormProps) {
+export default function NewExamForm({ categories = [], initialData, defaultCategoryId }: NewExamFormProps) {
 
     const [isPending, startTransition] = useTransition();
     const [isScanning, setIsScanning] = useState(false);
@@ -34,7 +35,7 @@ export default function NewExamForm({ categories = [], initialData }: NewExamFor
         defaultValues: initialData ?? {
             name: '',
             description: '',
-            examCategoryId: '',
+            examCategoryId: defaultCategoryId ?? '',
             categoryNumber: '',
             tags: [],
             duration: 180,

@@ -3,9 +3,12 @@ import NewExamForm from "@/components/NewExamForm";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-export default async function NewExamPage() {
+export default async function NewExamPage({ searchParams }: { searchParams: Promise<{ categoryId?: string }> }) {
     // Fetch categories here. Since this is a Server Component, 
     // this code runs on the backend, not the user's browser.
+
+    const { categoryId } = await searchParams;
+
     const categories = await prisma.examCategory.findMany({
         select: {
             id: true,
@@ -14,6 +17,7 @@ export default async function NewExamPage() {
         },
         orderBy: { name: 'asc' }
     });
+
 
 
     return (
@@ -40,7 +44,7 @@ export default async function NewExamPage() {
                 </div>
 
                 {/* Pass the data down as a prop */}
-                <NewExamForm categories={categories} />
+                <NewExamForm categories={categories} defaultCategoryId={categoryId} />
             </div>
         </div>
     );
