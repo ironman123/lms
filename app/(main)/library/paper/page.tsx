@@ -135,7 +135,7 @@ export default async function PaperLibraryPage({
                                         isAdmin={isAdmin}
                                         onDelete={boundDelete}
                                         type="Mock"
-                                        year="Mock"
+                                        //year="Mock"
                                         pricing="Free"
                                         examId={exam?.id ?? ""}
                                         examSlug={exam?.slug ?? ""}

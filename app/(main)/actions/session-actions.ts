@@ -2,6 +2,8 @@
 
 import prisma from "@/lib/prisma";
 import { SessionMode } from "@prisma/client";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
     try
