@@ -8,7 +8,7 @@ interface WorkspacePaperCardProps {
     id: string | number;
     title: string;
     type: string;
-    year: string;
+    year?: string;
     pricing: string;
     examId: string;
     examSlug: string;
@@ -106,7 +106,7 @@ const WorkspacePaperCard = ({
             </div>
 
             <Link
-                href={`/library/paper/${id}`}
+                href={`/exam/${id}/lobby`}
                 className="flex items-center justify-center w-full mt-4 py-2.5 text-white text-xs font-bold rounded-xl transition-all hover:brightness-150 group-hover:shadow-lg group-hover:shadow-slate-200"
                 style={{ backgroundColor: color }}
             >
