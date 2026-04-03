@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { revalidateTag } from "next/cache";
 import { CategoryFormValues } from "@/types/category"; // Import your Zod type
+import { categorySchema } from "@/types/category";
 
 export async function createCategory(values: CategoryFormValues) {
     // 1. Generate slug from name

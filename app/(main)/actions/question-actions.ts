@@ -90,7 +90,8 @@ export async function deleteQuestion(questionId: string, examSlug: string) {
     });
 
     revalidateTag("exams");
-    revalidatePath(`/library/exam/${examSlug}`);
+    if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
+    revalidatePath("/library/paper");
 
     return { success: true };
 }

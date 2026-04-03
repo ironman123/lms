@@ -97,15 +97,12 @@ export async function updateQuestionPaper(paperId: string, data: any, examSlug: 
     //redirect(`/library/exam/${examSlug}`);
 }
 
-export async function deleteQuestionPaper(paperId: string, examSlug: string) {
-    // Because of onDelete: Cascade in your schema, deleting the paper 
-    // will automatically delete all associated questions and options!
-    await prisma.questionPaper.delete({
-        where: { id: paperId }
-    });
 
+export async function deleteQuestionPaper(paperId: string, examSlug: string) {
+    await prisma.questionPaper.delete({ where: { id: paperId } });
     revalidateTag("exams");
-    revalidatePath(`/library/exam/${examSlug}`);
+    if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
+    revalidatePath("/library/paper");
     return { success: true };
 }
 
