@@ -180,6 +180,7 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                                 <WorkspacePaperCard
                                     key={paper.id}
                                     {...paper}
+                                    isAdmin={isAdmin}
                                     examId={examId}
                                     examSlug={examSlug}
                                 />
