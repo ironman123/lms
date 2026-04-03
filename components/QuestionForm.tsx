@@ -6,6 +6,7 @@ import { Plus, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { useTransition } from 'react';
 import { questionSchema, QuestionFormValues } from '@/types/question';
 import { createQuestionPaper, updateQuestionPaper } from '@/app/(main)/actions/paper-actions';
+import { createQuestion, updateQuestion } from '@/app/(main)/actions/question-actions';
 import { toast } from 'sonner';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -73,11 +74,11 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
             {
                 if (isEditing)
                 {
-                    await updateQuestionPaper(initialData.id, paperId, examSlug, data);
+                    await updateQuestion(initialData.id, paperId, examSlug, data);
                     toast.success("Question updated.");
                 } else
                 {
-                    await createQuestionPaper(paperId, examSlug, data);
+                    await createQuestion(paperId, examSlug, data);
                     toast.success("Question added.");
                     form.reset();
                 }

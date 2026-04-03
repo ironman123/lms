@@ -52,7 +52,7 @@ export default function SearchFilter({ value }: { value: string }) {
                 type="text"
                 value={localValue}
                 onChange={(e) => setLocalValue(e.target.value)}
-                placeholder="Search categories..."
+                placeholder="Search..."
                 className="block w-full h-12 pl-10 pr-12 py-3 border rounded-xl border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700/70 transition-all"
             />
 

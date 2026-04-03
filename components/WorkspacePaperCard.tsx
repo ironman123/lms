@@ -49,7 +49,7 @@ const WorkspacePaperCard = ({
         >
             {/* Admin controls */}
             {isAdmin && (
-                <div className="absolute top-6 right-13 z-30 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-3 right-13 z-30 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Link
                         href={`/library/paper/${id}/edit`}
                         onClick={e => e.stopPropagation()}
