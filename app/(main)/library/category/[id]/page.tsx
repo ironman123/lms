@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import ExamCarouselCard from "@/components/ExamCarouselCard";
 import Link from "next/link";
-import { ChevronLeft, Search } from "lucide-react";
+import { ChevronLeft, Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
@@ -23,6 +23,10 @@ const getExamsData = (slug: string, query: string) =>
                         OR: [
                             { name: { contains: query, mode: "insensitive" } },
                             { description: { contains: query, mode: "insensitive" } },
+                            { categoryNumber: { contains: query, mode: "insensitive" as const } },
+                            { tags: { some: { tag: { name: { contains: query, mode: "insensitive" as const } } } } },
+                            { syllabusEntries: { some: { topicPath: { contains: query, mode: "insensitive" as const } } } },
+                            { syllabusEntries: { some: { category: { name: { contains: query, mode: "insensitive" as const } } } } },
                         ]
                     } : {})
                 },
@@ -84,6 +88,15 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                         <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
                         Back to Categories
                     </Link>
+                    {isAdmin && (
+                        <Link
+                            href={`/library/exam/new?categoryId=${category.id}`}
+                            className="fixed bottom-8 right-8 z-50 flex items-center justify-center w-12 h-12 bg-slate-900 text-white rounded-full shadow-2xl hover:scale-110 transition-transform active:scale-95"
+                            title="Add New Exam"
+                        >
+                            <Plus className="w-6 h-6" />
+                        </Link>
+                    )}
 
                     <div className="max-w-3xl">
                         {/* We use the category data fetched on THIS page */}
