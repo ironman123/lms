@@ -8,13 +8,14 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Flag, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
+import SessionTimer from "./SessionTimer";
 
 // 1. IMPORT THE OVERLAY & HOOK
 import DevMetricsOverlay from "./DevMetricsOverlay";
 import { useExamTelemetry } from "@/app/(main)/hooks/useExamTelemetry";
 
 export default function ActiveSessionClient({ paper, mode, sessionId, userId }: any) {
-    console.log("Paper: ", paper)
+    const durationInMinutes = paper?.examQuestionPaperLinks[0]?.exam.duration || 60;
     // ==========================================
     // 1. FAST UI STATE (For instant screen updates)
     // ==========================================
@@ -40,7 +41,7 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
         handleNavigation,
         handleAnswerSelection,
         toggleFlag: telemetryToggleFlag,
-    } = useExamTelemetry(sessionId, currentQuestion.id);
+    } = useExamTelemetry(sessionId, currentQuestion?.id || "");
 
     // ==========================================
     // 3. COMBINED ACTIONS (Updates UI + Telemetry)
@@ -67,7 +68,29 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
         // Update Telemetry Vault
         telemetryToggleFlag(currentQuestion.id);
     };
-
+    if (!currentQuestion || paper.questions.length === 0)
+    {
+        return (
+            <div className="flex flex-col items-center justify-center h-full min-h-[50vh] p-8">
+                <div className="p-8 bg-white rounded-3xl shadow-sm border border-slate-200 text-center space-y-4 max-w-md w-full">
+                    <h2 className="text-2xl font-black text-slate-900">
+                        {paper.questions.length === 0 ? "Empty Paper" : "You're all done!"}
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                        {paper.questions.length === 0
+                            ? "This question paper doesn't have any questions in it yet."
+                            : "Review your flagged questions or submit the exam."}
+                    </p>
+                    <button
+                        onClick={() => window.history.back()} // Or replace with a Link / router.push
+                        className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors mt-4"
+                    >
+                        {paper.questions.length === 0 ? "Go Back" : "Submit Exam"}
+                    </button>
+                </div>
+            </div>
+        );
+    }
     return (
         <div className="flex h-full w-full bg-slate-50/50 p-1 pt-3 overflow-hidden">
 
@@ -79,6 +102,11 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
                 metrics={currentMetrics}
                 recentActivities={recentActivities}
             />
+            {durationInMinutes && (
+                <div className="fixed top-4 right-6 z-50">
+                    <SessionTimer durationSeconds={durationInMinutes * 60} />
+                </div>
+            )}
 
             {/* MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col min-w-0 h-full p-2">
@@ -91,7 +119,7 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
                                         Q {currentIndex + 1}
                                     </Badge>
                                     <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 truncate max-w-[120px] md:max-w-none">
-                                        <Hash size={10} /> {currentQuestion.topic?.name || "Topic"}
+                                        <Hash size={10} /> {currentQuestion?.topic?.name || "Topic"}
                                     </span>
                                 </div>
                                 <Badge className={cn("font-black italic text-[9px] md:text-[10px] uppercase px-2 py-0",
