@@ -4,6 +4,7 @@ import SearchFilter from "@/components/SearchFilter"; // We'll update this next
 import { Search, Plus } from "lucide-react";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
+import { deleteCategory } from "@/app/(main)/actions/category-actions";
 
 const getCachedCategories = unstable_cache(
     async (query: string) => {
@@ -79,9 +80,15 @@ export default async function CategoryIndexPage({
                 {/* Grid or Empty State */}
                 {categories.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:gap-8">
-                        {categories.map((cat) => (
-                            <ExamCategoryCard key={cat.id} {...cat} />
-                        ))}
+                        {categories.map(cat => {
+                            const boundDelete = deleteCategory.bind(null, cat.id);
+                            return (<ExamCategoryCard
+                                key={cat.id}
+                                {...cat}
+                                isAdmin={isAdmin}
+                                onDelete={boundDelete}
+                            />);
+                        })}
                     </div>
                 ) : (
                     <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center bg-white max-w-2xl mx-auto w-full">

@@ -4,29 +4,30 @@ import { useForm } from "react-hook-form";
 import { CheckCircle2, ImageIcon, LayoutGrid, Type, Palette } from "lucide-react";
 import { CldUploadWidget } from "next-cloudinary";
 import { Button } from '@/components/ui/button';
-import { createCategory } from "@/app/(main)/actions/category-actions";
-import { useTransition } from "react";
+import { createCategory, updateCategory, deleteCategory } from "@/app/(main)/actions/category-actions";
+import { useTransition, useState } from "react";
 import ExamCategoryCard from "./ExamCategoryCard";
 import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
+    Form, FormControl, FormDescription, FormField,
+    FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { categorySchema, CategoryFormValues } from "@/types/category";
 
-export default function NewCategoryForm() {
+interface NewCategoryFormProps {
+    initialData?: CategoryFormValues & { id: string };
+}
+
+export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
     const [isPending, startTransition] = useTransition();
+    const [isDeleting, setIsDeleting] = useState(false);
+    const isEditing = !!initialData;
 
     const form = useForm<CategoryFormValues>({
         resolver: zodResolver(categorySchema),
-        defaultValues: {
+        defaultValues: initialData ?? {
             name: "",
             description: "",
             icon: "Briefcase",
@@ -35,16 +36,37 @@ export default function NewCategoryForm() {
         },
         mode: "onBlur",
     });
+
     const watchedValues = form.watch();
+
+    const handleDelete = async () => {
+        if (!confirm(`Delete "${initialData?.name}"? This cannot be undone.`)) return;
+        setIsDeleting(true);
+        try
+        {
+            await deleteCategory(initialData!.id);
+        } catch
+        {
+            toast.error("Failed to delete category.");
+            setIsDeleting(false);
+        }
+    };
 
     async function onSubmit(data: CategoryFormValues) {
         startTransition(async () => {
             try
             {
-                await createCategory(data);
-                toast.success("Category created successfully!");
-                form.reset();
-            } catch (error)
+                if (isEditing)
+                {
+                    await updateCategory(initialData!.id, data);
+                    toast.success("Category updated successfully!");
+                } else
+                {
+                    await createCategory(data);
+                    toast.success("Category created successfully!");
+                    form.reset();
+                }
+            } catch
             {
                 toast.error("Something went wrong. Please try again.");
             }
@@ -57,7 +79,6 @@ export default function NewCategoryForm() {
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
 
-                        {/* CATEGORY NAME */}
                         <FormField
                             control={form.control}
                             name="name"
@@ -75,7 +96,6 @@ export default function NewCategoryForm() {
                             )}
                         />
 
-                        {/* DESCRIPTION */}
                         <FormField
                             control={form.control}
                             name="description"
@@ -95,7 +115,6 @@ export default function NewCategoryForm() {
                         />
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* ICON SELECTION */}
                             <FormField
                                 control={form.control}
                                 name="icon"
@@ -113,7 +132,6 @@ export default function NewCategoryForm() {
                                 )}
                             />
 
-                            {/* COLOR PICKER */}
                             <FormField
                                 control={form.control}
                                 name="color"
@@ -134,7 +152,6 @@ export default function NewCategoryForm() {
                             />
                         </div>
 
-                        {/* IMAGE UPLOAD (CLOUDINARY) */}
                         <FormField
                             control={form.control}
                             name="image"
@@ -195,19 +212,39 @@ export default function NewCategoryForm() {
                             )}
                         />
 
-                        <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white h-12 text-lg font-bold transition-all" disabled={isPending}>
-                            {isPending ? "Creating Category..." : "Create Exam Category"}
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button
+                                type="submit"
+                                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white h-12 text-lg font-bold transition-all"
+                                disabled={isPending}
+                            >
+                                {isPending
+                                    ? (isEditing ? "Saving..." : "Creating Category...")
+                                    : (isEditing ? "Save Changes" : "Create Exam Category")
+                                }
+                            </Button>
+
+                            {isEditing && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 h-13 rounded-xl px-6"
+                                    onClick={handleDelete}
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? "Deleting..." : "Delete"}
+                                </Button>
+                            )}
+                        </div>
                     </form>
                 </Form>
             </div>
-            {/* THE PREVIEW CARD */}
+
+            {/* Preview */}
             <div className="w-full lg:w-[380px] lg:sticky lg:top-8">
                 <p className="text-[13px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6">
                     Card Preview
                 </p>
-
-                {/* 2. RENDER THE ACTUAL CARD COMPONENT */}
                 <div className="pointer-events-none opacity-90 scale-95 origin-top">
                     <ExamCategoryCard
                         id="preview-id"
@@ -215,17 +252,16 @@ export default function NewCategoryForm() {
                         description={watchedValues.description || "The description will appear here as you type..."}
                         icon={watchedValues.icon || "Briefcase"}
                         color={watchedValues.color || "#1D3557"}
-                        image={watchedValues.image || ""} // Uses Cloudinary ID
+                        image={watchedValues.image || ""}
                         slug="preview-slug"
                     />
                 </div>
-
                 <div className="mt-6 p-4 rounded-xl bg-blue-50 border border-blue-100">
                     <p className="text-xs text-blue-700 leading-relaxed">
                         <strong>Pro Tip:</strong> Ensure your banner image has enough contrast for the white text to be readable.
                     </p>
                 </div>
             </div>
-        </div >
+        </div>
     );
 }

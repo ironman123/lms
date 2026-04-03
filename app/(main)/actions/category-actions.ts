@@ -38,3 +38,34 @@ export async function createCategory(values: CategoryFormValues) {
     revalidatePath("/library/category");
     redirect("/library/category");
 }
+
+export async function updateCategory(categoryId: string, data: CategoryFormValues) {
+    const validated = categorySchema.parse(data);
+
+    const slug = validated.name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .replace(/\s+/g, "-")
+        .trim();
+
+    await prisma.examCategory.update({
+        where: { id: categoryId },
+        data: {
+            name: validated.name,
+            description: validated.description,
+            icon: validated.icon,
+            color: validated.color,
+            image: validated.image,
+            slug,
+        },
+    });
+
+    revalidateTag("examCategories");
+    redirect(`/library/category/${slug}`);
+}
+
+export async function deleteCategory(categoryId: string) {
+    await prisma.examCategory.delete({ where: { id: categoryId } });
+    revalidateTag("examCategories");
+    redirect("/library/category");
+}
