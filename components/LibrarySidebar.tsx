@@ -21,12 +21,12 @@ const NAV = [
             { label: "Papers", href: "/library/paper", icon: FileText },
         ],
     },
-    {
-        section: "Study",
-        items: [
-            { label: "Practice", href: "/library/practice", icon: BookOpen },
-        ],
-    },
+    // {
+    //     section: "Study",
+    //     items: [
+    //         { label: "Practice", href: "/library/practice", icon: BookOpen },
+    //     ],
+    // },
 ];
 
 export default function LibrarySidebar() {
@@ -46,7 +46,7 @@ export default function LibrarySidebar() {
                     "hidden md:flex fixed left-4 top-50 z-40 flex-col overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
                     "bg-white/70 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]",
                     "rounded-[2rem]",
-                    isExpanded ? "w-64 " : "w-[68px] h-[320px]"
+                    isExpanded ? "w-64 " : "w-[68px]"
                 )}
             >
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-slate-200 rounded-l-full opacity-50" />
@@ -56,7 +56,7 @@ export default function LibrarySidebar() {
                         {NAV.map((group) => (
                             <div key={group.section} className="px-3">
                                 <p className={cn(
-                                    "text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-4 mb-4 transition-all duration-300",
+                                    "text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] px-4 mb-4 transition-all duration-200",
                                     isExpanded ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
                                 )}>
                                     {group.section}
