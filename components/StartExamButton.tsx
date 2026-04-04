@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { createExamSession } from "@/app/(main)/actions/session-actions"; // The action we created earlier
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SessionMode } from "@prisma/client";
 
 interface StartButtonProps {
     examId: string;
     paperId: string;
-    mode: "PRACTICE" | "MOCK_EXAM";
+    mode: SessionMode
     label: string;
     variant?: "default" | "outline";
 }
@@ -20,12 +21,11 @@ export default function StartExamButton({ examId, paperId, mode, label, variant 
     const [isPending, startTransition] = useTransition();
 
     const handleStart = async () => {
-
         startTransition(async () => {
             const result = await createExamSession(paperId, mode);
             if (result.success)
             {
-                router.push(`/exam/${paperId}/mock?sessionId=${result.sessionId}`);
+                router.push(`/exam/${paperId}/${mode.toLowerCase()}?sessionId=${result.sessionId}`);
             }
         });
     };
@@ -44,10 +44,10 @@ export default function StartExamButton({ examId, paperId, mode, label, variant 
             {isPending ? (
                 <>
                     <Loader2 className="animate-spin h-6 w-6 mr-2" />
-                    Starting...
+                    Starting {mode.toLowerCase()}...
                 </>
             ) : (
-                "Start Exam"
+                label
             )}
         </ Button >
     );

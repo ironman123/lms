@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import DevMetricsOverlay from "./DevMetricsOverlay";
 import { useExamTelemetry } from "@/app/(main)/hooks/useExamTelemetry";
+import { SessionMode } from "@prisma/client";
 
 export default function ActiveSessionClient({ paper, mode, sessionId, userId }: any) {
     const router = useRouter();
@@ -216,8 +217,8 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
                                                         className={cn(
                                                             "group flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all duration-200 text-left",
                                                             isSelected ? "border-slate-900 bg-slate-900 text-white shadow-md" : "border-slate-100 bg-white hover:border-slate-200",
-                                                            mode === 'practice' && showAnswer && isCorrect && "border-green-500 bg-green-50 text-slate-900",
-                                                            mode === 'practice' && showAnswer && isSelected && !isCorrect && "border-red-500 bg-red-50 text-slate-900",
+                                                            mode === SessionMode.PRACTICE && showAnswer && isCorrect && "border-green-500 bg-green-50 text-slate-900",
+                                                            mode === SessionMode.PRACTICE && showAnswer && isSelected && !isCorrect && "border-red-500 bg-red-50 text-slate-900",
                                                             isLocked && "pointer-events-none opacity-70" // 🔥 Locked style
                                                         )}
                                                     >
@@ -253,7 +254,7 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
                                                     isLocked && "pointer-events-none opacity-70 bg-slate-50" // 🔥 Locked style
                                                 )}
                                             />
-                                            {mode === "practice" && showAnswer && (
+                                            {mode === SessionMode.PRACTICE && showAnswer && (
                                                 <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
                                                     <p className="text-sm font-bold text-green-700">
                                                         Correct Answer: {currentQuestion.correctAnswer}
@@ -283,7 +284,7 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
                                                     isLocked && "pointer-events-none opacity-70 bg-slate-50" // 🔥 Locked style
                                                 )}
                                             />
-                                            {mode === "practice" && showAnswer && currentQuestion.explanation && (
+                                            {mode === SessionMode.PRACTICE && showAnswer && currentQuestion.explanation && (
                                                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
                                                     <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">Model Answer</p>
                                                     <p className="text-sm font-medium text-blue-800">{currentQuestion.explanation}</p>
@@ -309,7 +310,7 @@ export default function ActiveSessionClient({ paper, mode, sessionId, userId }: 
                     </div>
 
                     <div className="flex gap-1 md:gap-2">
-                        {mode === 'PRACTICE' && (
+                        {mode === SessionMode.PRACTICE && (
                             <Button disabled={isLocked} variant="secondary" size="sm" className="rounded-xl font-black italic text-[9px] md:text-[10px] bg-green-500 text-white hover:bg-green-600 h-9 px-3" onClick={() => setShowAnswer(true)}>
                                 CHECK
                             </Button>

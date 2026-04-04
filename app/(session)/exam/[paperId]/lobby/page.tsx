@@ -1,3 +1,4 @@
+//lobby/page.tsx
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import StartExamButton from "@/components/StartExamButton";
 import { Timer, ClipboardCheck, AlertCircle, BookOpen, Layers, Trophy } from "lucide-react";
 import Link from "next/link";
+import { SessionMode } from "@prisma/client";
+import { Session } from "inspector/promises";
 
 export default async function PaperLobbyPage({ params }: { params: Promise<{ id: string, paperId: string }> }) {
     const { id, paperId } = await params;
@@ -165,13 +168,20 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ id:
 
                         {/* Actions */}
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <Button asChild variant="outline" className="flex-1 h-16 rounded-2xl border-2 border-slate-200 font-black text-lg hover:bg-slate-50 transition-all hover:scale-[1.02] active:scale-95">
-                                <Link href={`/exam/${id}/paper/${paperId}/practice`}>Practice</Link>
-                            </Button>
+                            {/* <Button asChild variant="outline" className="flex-1 h-16 rounded-2xl border-2 border-slate-200 font-black text-lg hover:bg-slate-50 transition-all hover:scale-[1.02] active:scale-95">
+                                <Link href={`/exam/${paperId}/practice`}>Practice</Link>
+                            </Button> */}
                             <StartExamButton
                                 examId={id}
                                 paperId={paperId}
-                                mode="MOCK_EXAM"
+                                mode={SessionMode.PRACTICE}
+                                label="Practice"
+                                variant="outline"
+                            />
+                            <StartExamButton
+                                examId={id}
+                                paperId={paperId}
+                                mode={SessionMode.MOCK}
                                 label="Start Exam"
                                 variant="default"
                             />

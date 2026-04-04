@@ -31,6 +31,7 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
                 email: "guest.student@example.com",
                 name: "Guest Student",
                 onboarded: true,
+
             }
         });
 
@@ -46,7 +47,7 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
 
         // 3. Create Session AND Bulk Insert Interactions Safely
         const session = await prisma.$transaction(async (tx) => {
-
+            console.log("Session Mode: ", mode);
             const newSession = await tx.testSession.create({
                 data: {
                     userId: user.id,

@@ -159,6 +159,7 @@ export function useExamTelemetry(sessionId: string, initialQuestionId: string) {
     }, [sessionId, stopTimer]);
 
     useEffect(() => {
+        if (!sessionId) return;
         timerRef.current = setInterval(() => {
             const timeSpentSec = Math.floor((Date.now() - questionEnterTimeRef.current) / 1000);
             const baseDwell = getOrInitMetrics(currentQuestionRef.current).dwellTimeSeconds;
@@ -166,7 +167,7 @@ export function useExamTelemetry(sessionId: string, initialQuestionId: string) {
         }, 1000);
 
         return () => stopTimer(); // cleanup on unmount
-    }, [stopTimer]);
+    }, [stopTimer, sessionId]);
 
     return {
         currentMetrics,
