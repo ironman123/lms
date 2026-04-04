@@ -1,36 +1,46 @@
+//practice/page.tsx
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import ActiveSessionClient from "@/components/ActiveSessionClient";
+import { SessionMode } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 export default async function PracticeSessionPage({
     params,
+    searchParams,
 }: {
     params: Promise<{ paperId: string }>;
+    searchParams: Promise<{ sessionId?: string }>;
 }) {
     const { paperId } = await params;
+    const { sessionId } = await searchParams;
+    if (!sessionId) redirect(`/exam/${paperId}/lobby`);
 
-    const paper = await prisma.questionPaper.findUnique({
-        where: { id: paperId },
-        include: {
-            examQuestionPaperLinks: {
-                include: { exam: { select: { name: true, duration: true } } },
-                take: 1,
+    const [session, paper] = await Promise.all([
+        prisma.testSession.findUnique({ where: { id: sessionId } }),
+        prisma.questionPaper.findUnique({
+            where: { id: paperId },
+            include: {
+                examQuestionPaperLinks: {
+                    include: { exam: { select: { name: true, duration: true } } },
+                    take: 1,
+                },
+                questions: {
+                    orderBy: { createdAt: "asc" },
+                    include: { options: true },
+                },
             },
-            questions: {
-                orderBy: { createdAt: "asc" },
-                include: { options: true },
-            },
-        },
-    });
+        }),
+    ]);
 
-    if (!paper) notFound();
+    if (!session || session.paperId !== paperId || !paper) notFound();
 
     return (
         <ActiveSessionClient
             paper={paper}
-            mode="practice"
-            sessionId=""       // no session for practice
-            userId=""
+            mode={SessionMode.PRACTICE}
+            sessionId={sessionId}     // no session for practice
+            userId={session.userId}
         />
     );
 }
