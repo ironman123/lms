@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { completeExamSession } from "../actions/session-actions";
 
-// The exact shape of the data we will send to the database
 export interface InteractionMetrics {
     questionId: string;
     visitCount: number;
@@ -14,14 +14,12 @@ export interface InteractionMetrics {
 }
 
 export function useExamTelemetry(sessionId: string, initialQuestionId: string) {
-    // 1. THE LOCAL VAULT (using refs so we don't cause UI lag)
     const metricsVault = useRef<Record<string, InteractionMetrics>>({});
-
-    // 2. TIMERS
     const currentQuestionRef = useRef(initialQuestionId);
     const questionEnterTimeRef = useRef(Date.now());
+    const isSubmittedRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // 3. UI STATE (Just for your DevMetricsOverlay)
     const [currentMetrics, setCurrentMetrics] = useState<InteractionMetrics>({
         questionId: initialQuestionId,
         visitCount: 1,
@@ -33,10 +31,8 @@ export function useExamTelemetry(sessionId: string, initialQuestionId: string) {
         wasHinted: false,
         confidenceLevel: null,
     });
+    const [recentActivities, setRecentActivities] = useState<Array<{ event: string; time: string }>>([]);
 
-    const [recentActivities, setRecentActivities] = useState<Array<{ event: string, time: string }>>([]);
-
-    // --- HELPER: Initialize or get a question's metrics ---
     const getOrInitMetrics = (qId: string): InteractionMetrics => {
         if (!metricsVault.current[qId])
         {
@@ -55,99 +51,122 @@ export function useExamTelemetry(sessionId: string, initialQuestionId: string) {
         return metricsVault.current[qId];
     };
 
-    // --- HELPER: Log Activity ---
     const logActivity = (eventName: string) => {
-        setRecentActivities(prev => {
-            const newLog = [{ event: eventName, time: new Date().toLocaleTimeString() }, ...prev];
-            return newLog.slice(0, 5); // Keep only the last 5 logs for the UI
-        });
+        setRecentActivities(prev =>
+            [{ event: eventName, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 5)
+        );
     };
 
-    // --- CORE ACTION: Navigation (Handles Dwell Time & Visits) ---
     const handleNavigation = useCallback((newQuestionId: string) => {
+        if (isSubmittedRef.current) return;
         const now = Date.now();
         const oldQid = currentQuestionRef.current;
+        const timeSpentSec = Math.floor((now - questionEnterTimeRef.current) / 1000);
 
-        // 1. Calculate time spent on the LEAVING question
-        const timeSpentMs = now - questionEnterTimeRef.current;
-        const timeSpentSec = Math.floor(timeSpentMs / 1000);
+        getOrInitMetrics(oldQid).dwellTimeSeconds += timeSpentSec;
 
-        const oldMetrics = getOrInitMetrics(oldQid);
-        oldMetrics.dwellTimeSeconds += timeSpentSec;
-
-        // 2. Set up the ENTERING question
         const newMetrics = getOrInitMetrics(newQuestionId);
         newMetrics.visitCount += 1;
 
-        // 3. Update our refs for the next cycle
         currentQuestionRef.current = newQuestionId;
         questionEnterTimeRef.current = now;
 
-        // 4. Update UI state
         setCurrentMetrics({ ...newMetrics });
-        logActivity(`MapsD_TO_${newQuestionId.slice(-4)}`);
-
+        logActivity(`NAV → ${newQuestionId.slice(-4)}`);
     }, []);
 
-    // --- CORE ACTION: Answer Selection (Handles Hesitations) ---
-    const handleAnswerSelection = useCallback((questionId: string, optionId: string, isCorrect: boolean) => {
+    const handleAnswerSelection = useCallback((
+        questionId: string,
+        answer: string,
+        isCorrect: boolean,
+        questionType: "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE"
+    ) => {
+        if (isSubmittedRef.current) return;
         const metrics = getOrInitMetrics(questionId);
 
-        // Check for hesitation: Did they already have an answer, and is it different?
-        if (metrics.selectedAnswer !== null && metrics.selectedAnswer !== optionId)
+        // 🔥 FIX: Apply hesitation logic to ALL question types
+        if (metrics.selectedAnswer !== null && metrics.selectedAnswer !== answer)
         {
             metrics.hesitationCount += 1;
-            logActivity(`HESITATED_ON_${questionId.slice(-4)}`);
+            logActivity(`HESITATED → ${questionId.slice(-4)}`);
         } else
         {
-            logActivity(`ANSWERED_${questionId.slice(-4)}`);
+            logActivity(`ANSWERED → ${questionId.slice(-4)}`);
         }
 
-        // Update the metrics
-        metrics.selectedAnswer = optionId;
+        metrics.selectedAnswer = answer;
         metrics.isCorrect = isCorrect;
 
-        // Update UI if it's the current question
         if (currentQuestionRef.current === questionId)
         {
             setCurrentMetrics({ ...metrics });
         }
     }, []);
 
-    // --- CORE ACTION: Toggles ---
     const toggleFlag = useCallback((questionId: string) => {
+        if (isSubmittedRef.current) return;
         const metrics = getOrInitMetrics(questionId);
         metrics.isFlagged = !metrics.isFlagged;
+        if (currentQuestionRef.current === questionId) setCurrentMetrics({ ...metrics });
+        logActivity(metrics.isFlagged ? `FLAGGED → ${questionId.slice(-4)}` : `UNFLAGGED → ${questionId.slice(-4)}`);
+    }, []);
 
-        if (currentQuestionRef.current === questionId)
+    const stopTimer = useCallback(() => {
+        if (timerRef.current)
         {
-            setCurrentMetrics({ ...metrics });
+            clearInterval(timerRef.current);
+            timerRef.current = null;
         }
-        logActivity(metrics.isFlagged ? `FLAGGED_${questionId.slice(-4)}` : `UNFLAGGED_${questionId.slice(-4)}`);
     }, []);
 
-    // Initial setup
-    useEffect(() => {
-        const initMetrics = getOrInitMetrics(initialQuestionId);
-        initMetrics.visitCount = 1;
-        setCurrentMetrics({ ...initMetrics });
-        logActivity("SESSION_STARTED");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    const flushAndSubmit = useCallback(async (
+        answers: Record<string, string | string[]>,
+        onSuccess: () => void,
+        onError: () => void,
+    ) => {
+        // 1. Stop the dwell timer immediately
+        stopTimer();
 
-    // A live timer just for the Dev Overlay UI (updates every second)
+        // 2. Prevent double-submissions at the hook level
+        if (isSubmittedRef.current) return;
+        isSubmittedRef.current = true;
+
+        // 3. Finalize the current question's dwell time
+        const now = Date.now();
+        const timeSpentSec = Math.floor((now - questionEnterTimeRef.current) / 1000);
+        const currentMetrics = getOrInitMetrics(currentQuestionRef.current);
+        currentMetrics.dwellTimeSeconds += timeSpentSec;
+
+        // 4. Ensure the vault has the most up-to-date answer strings
+        Object.entries(answers).forEach(([qId, answer]) => {
+            const m = getOrInitMetrics(qId);
+            m.selectedAnswer = Array.isArray(answer) ? answer.join(",") : answer;
+        });
+
+        try
+        {
+            // 5. Explicitly await the server action
+            const result = await completeExamSession(sessionId, Object.values(metricsVault.current));
+
+            // If your server action returns a success flag, check it here
+            onSuccess();
+        } catch (error)
+        {
+            console.error("Submission error:", error);
+            isSubmittedRef.current = false; // Allow retry on failure
+            onError();
+        }
+    }, [sessionId, stopTimer]);
+
     useEffect(() => {
-        const interval = setInterval(() => {
+        timerRef.current = setInterval(() => {
             const timeSpentSec = Math.floor((Date.now() - questionEnterTimeRef.current) / 1000);
             const baseDwell = getOrInitMetrics(currentQuestionRef.current).dwellTimeSeconds;
-
-            setCurrentMetrics(prev => ({
-                ...prev,
-                dwellTimeSeconds: baseDwell + timeSpentSec
-            }));
+            setCurrentMetrics(prev => ({ ...prev, dwellTimeSeconds: baseDwell + timeSpentSec }));
         }, 1000);
-        return () => clearInterval(interval);
-    }, []);
+
+        return () => stopTimer(); // cleanup on unmount
+    }, [stopTimer]);
 
     return {
         currentMetrics,
@@ -155,6 +174,6 @@ export function useExamTelemetry(sessionId: string, initialQuestionId: string) {
         handleNavigation,
         handleAnswerSelection,
         toggleFlag,
-        // We will add `flushToDatabase` here in the next step!
+        flushAndSubmit,
     };
 }

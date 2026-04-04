@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { SessionMode } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { InteractionMetrics } from "../hooks/useExamTelemetry";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
     try
@@ -81,4 +83,34 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
         console.error("Failed to create session:", error);
         return { success: false, error: "Failed to initialize exam environment." };
     }
+}
+
+export async function completeExamSession(
+    sessionId: string,
+    metrics: InteractionMetrics[]
+) {
+    await prisma.$transaction([
+        // Update each interaction with collected telemetry
+        ...metrics.map(m =>
+            prisma.questionInteraction.updateMany({
+                where: { sessionId, questionId: m.questionId },
+                data: {
+                    selectedAnswer: m.selectedAnswer,
+                    isCorrect: m.isCorrect ?? false,
+                    visitCount: m.visitCount,
+                    totalDwellTime: m.dwellTimeSeconds,
+                    hesitationCount: m.hesitationCount,
+                    isFlagged: m.isFlagged,
+                    wasHinted: m.wasHinted,
+                },
+            })
+        ),
+        prisma.testSession.update({
+            where: { id: sessionId },
+            data: { endTime: new Date() },
+        }),
+    ]);
+
+    revalidatePath("/results", "page");
+    //revalidatePath(`/exam/${sessionId}/results`);
 }
