@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import DynamicBreadcrumb from "@/components/DynamicBreadcrumb";
 import { ClerkProvider } from '@clerk/nextjs'
+import LibrarySidebar from "@/components/LibrarySidebar";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -26,7 +27,12 @@ export default function RootLayout({
         <ClerkProvider appearance={{ variables: { colorPrimary: '#fe5933' } }}>
           <Navbar />
           <DynamicBreadcrumb />
-          {children}
+          <div className="relative">
+            <LibrarySidebar />
+            <main>
+              {children}
+            </main>
+          </div>
         </ClerkProvider>
       </body>
     </html>
