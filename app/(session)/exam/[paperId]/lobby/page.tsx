@@ -53,6 +53,7 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ id:
         mcq: paper.questions.filter(q => q.type === 'MCQ').length,
         numerical: paper.questions.filter(q => q.type === 'NUMERICAL').length,
         msq: paper.questions.filter(q => q.type === 'MSQ').length,
+        sub: paper.questions.filter(q => q.type === "SUBJECTIVE").length
     };
 
     return (
@@ -121,6 +122,18 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ id:
                                         <div className="flex items-center justify-between p-3 bg-slate-900 text-white rounded-xl shadow-lg">
                                             <span className="text-xs font-bold">Multiple Choice</span>
                                             <span className="text-[10px] font-black opacity-70">{typeStats.mcq} Items</span>
+                                        </div>
+                                    )}
+                                    {typeStats.msq > 0 && (
+                                        <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                                            <span className="text-xs font-bold text-slate-700">Multiple Select</span>
+                                            <span className="text-[10px] font-black text-slate-400">{typeStats.msq} Items</span>
+                                        </div>
+                                    )}
+                                    {typeStats.sub > 0 && (
+                                        <div className="flex items-center justify-between p-3 bg-slate-900 text-white rounded-xl shadow-lg">
+                                            <span className="text-xs font-bold">Subjective</span>
+                                            <span className="text-[10px] font-black opacity-70">{typeStats.sub} Items</span>
                                         </div>
                                     )}
                                     {typeStats.numerical > 0 && (

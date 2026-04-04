@@ -8,7 +8,7 @@ import {
 import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-paper";
 import { createQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
 import { toast } from "sonner";
-
+import { QuestionPaperType } from "@prisma/client";
 import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
 
 // ── Shared Types ──────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ export interface PaperBuilderProps {
     categories?: { id: string; name: string }[];
     syllabusEntries?: SyllabusEntry[];
     exams?: { id: string; name: string }[];
-    initialPaper?: { id: string; title: string; year: number | null };
+    initialPaper?: { id: string; title: string; year: number | null; type: QuestionPaperType };
     initialQuestions?: Question[];
     linkedExamIds?: string[];
 }
@@ -282,6 +282,7 @@ export default function PaperBuilder({
 
     const [title, setTitle] = useState(initialPaper?.title ?? "");
     const [year, setYear] = useState<number | "">(initialPaper?.year ?? "");
+    const [type, setType] = useState<QuestionPaperType>(initialPaper?.type ?? QuestionPaperType.MOCK);
     const [questions, setQuestions] = useState<Question[]>(initialQuestions);
     const [paperId, setPaperId] = useState<string | null>(initialPaper?.id ?? null);
     const paperIdRef = useRef<string | null>(initialPaper?.id ?? null);
@@ -431,6 +432,7 @@ export default function PaperBuilder({
                     await updateQuestionPaper(existingId, {
                         title: title.trim(),
                         year: year || null,
+                        type: type,
                         examIds: selectedExamIds,
                     }, examSlug);
                     setPaperSaved(true);
@@ -441,6 +443,7 @@ export default function PaperBuilder({
                     const result = await createQuestionPaper({
                         title: title.trim(),
                         year: year || null,
+                        type: type,
                         examIds: selectedExamIds,
                     }, examSlug);
 
@@ -506,15 +509,31 @@ export default function PaperBuilder({
 
                     <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-4">
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Title</label>
-                            <input
-                                type="text"
-                                value={title}
-                                onChange={e => setTitle(e.target.value)}
-                                //disabled={paperSaved}
-                                placeholder="e.g. KPSC Assistant Grade II - 2023"
-                                className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                            />
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Title</label>
+                                <input
+                                    type="text"
+                                    value={title}
+                                    onChange={e => setTitle(e.target.value)}
+                                    //disabled={paperSaved}
+                                    placeholder="e.g. KPSC Assistant Grade II - 2023"
+                                    className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="mt-3 text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Type</label>
+                                <select
+                                    value={type}
+                                    onChange={e => setType(e.target.value as QuestionPaperType)}
+                                    className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
+                                >
+                                    {Object.values(QuestionPaperType).map((paperType) => (
+                                        <option key={paperType} value={paperType}>
+                                            {paperType}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Year</label>

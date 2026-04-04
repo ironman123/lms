@@ -144,10 +144,11 @@ model ExamQuestionPaperLink {
 }
 
 model QuestionPaper {
-  id        String     @id @default(uuid())
+  id        String            @id @default(uuid())
   title     String
+  type      QuestionPaperType @default(PYQ)
   year      Int?
-  createdAt DateTime   @default(now())
+  createdAt DateTime          @default(now())
   questions Question[]
   //exam      Exam?      @relation(fields: [examId], references: [id], onDelete: Cascade)
   //examId    String?
@@ -300,4 +301,9 @@ enum SessionMode {
   PRACTICE
   MOCK_EXAM
   DIAGNOSTIC
+}
+
+enum QuestionPaperType {
+  PYQ
+  MOCK
 }
