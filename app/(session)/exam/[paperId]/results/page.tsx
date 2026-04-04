@@ -140,7 +140,7 @@ export default async function ResultsPage({
 
                         return (
                             <div key={interaction.id} className={`bg-white rounded-2xl border p-5 ${!wasAttempted ? "border-slate-200" :
-                                    isCorrectAnswer ? "border-green-200" : "border-red-200"
+                                isCorrectAnswer ? "border-green-200" : "border-red-200"
                                 }`}>
                                 <div className="flex items-start gap-3">
                                     <div className="shrink-0 mt-0.5">
