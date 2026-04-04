@@ -1,8 +1,11 @@
-// practice/page.tsx
+// mock/page.tsx
 import prisma from "@/lib/prisma";
 import ActiveSessionClient from "@/components/ActiveSessionClient";
+import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
+import { SessionMode } from "@prisma/client";
 
-export default async function PracticeSessionPage({
+export default async function MockSessionPage({
     params,
     searchParams,
 }: {
@@ -33,6 +36,17 @@ export default async function PracticeSessionPage({
             },
         }),
     ]);
+    const sanitizedPaper = {
+        ...paper,
+        questions: paper.questions.map(q => ({
+            ...q,
+            correctAnswer: null,      // ← never leak to client during mock
+            options: q.options.map(o => ({
+                ...o,
+                isCorrect: false,     // ← strip this too
+            }))
+        }))
+    };
 
 
 
@@ -40,8 +54,8 @@ export default async function PracticeSessionPage({
 
     return (
         <ActiveSessionClient
-            paper={paper}
-            mode="practice"
+            paper={sanitizedPaper}
+            mode={SessionMode.MOCK}
             sessionId={sessionId}
             userId={session.userId}
         />
