@@ -27,6 +27,7 @@ model Exam {
   id                     String                  @id @default(uuid())
   name                   String                  @unique
   description            String?
+  url                    String?
   duration               Int
   categoryNumber         String?                 @unique
   totalMarks             Int
@@ -146,6 +147,7 @@ model ExamQuestionPaperLink {
 model QuestionPaper {
   id        String            @id @default(uuid())
   title     String
+  url       String?
   type      QuestionPaperType @default(PYQ)
   year      Int?
   createdAt DateTime          @default(now())
@@ -299,7 +301,7 @@ enum QuestionType {
 
 enum SessionMode {
   PRACTICE
-  MOCK_EXAM
+  MOCK
   DIAGNOSTIC
 }
 
