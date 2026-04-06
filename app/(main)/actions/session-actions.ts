@@ -90,28 +90,117 @@ export async function completeExamSession(
     sessionId: string,
     metrics: InteractionMetrics[]
 ) {
-    await prisma.$transaction([
-        // Update each interaction with collected telemetry
-        ...metrics.map(m =>
-            prisma.questionInteraction.updateMany({
-                where: { sessionId, questionId: m.questionId },
-                data: {
-                    selectedAnswer: m.selectedAnswer,
-                    isCorrect: m.isCorrect ?? false,
-                    visitCount: m.visitCount,
-                    totalDwellTime: m.dwellTimeSeconds,
-                    hesitationCount: m.hesitationCount,
-                    isFlagged: m.isFlagged,
-                    wasHinted: m.wasHinted,
-                },
-            })
-        ),
-        prisma.testSession.update({
+    try
+    {
+        // 1. Fetch the session and all related questions with their correct answers/options
+        const session = await prisma.testSession.findUnique({
             where: { id: sessionId },
-            data: { endTime: new Date() },
-        }),
-    ]);
+            include: {
+                paper: {
+                    include: {
+                        questions: {
+                            include: { options: true }
+                        }
+                    }
+                }
+            }
+        });
 
-    revalidatePath("/results", "page");
-    //revalidatePath(`/exam/${sessionId}/results`);
+        if (!session || !session.paper)
+        {
+            throw new Error("Session or Paper not found.");
+        }
+
+        const questions = session.paper.questions;
+        const questionMap = new Map(questions.map(q => [q.id, q]));
+
+        let earnedMarks = 0;
+        const totalMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+
+        // 2. Map through the frontend metrics and recalculate `isCorrect` server-side
+        const verifiedMetrics = metrics.map(m => {
+            const q = questionMap.get(m.questionId);
+            if (!q) return m;
+
+            let isCorrect = false;
+            const answer = m.selectedAnswer;
+
+            if (answer)
+            {
+                if (q.type === "MCQ")
+                {
+                    const correctOption = q.options.find(o => o.isCorrect);
+                    isCorrect = correctOption?.id === answer;
+                }
+                else if (q.type === "MSQ")
+                {
+                    const correctIds = q.options.filter(o => o.isCorrect).map(o => o.id).sort().join(",");
+                    const selectedIds = answer.split(",").sort().join(",");
+                    isCorrect = correctIds === selectedIds;
+                }
+                else if (q.type === "NUMERICAL")
+                {
+                    isCorrect = answer.trim() === q.correctAnswer?.trim();
+                }
+                else if (q.type === "SUBJECTIVE")
+                {
+                    // Subjective questions cannot be strictly auto-graded this way
+                    isCorrect = false;
+                }
+            }
+
+            // Tally earned marks (considering negative marking if applicable)
+            if (isCorrect)
+            {
+                earnedMarks += q.marks;
+            } else if (answer && !isCorrect && q.negativeMarks)
+            {
+                earnedMarks -= q.negativeMarks; // Optional: subtracts negative marks for wrong attempts
+            }
+
+            return {
+                ...m,
+                isCorrect // Overwrite the frontend's trust-based metric
+            };
+        });
+
+        // 3. Compute final percentage score
+        // Ensure we don't divide by zero if a paper has 0 total marks
+        const totalScore = totalMarks > 0 ? (earnedMarks / totalMarks) * 100 : 0;
+
+        // 4. Save everything to the database
+        await prisma.$transaction([
+            // Update each interaction with collected telemetry and server-verified correctness
+            ...verifiedMetrics.map(m =>
+                prisma.questionInteraction.updateMany({
+                    where: { sessionId, questionId: m.questionId },
+                    data: {
+                        selectedAnswer: m.selectedAnswer,
+                        isCorrect: m.isCorrect, // Guaranteed server-side accuracy
+                        visitCount: m.visitCount,
+                        totalDwellTime: m.dwellTimeSeconds,
+                        hesitationCount: m.hesitationCount,
+                        isFlagged: m.isFlagged,
+                        wasHinted: m.wasHinted,
+                    },
+                })
+            ),
+            // Lock the session and save the computed score
+            prisma.testSession.update({
+                where: { id: sessionId },
+                data: {
+                    endTime: new Date(),
+                    totalScore: parseFloat(totalScore.toFixed(2)) // Save up to 2 decimal places
+                },
+            }),
+        ]);
+
+        revalidatePath("/results", "page");
+        return { success: true };
+    }
+    catch (error)
+    {
+        console.error("Failed to complete session:", error);
+        return { success: false, error: "Failed to save exam results." };
+    }
 }

@@ -11,8 +11,12 @@ export async function createCategory(values: CategoryFormValues) {
     // 1. Generate slug from name
     const slug = values.name
         .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w\-]+/g, '');
+        .replace(/[;,|]+/g, '-')     // semicolons/commas → dash
+        .replace(/\s+/g, '-')         // spaces → dash
+        .replace(/[^\w\-]+/g, '')     // strip everything else
+        .replace(/-{2,}/g, '-')       // collapse multiple dashes
+        .replace(/^-|-$/g, '')        // trim leading/trailing dashes
+        .trim();
 
     try
     {
@@ -45,8 +49,11 @@ export async function updateCategory(categoryId: string, data: CategoryFormValue
 
     const slug = validated.name
         .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, "")
-        .replace(/\s+/g, "-")
+        .replace(/[;,|]+/g, '-')     // semicolons/commas → dash
+        .replace(/\s+/g, '-')         // spaces → dash
+        .replace(/[^\w\-]+/g, '')     // strip everything else
+        .replace(/-{2,}/g, '-')       // collapse multiple dashes
+        .replace(/^-|-$/g, '')        // trim leading/trailing dashes
         .trim();
 
     await prisma.examCategory.update({

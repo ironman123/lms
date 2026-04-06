@@ -355,9 +355,13 @@ async function inChunks<T>(items: T[], chunkSize: number, fn: (item: T) => Promi
 }
 
 function makeSlug(name: string, categoryNumber?: string | null): string {
-    const base = name.toLowerCase().trim()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w\-]+/g, '');
+    const base = name.toLowerCase()
+        .replace(/[;,|]+/g, '-')     // semicolons/commas → dash
+        .replace(/\s+/g, '-')         // spaces → dash
+        .replace(/[^\w\-]+/g, '')     // strip everything else
+        .replace(/-{2,}/g, '-')       // collapse multiple dashes
+        .replace(/^-|-$/g, '')        // trim leading/trailing dashes
+        .trim();
     if (categoryNumber)
     {
         return `${base}-${categoryNumber.replace(/\//g, '-').toLowerCase()}`;

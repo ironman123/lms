@@ -35,7 +35,7 @@ export default async function DashboardPage() {
                                 <p className="text-slate-300 text-sm mt-1">Start a mock test to see your analytics here.</p>
                             </div>
                         ) : (
-                            examStats.map(exam => <ExamPerformanceCard key={exam.examId} {...exam} />)
+                            examStats.map(exam => <ExamPerformanceCard key={exam.examId} {...exam} trend={exam.trend as "improving" | "declining" | "neutral"} />)
                         )}
                     </div>
                 </div>

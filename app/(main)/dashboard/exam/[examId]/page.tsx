@@ -5,8 +5,8 @@ import { ChevronLeft } from "lucide-react";
 import ScoreTrendChart from "@/components/ScoreTrendChart";
 import SubjectBreakdown from "@/components/SubjectBreakdown";
 import TopicStrengthCard from "@/components/TopicStrengthCard";
+import SubjectPerformanceRadar from "@/components/SubjectPerformanceRadar";
 import TestHistoryList from "@/components/TestHistoryList";
-import ExamPerformanceCard from "@/components/ExamPerformanceCard";
 
 export default async function ExamDashboardPage({
     params,
@@ -32,6 +32,10 @@ export default async function ExamDashboardPage({
 
                 {/* Score trend */}
                 <ScoreTrendChart data={data.trend} />
+                <div className="grid md:grid-cols-2 gap-6">
+                    <SubjectPerformanceRadar subjects={data.subjectStats} />
+                    <SubjectBreakdown subjects={data.subjectStats} />
+                </div>
 
                 {/* Subject performance */}
                 <SubjectBreakdown subjects={data.subjectStats} />

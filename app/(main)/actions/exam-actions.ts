@@ -10,8 +10,12 @@ export async function createExam(data: any) {
 
     const slug = validated.name
         .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w\-]+/g, '');
+        .replace(/[;,|]+/g, '-')     // semicolons/commas → dash
+        .replace(/\s+/g, '-')         // spaces → dash
+        .replace(/[^\w\-]+/g, '')     // strip everything else
+        .replace(/-{2,}/g, '-')       // collapse multiple dashes
+        .replace(/^-|-$/g, '')        // trim leading/trailing dashes
+        .trim();
 
     // 1. Upsert all categories up front, build name→id map
     const categoryNames = [...new Set(
@@ -142,8 +146,12 @@ export async function updateExam(id: string, data: any) {
 
     const slug = validated.name
         .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w\-]+/g, '');
+        .replace(/[;,|]+/g, '-')     // semicolons/commas → dash
+        .replace(/\s+/g, '-')         // spaces → dash
+        .replace(/[^\w\-]+/g, '')     // strip everything else
+        .replace(/-{2,}/g, '-')       // collapse multiple dashes
+        .replace(/^-|-$/g, '')        // trim leading/trailing dashes
+        .trim();
 
     // Upsert categories
     const categoryNames = [...new Set(
