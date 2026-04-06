@@ -99,7 +99,7 @@ export default async function DashboardPage() {
                             <div key={stat.diff}>
                                 <div className="flex justify-between text-xs font-bold mb-1.5">
                                     <span className="text-slate-600">{stat.diff}</span>
-                                    <span className={stat.accuracy >= 70 ? 'text-green-600' : 'text-amber-500'}>{stat.accuracy}%</span>
+                                    <span className={stat.accuracy >= 70 ? 'text-green-600' : stat.accuracy >= 40 ? 'text-amber-500' : 'text-red-500'}>{stat.accuracy}%</span>
                                 </div>
                                 <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                                     <div className={`h-full rounded-full ${stat.accuracy >= 70 ? 'bg-green-500' : stat.accuracy >= 40 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${stat.accuracy}%` }} />
