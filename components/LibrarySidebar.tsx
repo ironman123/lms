@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import {
     LayoutGrid, BookOpen, FileText, ChevronLeft, ChevronRight,
     GraduationCap,
+    LayoutDashboard,
+    BookMarked,
 } from "lucide-react";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -21,6 +23,13 @@ const NAV = [
             { label: "Papers", href: "/library/paper", icon: FileText },
         ],
     },
+    {
+        section: "Dashboard",
+        items: [
+            { label: "My Dashboard", href: "/dashboard", icon: LayoutDashboard },
+            //{ label: "Bookmarks", href: "/dashboard/exams", icon: BookMarked },
+        ],
+    }
     // {
     //     section: "Study",
     //     items: [
