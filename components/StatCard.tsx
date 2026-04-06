@@ -5,6 +5,8 @@ const COLORS = {
     green: { bg: "bg-green-600", icon: "text-white", badge: "bg-green-500 text-white" },
     purple: { bg: "bg-purple-600", icon: "text-white", badge: "bg-purple-500 text-white" },
     orange: { bg: "bg-orange-500", icon: "text-white", badge: "bg-orange-400 text-white" },
+    rose: { bg: "bg-rose-400", icon: "text-white", badge: "bg-rose-300 text-white" },
+    red: { bg: "bg-red-600", icon: "text-white", badge: "bg-red-500 text-white" },
 } as const;
 
 export default function StatCard({
