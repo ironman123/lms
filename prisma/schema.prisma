@@ -227,9 +227,10 @@ model User {
   totalStudyTime  Int                   @default(0)
   accuracyRate    Float                 @default(0.0)
   avatarUrl       String?
-  clerkId         String?               @unique
+  //clerkId         String?               @unique
   college         String?
   createdAt       DateTime              @default(now())
+  plan            PlanType?             @default(FREE)
   isPremium       Boolean               @default(false)
   lastActive      DateTime              @default(now())
   onboarded       Boolean               @default(false)
@@ -283,7 +284,7 @@ model TopicMastery {
 enum UserRole {
   STUDENT
   ADMIN
-  CONTENT_CREATOR
+  CREATOR
 }
 
 enum Difficulty {
@@ -308,4 +309,9 @@ enum SessionMode {
 enum QuestionPaperType {
   PYQ
   MOCK
+}
+
+enum PlanType {
+  FREE
+  PRO
 }

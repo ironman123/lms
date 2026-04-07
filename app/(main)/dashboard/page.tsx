@@ -3,6 +3,8 @@ import StatCard from "@/components/StatCard";
 import ExamPerformanceCard from "@/components/ExamPerformanceCard";
 import { Target, Trophy, Zap, BookOpen, Clock, ArrowRight, Flame } from "lucide-react";
 import Link from "next/link";
+import { requireAuth } from '@/lib/auth'
+
 
 function getHeatmapColor(score: number) {
     if (score >= 90) return "bg-fuchsia-50 border-fuchsia-200 hover:border-fuchsia-400";
@@ -20,6 +22,9 @@ function getActivityColor(count: number) {
 }
 
 export default async function DashboardPage() {
+
+    const user = await requireAuth();
+
     const { totalTests, totalQuestions, avgScore, accuracy, examStats,
         timeSpentStr, recentActivity, weakSubject, currentStreak,
         typeStats, diffStats, heatmapData
