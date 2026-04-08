@@ -21,19 +21,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${bricolage.variable} antialiased`}>
-
-        <Navbar />
-        <DynamicBreadcrumb />
-        <div className="relative">
-          <LibrarySidebar />
-          <main>
-            {children}
-          </main>
-        </div>
-
-      </body>
-    </html>
+    <>
+      <Navbar />
+      <DynamicBreadcrumb />
+      <div className="relative">
+        <LibrarySidebar />
+        <main>
+          {children}
+        </main>
+      </div>
+    </>
   );
 }

@@ -58,12 +58,10 @@ import Link from "next/link";
 
 export default function SessionLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="en">
-            <body className="antialiased">
-                <div className="min-h-screen bg-white flex flex-col">
-                    {children}
-                </div>
-            </body>
-        </html>
+        <>
+            <div className="min-h-screen bg-white flex flex-col">
+                {children}
+            </div>
+        </>
     );
 }
