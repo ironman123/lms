@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { paperSchema } from "@/types/paper";
+import { requireAdmin } from "@/lib/auth";
 
 // Zod Schema
 // const paperSchema = z.object({
@@ -15,6 +16,7 @@ import { paperSchema } from "@/types/paper";
 
 // Link
 export async function linkPaperToExam(paperId: string, examId: string) {
+    await requireAdmin();
     await prisma.examQuestionPaperLink.upsert({
         where: { examId_paperId: { examId, paperId } },
         update: {},
@@ -25,6 +27,7 @@ export async function linkPaperToExam(paperId: string, examId: string) {
 
 // Unlink
 export async function unlinkPaperFromExam(paperId: string, examId: string) {
+    await requireAdmin();
     await prisma.examQuestionPaperLink.delete({
         where: { examId_paperId: { examId, paperId } },
     });
@@ -32,6 +35,7 @@ export async function unlinkPaperFromExam(paperId: string, examId: string) {
 }
 
 export async function createQuestionPaper(data: any, examSlug: string) {
+    await requireAdmin();
     try
     {
         const validated = paperSchema.parse(data);
@@ -64,6 +68,7 @@ export async function createQuestionPaper(data: any, examSlug: string) {
 }
 
 export async function updateQuestionPaper(paperId: string, data: any, examSlug: string) {
+    await requireAdmin();
     if (!paperId)
     {
         throw new Error("Paper ID is required for update");
@@ -99,6 +104,7 @@ export async function updateQuestionPaper(paperId: string, data: any, examSlug: 
 
 
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {
+    await requireAdmin();
     await prisma.questionPaper.delete({ where: { id: paperId } });
     revalidateTag("exams");
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);

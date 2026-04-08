@@ -1,3 +1,4 @@
+// components/WorkspacePaperCard.tsx
 "use client";
 import Link from "next/link";
 import { Clock, Bookmark, Pencil, Trash2 } from "lucide-react";

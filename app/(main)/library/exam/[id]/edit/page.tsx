@@ -3,12 +3,15 @@ import NewExamForm from "@/components/NewExamForm";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireAdminPage } from "@/lib/auth";
 
 interface PageProps {
     params: Promise<{ id: string }>;
 }
 
 export default async function EditExamPage({ params }: PageProps) {
+    await requireAdminPage(); // Ensure only admins can access this page
+
     const { id } = await params;
 
     const [exam, categories] = await Promise.all([

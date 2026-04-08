@@ -1,3 +1,4 @@
+// app/(main)/dashboard/page.tsx
 import { getDashboardOverview } from "@/app/(main)/actions/dashboard-actions";
 import StatCard from "@/components/StatCard";
 import ExamPerformanceCard from "@/components/ExamPerformanceCard";

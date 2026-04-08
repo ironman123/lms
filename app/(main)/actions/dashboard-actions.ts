@@ -1,17 +1,14 @@
 "use server";
-
 import prisma from "@/lib/prisma";
-
-const DUMMY_USER_ID = "dev-dummy-user-123";
-
-
-
-
+import { requireAuth } from "@/lib/auth";
+import { userAgent } from "next/server";
 
 // ── Overview stats ─────────────────────────────────────────────
 export async function getDashboardOverview() {
+    const user = await requireAuth();
+
     const sessions = await prisma.testSession.findMany({
-        where: { userId: DUMMY_USER_ID, endTime: { not: null } },
+        where: { userId: user.id, endTime: { not: null } },
         include: {
             interactions: {
                 select: {
@@ -186,7 +183,7 @@ export async function getDashboardOverview() {
                 trend = "declining";
             } else
             {
-                trend = "neutral"; // 🔥 This catches the flatlines!
+                trend = "neutral";
             }
         }
         return { examId, examName, examSlug, testsAttempted: sessions.length, avgScore: avg, bestScore: best, trend };
@@ -197,9 +194,11 @@ export async function getDashboardOverview() {
 
 // ── Exam detail ─────────────────────────────────────────────────
 export async function getExamDashboard(examId: string) {
+    const user = await requireAuth();
+
     const sessions = await prisma.testSession.findMany({
         where: {
-            userId: DUMMY_USER_ID,
+            userId: user.id,
             endTime: { not: null },
             paper: { examQuestionPaperLinks: { some: { examId } } },
         },

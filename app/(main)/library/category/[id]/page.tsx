@@ -1,6 +1,6 @@
 // app/library/category/[id]/page.tsx
 
-import { auth } from "@clerk/nextjs/server";
+// import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import ExamCarouselCard from "@/components/ExamCarouselCard";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import SearchFilter from "@/components/SearchFilter";
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
 import { deleteExam } from "@/app/(main)/actions/exam-actions";
+import { getIsAdmin } from "@/lib/auth";
 
 
 
@@ -62,14 +63,14 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     const { id } = await params; // This is the slug (e.g., 'general')
     const query = (await searchParams).q || "";
 
-    // ━━━ DUMMY MOCK FOR NOW ━━━
-    const isAdmin = true;
+
 
     // 2. Fetch Category info and exams in parallel
     // We fetch category directly so we always have the most fresh metadata (color, description)
-    const [category, exams] = await Promise.all([
+    const [category, exams, isAdmin] = await Promise.all([
         prisma.examCategory.findUnique({ where: { slug: id } }),
-        getExamsData(id, query)
+        getExamsData(id, query),
+        getIsAdmin()
     ]);
 
     // console.log("Exams: ", exams);

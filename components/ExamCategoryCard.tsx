@@ -1,3 +1,4 @@
+// components/ExamCategoryCard.tsx
 "use client";
 import Link from "next/link";
 import { CldImage } from "next-cloudinary";

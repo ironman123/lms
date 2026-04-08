@@ -1,8 +1,10 @@
 import NewCategoryForm from "@/components/NewCategoryForm"; // Adjust path as needed
+import { requireAdminPage } from "@/lib/auth";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function NewCategoryPage() {
+export default async function NewCategoryPage() {
+    await requireAdminPage(); // Ensure only admins can access this page
     return (
         <div className="min-h-screen bg-slate-50 py-12">
             <div className="max-w-5xl mx-auto px-4">

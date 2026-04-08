@@ -3,12 +3,14 @@ import NewCategoryForm from "@/components/NewCategoryForm";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireAdminPage } from "@/lib/auth";
 
 interface PageProps {
     params: Promise<{ id: string }>;
 }
 
 export default async function EditCategoryPage({ params }: PageProps) {
+    await requireAdminPage();
     const { id: slug } = await params;
 
     const category = await prisma.examCategory.findUnique({

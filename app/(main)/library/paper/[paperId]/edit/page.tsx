@@ -3,12 +3,14 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PaperBuilder from "@/components/PaperBuilder";
+import { requireAdminPage } from "@/lib/auth";
 
 interface PageProps {
     params: Promise<{ id: string; paperId: string }>;
 }
 
 export default async function EditPaperPage({ params }: PageProps) {
+    await requireAdminPage(); // Ensure only admins can access this page
     const { id: examSlug, paperId } = await params;
 
     const [paper, allExams] = await Promise.all([
@@ -99,7 +101,7 @@ export default async function EditPaperPage({ params }: PageProps) {
                 examSlug={currentExam?.slug ?? ""}
                 syllabusEntries={syllabusEntries}
                 exams={allExams}
-                initialPaper={{ id: paper.id, title: paper.title, year: paper.year }}
+                initialPaper={{ id: paper.id, title: paper.title, year: paper.year, type: paper.type }}
                 initialQuestions={initialQuestions}
                 linkedExamIds={linkedExamIds}
             />

@@ -1,5 +1,4 @@
 import Cta from '@/components/Cta'
-
 import List from '@/components/List'
 import ExamCard from '@/components/ExamCard'
 import { Button } from '@/components/ui/button'

@@ -1,41 +1,19 @@
+// app/(main)/actions/session-actions.ts
 "use server";
-
 import prisma from "@/lib/prisma";
 import { SessionMode } from "@prisma/client";
-import { auth } from "@clerk/nextjs/server";
+// import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { InteractionMetrics } from "../hooks/useExamTelemetry";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
+    const user = await requireAuth();
     try
     {
-        // ==========================================
-        // 1. AUTHENTICATION (Real vs. Dummy)
-        // ==========================================
 
-        // ACTUAL LOGIC (Commented out for future):
-        // const { userId } = auth(); 
-        // if (!userId) throw new Error("Unauthorized");
-
-        // DUMMY LOGIC (For current development):
-        const dummyUserId = "dev-dummy-user-123";
-
-        // We must ensure the dummy user actually exists in the DB, 
-        // otherwise Prisma will throw a Foreign Key constraint error.
-        const user = await prisma.user.upsert({
-            where: { id: dummyUserId },
-            update: {}, // Do nothing if exists
-            create: {
-                id: dummyUserId,
-                email: "guest.student@example.com",
-                name: "Guest Student",
-                onboarded: true,
-
-            }
-        });
-
-        // 2. Fetch all questions for this paper so we can prepopulate the interactions
+        // 1 Fetch all questions for this paper so we can prepopulate the interactions
         const paper = await prisma.questionPaper.findUnique({
             where: { id: paperId },
             select: {
@@ -45,7 +23,7 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
 
         if (!paper) throw new Error("Question paper not found.");
 
-        // 3. Create Session AND Bulk Insert Interactions Safely
+        // 2. Create Session AND Bulk Insert Interactions Safely
         const session = await prisma.$transaction(async (tx) => {
             console.log("Session Mode: ", mode);
             const newSession = await tx.testSession.create({
@@ -90,11 +68,12 @@ export async function completeExamSession(
     sessionId: string,
     metrics: InteractionMetrics[]
 ) {
+    const user = await requireAuth();
     try
     {
         // 1. Fetch the session and all related questions with their correct answers/options
         const session = await prisma.testSession.findUnique({
-            where: { id: sessionId },
+            where: { id: sessionId, userId: user.id },
             include: {
                 paper: {
                     include: {
@@ -176,12 +155,12 @@ export async function completeExamSession(
                     where: { sessionId, questionId: m.questionId },
                     data: {
                         selectedAnswer: m.selectedAnswer,
-                        isCorrect: m.isCorrect, // Guaranteed server-side accuracy
+                        isCorrect: m.isCorrect ?? false, // Guaranteed server-side accuracy
                         visitCount: m.visitCount,
                         totalDwellTime: m.dwellTimeSeconds,
                         hesitationCount: m.hesitationCount,
-                        isFlagged: m.isFlagged,
-                        wasHinted: m.wasHinted,
+                        isFlagged: m.isFlagged ?? false,
+                        wasHinted: m.wasHinted ?? false,
                     },
                 })
             ),

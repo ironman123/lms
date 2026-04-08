@@ -1,3 +1,4 @@
+// app/(main)/library/exam/[id]/page.tsx
 import prisma from "@/lib/prisma";
 import SyllabusDropdown from "@/components/SyllabusDropdown";
 import ExamWorkspace from "@/components/ExamWorkspace";
@@ -5,6 +6,7 @@ import Link from "next/link";
 import { ChevronLeft, Pencil } from "lucide-react";
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
+import { getIsAdmin } from "@/lib/auth";
 
 const getCachedExam = unstable_cache(
     async (slug: string) => {
@@ -38,10 +40,10 @@ interface PageProps {
 
 export default async function ExamPage({ params }: PageProps) {
     const { id: slug } = await params;
-    const currentExam = await getCachedExam(slug);
-
-    //----DUMMY----Mock for now///
-    const isAdmin = true;
+    const [currentExam, isAdmin] = await Promise.all([
+        getCachedExam(slug),
+        getIsAdmin()
+    ]);
 
     if (!currentExam) notFound();
 

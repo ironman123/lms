@@ -4,11 +4,13 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { questionSchema } from "@/types/question";
+import { requireAdmin } from "@/lib/auth";
 
 
 // ── Actions ─────────────────────────────────────────────────────────────────
 
 export async function createQuestion(paperId: string, examSlug: string, data: any) {
+    await requireAdmin();
     const validated = questionSchema.parse(data);
 
     // If it's not an MCQ/MSQ, we shouldn't save options to the database
@@ -46,6 +48,7 @@ export async function createQuestion(paperId: string, examSlug: string, data: an
 }
 
 export async function updateQuestion(questionId: string, paperId: string, examSlug: string, data: any) {
+    await requireAdmin();
     const validated = questionSchema.parse(data);
     const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
 
@@ -83,7 +86,8 @@ export async function updateQuestion(questionId: string, paperId: string, examSl
 }
 
 export async function deleteQuestion(questionId: string, examSlug: string) {
-    // Thanks to onDelete: Cascade in your schema, deleting the question
+    await requireAdmin();
+    // onDelete: Cascade in schema, deleting the question
     // automatically cleans up the connected Options in the database!
     await prisma.question.delete({
         where: { id: questionId }

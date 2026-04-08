@@ -1,3 +1,4 @@
+// app/(main)/library/paper/page.tsx
 import prisma from "@/lib/prisma";
 import WorkspacePaperCard from "@/components/WorkspacePaperCard";
 import Link from "next/link";

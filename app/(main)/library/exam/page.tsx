@@ -1,3 +1,4 @@
+// app/(main)/library/exam/page.tsx
 import prisma from "@/lib/prisma";
 import ExamCarouselCard from "@/components/ExamCarouselCard";
 import Link from "next/link";
@@ -5,6 +6,7 @@ import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
 import { unstable_cache } from "next/cache";
 import { deleteExam } from "@/app/(main)/actions/exam-actions";
+import { getIsAdmin } from "@/lib/auth";
 
 const getExamsData = (query: string, page: number) =>
     unstable_cache(
@@ -53,8 +55,7 @@ export default async function ExamIndexPage({
 }) {
     const { q = "", page = "0" } = await searchParams;
     const currentPage = parseInt(page) || 0;
-    const { exams, total, totalPages } = await getExamsData(q, currentPage);
-    const isAdmin = true;
+    const [{ exams, total, totalPages }, isAdmin] = await Promise.all([getExamsData(q, currentPage), getIsAdmin()]);
 
     return (
         <div className="min-h-screen bg-slate-50">

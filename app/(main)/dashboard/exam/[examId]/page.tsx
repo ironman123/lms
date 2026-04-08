@@ -1,3 +1,4 @@
+// app/(main)/dashboard/exam/[examId]/page.tsx
 import { getExamDashboard } from "@/app/(main)/actions/dashboard-actions";
 import { notFound } from "next/navigation";
 import Link from "next/link";

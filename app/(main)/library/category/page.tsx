@@ -1,3 +1,4 @@
+// app/(main)/library/category/page.tsx
 import prisma from "@/lib/prisma";
 import ExamCategoryCard from "@/components/ExamCategoryCard";
 import SearchFilter from "@/components/SearchFilter"; // We'll update this next
@@ -5,6 +6,7 @@ import { Search, Plus } from "lucide-react";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { deleteCategory } from "@/app/(main)/actions/category-actions";
+import { getIsAdmin } from "@/lib/auth";
 
 const getCachedCategories = unstable_cache(
     async (query: string) => {
@@ -33,9 +35,8 @@ export default async function CategoryIndexPage({
     searchParams: Promise<{ q?: string }>;
 }) {
     const query = (await searchParams).q || "";
-    const categories = await getCachedCategories(query);
+    const [categories, isAdmin] = await Promise.all([getCachedCategories(query), getIsAdmin()]);
 
-    const isAdmin = true;
     // Fetch real data from Supabase/Prisma
     // const categories = await prisma.examCategory.findMany({
     //     where: {

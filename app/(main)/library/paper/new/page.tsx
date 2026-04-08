@@ -1,5 +1,6 @@
 //exam/[id]/paper/new/page.tsx
 import PaperBuilder from "@/components/PaperBuilder";
+import { requireAdminPage } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
@@ -11,6 +12,7 @@ interface PageProps {
 }
 
 export default async function NewPaperPage({ params, searchParams }: PageProps) {
+    await requireAdminPage(); // Ensure only admins can access this page
 
     const allExams = await prisma.exam.findMany({
         select: { id: true, name: true },

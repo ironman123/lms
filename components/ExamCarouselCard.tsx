@@ -1,5 +1,5 @@
+// components/ExamCarouselCard.tsx
 "use client";
-
 import { useRouter } from "next/navigation";
 import { Trophy, Clock, LayoutGrid, Edit, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";

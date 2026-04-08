@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { revalidateTag } from "next/cache";
 import { CategoryFormValues } from "@/types/category"; // Import your Zod type
 import { categorySchema } from "@/types/category";
+import { requireAdmin } from "@/lib/auth";
 
 export async function createCategory(values: CategoryFormValues) {
+    await requireAdmin(); // Ensure only admins can create categories
     // 1. Generate slug from name
     const slug = values.name
         .toLowerCase()
@@ -45,6 +47,7 @@ export async function createCategory(values: CategoryFormValues) {
 }
 
 export async function updateCategory(categoryId: string, data: CategoryFormValues) {
+    await requireAdmin();
     const validated = categorySchema.parse(data);
 
     const slug = validated.name
@@ -73,6 +76,7 @@ export async function updateCategory(categoryId: string, data: CategoryFormValue
 }
 
 export async function deleteCategory(categoryId: string) {
+    await requireAdmin();
     await prisma.examCategory.delete({ where: { id: categoryId } });
     revalidateTag("examCategories");
     redirect("/library/category");

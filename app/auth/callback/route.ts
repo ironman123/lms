@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
             name: data.user.user_metadata?.full_name ?? data.user.user_metadata?.name,
             avatarUrl: data.user.user_metadata?.avatar_url,
             onboarded: false,
+            supabaseId: data.user.id,
         },
     })
 

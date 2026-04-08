@@ -221,6 +221,7 @@ model QuestionInteraction {
 model User {
   id              String                @id @default(uuid())
   email           String                @unique
+  supabaseId      String                @unique
   name            String?
   region          String?
   globalMastery   Float                 @default(0.0)

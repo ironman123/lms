@@ -1,3 +1,4 @@
+// components/ExamWorkspace.tsx
 "use client";
 
 import { useState, useMemo } from "react";
