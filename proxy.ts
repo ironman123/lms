@@ -24,27 +24,38 @@ export async function proxy(request: NextRequest) {
         }
     )
 
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // Protected routes — redirect to login if not authenticated
-    const protectedPaths = ['/dashboard', '/session']
-    const isProtected = protectedPaths.some(p =>
-        request.nextUrl.pathname.startsWith(p)
-    )
-
-    if (!user && isProtected)
+    try
     {
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        return NextResponse.redirect(url)
+
+
+        const { data: { user } } = await supabase.auth.getUser()
+
+        // Protected routes — redirect to login if not authenticated
+        const protectedPaths = ['/dashboard', '/session']
+        const isProtected = protectedPaths.some(p =>
+            request.nextUrl.pathname.startsWith(p)
+        )
+
+        if (!user && isProtected)
+        {
+            const url = request.nextUrl.clone()
+            url.pathname = '/login'
+            return NextResponse.redirect(url)
+        }
+
+        // Redirect logged-in users away from login
+        if (user && request.nextUrl.pathname === '/login')
+        {
+            const url = request.nextUrl.clone()
+            url.pathname = '/dashboard'
+            return NextResponse.redirect(url)
+        }
     }
-
-    // Redirect logged-in users away from login
-    if (user && request.nextUrl.pathname === '/login')
+    catch (e)
     {
-        const url = request.nextUrl.clone()
-        url.pathname = '/dashboard'
-        return NextResponse.redirect(url)
+        // If auth fails for technical reasons, let the request proceed 
+        // and let individual pages handle the error or redirect.
+        console.error("Middleware auth check failed:", e)
     }
 
     return supabaseResponse
