@@ -1,14 +1,14 @@
 generator client {
   provider        = "prisma-client-js"
-  engineType      = "library"
+  //engineType      = "library"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider   = "postgresql"
+  //url        = env("DATABASE_URL")
+  //directUrl  = env("DIRECT_URL")
   extensions = [pgvector(map: "vector")]
-  url        = env("DATABASE_URL")
-  directUrl  = env("DIRECT_URL")
 }
 
 model ExamCategory {
