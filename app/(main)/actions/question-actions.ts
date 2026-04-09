@@ -53,7 +53,7 @@ export async function updateQuestion(questionId: string, paperId: string, examSl
     const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
 
     await prisma.question.update({
-        where: { id: questionId },
+        where: { id: questionId, paperId: paperId },
         data: {
             content: validated.content,
             type: validated.type,
@@ -85,17 +85,17 @@ export async function updateQuestion(questionId: string, paperId: string, examSl
     return { success: true };
 }
 
-export async function deleteQuestion(questionId: string, examSlug: string) {
+export async function deleteQuestion(questionId: string, paperId: string, examSlug: string) {
     await requireAdmin();
     // onDelete: Cascade in schema, deleting the question
     // automatically cleans up the connected Options in the database!
     await prisma.question.delete({
-        where: { id: questionId }
+        where: { id: questionId, paperId: paperId }
     });
 
     revalidateTag("exams", "max");
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
-    revalidatePath("/library/paper");
+    revalidatePath(`/library/paper/${paperId}`);
 
     return { success: true };
 }
