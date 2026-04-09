@@ -64,6 +64,7 @@ export async function updateQuestion(questionId: string, paperId: string, examSl
             correctAnswer: isOptionsType ? null : (validated.correctAnswer || null),
             //topicId: validated.topicId,
             topicPath: validated.topicPath || null,
+            paperId: paperId,
 
             // Nested write trick: Delete all existing options and create the new ones.
             // This is much safer than trying to diff which options were added/removed/edited.
@@ -89,7 +90,7 @@ export async function deleteQuestion(questionId: string, paperId: string, examSl
     await requireAdmin();
     // onDelete: Cascade in schema, deleting the question
     // automatically cleans up the connected Options in the database!
-    await prisma.question.delete({
+    await prisma.question.deleteMany({
         where: { id: questionId, paperId: paperId }
     });
 
