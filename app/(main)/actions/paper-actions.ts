@@ -52,7 +52,7 @@ export async function createQuestionPaper(data: any, examSlug: string) {
             }
         });
 
-        revalidateTag("exams");
+        revalidateTag("exams", "max");
         if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
         //revalidatePath(`/library/exam/${examSlug}`);
 
@@ -97,7 +97,7 @@ export async function updateQuestionPaper(paperId: string, data: any, examSlug: 
         ),
     ]);
 
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     revalidatePath(`/library/exam/${examSlug}`);
     //redirect(`/library/exam/${examSlug}`);
 }
@@ -106,13 +106,14 @@ export async function updateQuestionPaper(paperId: string, data: any, examSlug: 
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {
     await requireAdmin();
     await prisma.questionPaper.delete({ where: { id: paperId } });
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
     revalidatePath("/library/paper");
     return { success: true };
 }
 
 export async function getExamSyllabusEntries(examId: string) {
+    await requireAdmin();
     return prisma.examSyllabusEntry.findMany({
         where: { examId },
         select: {

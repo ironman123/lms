@@ -137,7 +137,7 @@ export async function createExam(data: any) {
         return exam;
     });
 
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     revalidatePath("/library/exam");
     return { success: true, id: result.id };
 }
@@ -234,7 +234,7 @@ export async function updateExam(id: string, data: any) {
         }
     });
 
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     revalidatePath("/library/exam");
     revalidatePath(`/library/exam/${slug}`);
     return { success: true };
@@ -249,7 +249,7 @@ export async function deleteExam(id: string) {
 
     await prisma.exam.delete({ where: { id } });
 
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     revalidatePath("/library/exam");
     if (exam?.examCategoryId) revalidatePath(`/library/category/${exam.examCategoryId}`);
     redirect("/library/exam");
