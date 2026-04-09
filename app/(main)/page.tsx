@@ -76,14 +76,14 @@ const Page = () => {
         </section>
 
         {/* BOTTOM SECTION */}
-        <section className='space-y-16'>
+        {/* <section className='space-y-16'>
           <List
             title="Recently Viewed"
             exams={exams} // Update this to your papers variable if you have one
             className="w-full" // 🔥 FIX: Let the list take full width of the container
           />
           <Cta />
-        </section>
+        </section> */}
 
       </div>
     </main>
