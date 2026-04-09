@@ -27,20 +27,42 @@
 // });
 
 
-import { PrismaClient } from '@prisma/client';
-const databaseUrl = process.env.DATABASE_URL;
+// import { PrismaClient } from '@prisma/client';
+// const databaseUrl = process.env.DATABASE_URL;
 
-const prismaClientSingleton = () => {
-    return new PrismaClient({ log: ["query"], });
-};
+// const prismaClientSingleton = () => {
+//     return new PrismaClient({ log: ["query"], });
+// };
 
-declare global {
-    var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
-}
+// declare global {
+//     var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
+// }
 
-// This 'db' or 'prisma' variable is what you will import elsewhere
-const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
+// // This 'db' or 'prisma' variable is what you will import elsewhere
+// const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 
-export default prisma;
+// export default prisma;
 
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
+// if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
+
+
+import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
+
+const connectionString = `${process.env.DATABASE_URL}`
+
+const pool = new Pool({ connectionString })
+const adapter = new PrismaPg(pool)
+
+const globalForPrisma = global as unknown as { prisma: PrismaClient }
+
+export const prisma =
+    globalForPrisma.prisma ||
+    new PrismaClient({
+        adapter, // ✅ Pass the adapter here instead of the URL in the schema
+    })
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+export default prisma

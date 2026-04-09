@@ -1,3 +1,4 @@
+//prisma/schema.prisma
 generator client {
   provider        = "prisma-client-js"
   //engineType      = "library"
@@ -6,8 +7,8 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  //url        = env("DATABASE_URL")
-  //directUrl  = env("DIRECT_URL")
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [pgvector(map: "vector")]
 }
 
