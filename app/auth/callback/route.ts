@@ -73,5 +73,5 @@ export async function GET(request: NextRequest) {
         },
     })
 
-    return NextResponse.redirect(`${origin}${safeNext}`)
+    return NextResponse.redirect(new URL(safeNext, origin));
 }
