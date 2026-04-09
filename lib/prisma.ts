@@ -28,8 +28,6 @@
 
 
 import { PrismaClient } from '@prisma/client';
-import { defineConfig, env } from "prisma/config";
-
 const databaseUrl = process.env.DATABASE_URL;
 
 const prismaClientSingleton = () => {
