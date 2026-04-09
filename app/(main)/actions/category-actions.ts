@@ -71,13 +71,13 @@ export async function updateCategory(categoryId: string, data: CategoryFormValue
         },
     });
 
-    revalidateTag("examCategories");
+    revalidateTag("examCategories", "max");
     redirect(`/library/category/${slug}`);
 }
 
 export async function deleteCategory(categoryId: string) {
     await requireAdmin();
     await prisma.examCategory.delete({ where: { id: categoryId } });
-    revalidateTag("examCategories");
+    revalidateTag("examCategories", "max");
     redirect("/library/category");
 }

@@ -41,7 +41,7 @@ export async function createQuestion(paperId: string, examSlug: string, data: an
         }
     });
 
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     revalidatePath(`/library/exam/${examSlug}`);
 
     return { success: true, id: question.id };
@@ -79,7 +79,7 @@ export async function updateQuestion(questionId: string, paperId: string, examSl
         }
     });
 
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     revalidatePath(`/library/exam/${examSlug}`);
 
     return { success: true };
@@ -93,7 +93,7 @@ export async function deleteQuestion(questionId: string, examSlug: string) {
         where: { id: questionId }
     });
 
-    revalidateTag("exams");
+    revalidateTag("exams", "max");
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
     revalidatePath("/library/paper");
 
