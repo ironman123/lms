@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { categorySchema, CategoryFormValues } from "@/types/category";
+import { categorySchema, CategoryFormValues, CategoryFormInput } from "@/types/category";
 
 interface NewCategoryFormProps {
     initialData?: CategoryFormValues & { id: string };
@@ -25,7 +25,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const isEditing = !!initialData;
 
-    const form = useForm<CategoryFormValues>({
+    const form = useForm<CategoryFormInput>({
         resolver: zodResolver(categorySchema),
         defaultValues: initialData ?? {
             name: "",
@@ -77,7 +77,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
             <div className="flex-1">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
 
                         <FormField
                             control={form.control}

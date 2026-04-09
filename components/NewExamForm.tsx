@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trash2, Plus, BookOpen, Clock, Trophy, Tag, LayoutList, Info, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import { useTransition, useState } from 'react';
-import { examSchema, ExamFormValues } from '@/types/exam';
+import { examSchema, ExamFormValues, ExamFormInput } from '@/types/exam';
 import { createExam, deleteExam, updateExam } from "@/app/(main)/actions/exam-actions";
 import { toast } from "sonner";
 
@@ -30,7 +30,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
 
     const isEditing = !!initialData;
 
-    const form = useForm<ExamFormValues>({
+    const form = useForm<ExamFormInput>({
         resolver: zodResolver(examSchema),
         defaultValues: initialData ?? {
             name: '',
@@ -144,7 +144,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
             {/* LEFT: THE FORM */}
             <div className="flex-1">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
 
                         <div className="space-y-6">
                             <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
@@ -411,8 +411,8 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
                     tags={watchedValues.tags}
                     categoryName={selectedCategory?.name}
                     accentColor={selectedCategory?.color}
-                    totalMarks={watchedValues.totalMarks}
-                    duration={watchedValues.duration}
+                    totalMarks={Number(watchedValues.totalMarks)}
+                    duration={Number(watchedValues.duration)}
                     syllabus={watchedValues.syllabus}
                 />
 

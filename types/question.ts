@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // ── Option Schema ───────────────────────────────────────────────────────────
 export const optionSchema = z.object({
-    text: z.string(),
+    text: z.string().default(""),
     isCorrect: z.boolean(),
 });
 
@@ -13,11 +13,11 @@ export const questionSchema = z.object({
     difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
     marks: z.coerce.number().min(0, "Marks must be 0 or greater"),
     negativeMarks: z.coerce.number().min(0, "Enter as a positive number (e.g. 0.25, not -0.25)"),
-    explanation: z.string().optional().nullable(),
-    correctAnswer: z.string().optional().nullable(),
-    topicPath: z.string().optional().nullable(),  // ← add
-    topicId: z.string().optional(),
-    options: z.array(optionSchema).optional(),
+    explanation: z.string().optional().nullable().default(""),
+    correctAnswer: z.string().optional().nullable().default(""),
+    topicPath: z.string().optional().nullable().default(""),  // ← add
+    topicId: z.string().optional().default(""),  // ← add
+    options: z.array(optionSchema).optional().default([]),
 }).superRefine((data, ctx) => {
     // Custom validation logic for specific question types
 
@@ -74,3 +74,4 @@ export const questionSchema = z.object({
 // z.infer automatically generates the TypeScript interfaces based on your schemas above!
 export type OptionFormValues = z.infer<typeof optionSchema>;
 export type QuestionFormValues = z.infer<typeof questionSchema>;
+export type QuestionFormInput = z.input<typeof questionSchema>;

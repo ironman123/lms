@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Sparkles, Loader2, Info, Clock } from 'lucide-react';
 import { useTransition, useState } from 'react';
-import { paperSchema, PaperFormValues } from '@/types/paper';
+import { paperSchema, PaperFormValues, PaperFormInput } from '@/types/paper';
 import { createQuestionPaper, deleteQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
 import { toast } from "sonner";
 import { parsePaperPDF } from "@/app/(main)/actions/ocr-paper";
@@ -28,7 +28,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
     const [createdPaper, setCreatedPaper] = useState<{ id: string; title: string; year: number | null } | null>(null);
     const isEditing = !!initialData;
 
-    const form = useForm<PaperFormValues>({
+    const form = useForm<PaperFormInput>({
         resolver: zodResolver(paperSchema),
         defaultValues: initialData ?? {
             title: '',
@@ -119,7 +119,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8">
 
                 {/* Basic Details */}
                 <div className="space-y-6">
@@ -154,7 +154,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
                                         type="number"
                                         placeholder="e.g. 2023"
                                         {...field}
-                                        value={field.value ?? ""}
+                                        value={field.value === undefined || field.value === null ? "" : String(field.value)}
                                         onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
                                     />
                                 </FormControl>

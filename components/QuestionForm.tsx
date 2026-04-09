@@ -4,8 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { useTransition } from 'react';
-import { questionSchema, QuestionFormValues } from '@/types/question';
-import { createQuestionPaper, updateQuestionPaper } from '@/app/(main)/actions/paper-actions';
+import { questionSchema, QuestionFormValues, QuestionFormInput } from '@/types/question';
 import { createQuestion, updateQuestion } from '@/app/(main)/actions/question-actions';
 import { toast } from 'sonner';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -28,7 +27,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
     const [isPending, startTransition] = useTransition();
     const isEditing = !!initialData;
 
-    const form = useForm<QuestionFormValues>({
+    const form = useForm<QuestionFormInput>({
         resolver: zodResolver(questionSchema),
         defaultValues: initialData
             ? {
@@ -92,7 +91,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
 
                 {/* Type + Difficulty + Marks row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -117,14 +116,32 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                     <FormField control={form.control} name="marks" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="font-bold text-xs">Marks</FormLabel>
-                            <FormControl><Input type="number" step="0.5" {...field} /></FormControl>
+                            <FormControl>
+                                <Input type="number"
+                                    step="0.5"
+                                    value={field.value === undefined ? "" : String(field.value)}
+                                    onChange={e => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                                    onBlur={field.onBlur}
+                                    name={field.name}
+                                    ref={field.ref}
+                                />
+                            </FormControl>
                         </FormItem>
                     )} />
 
                     <FormField control={form.control} name="negativeMarks" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="font-bold text-xs">Negative</FormLabel>
-                            <FormControl><Input type="number" step="0.25" {...field} /></FormControl>
+                            <FormControl>
+                                <Input type="number"
+                                    step="0.25"
+                                    value={field.value === undefined ? "" : String(field.value)}
+                                    onChange={e => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                                    onBlur={field.onBlur}
+                                    name={field.name}
+                                    ref={field.ref}
+                                />
+                            </FormControl>
                         </FormItem>
                     )} />
                 </div>
@@ -224,6 +241,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                             <FormControl>
                                 <Input
                                     {...field}
+                                    value={field.value ?? ""}
                                     placeholder={watchedType === 'NUMERICAL' ? "e.g., 42.5" : "Expected string or key points..."}
                                 />
                             </FormControl>
@@ -239,6 +257,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                         <FormControl>
                             <Textarea
                                 {...field}
+                                value={field.value ?? ""}
                                 placeholder="Explain why the answer is correct..."
                                 className="min-h-[80px] resize-none"
                             />

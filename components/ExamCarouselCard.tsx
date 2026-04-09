@@ -31,7 +31,7 @@ interface SyllabusItem {
 }
 
 interface ExamCarouselCardProps {
-    id: string;
+    id?: string;
     name: string;
     description?: string;
     tags?: string[];
@@ -86,7 +86,7 @@ const ExamCarouselCard = ({
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                router.push(`/library/exam/${id}/edit`);
+                                if (id) router.push(`/library/exam/${id}/edit`);
                             }}
                             className="p-2 bg-white/90 text-slate-700 rounded-full hover:bg-blue-500 hover:text-white transition-colors shadow-sm"
                         >
