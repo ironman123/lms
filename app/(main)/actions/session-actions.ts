@@ -166,7 +166,7 @@ export async function completeExamSession(
             ),
             // Lock the session and save the computed score
             prisma.testSession.update({
-                where: { id: sessionId },
+                where: { id: sessionId, userId: user.id },
                 data: {
                     endTime: new Date(),
                     totalScore: parseFloat(totalScore.toFixed(2)) // Save up to 2 decimal places
