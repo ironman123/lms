@@ -153,6 +153,7 @@ export default async function ExamPage({ params }: PageProps) {
                             papers={fetchedPapers}
                             tabs={dbTabs}
                             filterOptions={dbFilterOptions}
+                            isAdmin={isAdmin}
                         />
                     </section>
                 </div>

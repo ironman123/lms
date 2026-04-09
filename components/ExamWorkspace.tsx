@@ -18,9 +18,6 @@ import {
 } from "@/components/ui/accordion";
 import MiniNavbar from "./MiniNavbar";
 import WorkspacePaperCard from "./WorkspacePaperCard";
-import { exams } from "@/constants";
-import { get } from "http";
-import { getIsAdmin } from "@/lib/auth";
 
 // Types remain the same as your provided code...
 export interface Paper {
@@ -53,13 +50,14 @@ interface ExamWorkspaceProps {
     papers: Paper[];
     tabs: TabOption[];
     filterOptions: FilterOptions;
+    isAdmin: boolean;
 }
 
-export default async function ExamWorkspace({ examId, examSlug, papers = [], tabs = [], filterOptions }: ExamWorkspaceProps) {
+export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = [], filterOptions, isAdmin }: ExamWorkspaceProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
 
-    const isAdmin = await getIsAdmin();
+    //const isAdmin = await getIsAdmin();
 
     const [filters, setFilters] = useState({
         years: [] as string[],
