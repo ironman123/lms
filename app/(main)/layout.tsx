@@ -1,3 +1,4 @@
+// app/(main)/layout.tsx
 import type { Metadata } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   description: "All Exams. One Platform.",
 };
 
-export default function RootLayout({
+export default async function MainLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
