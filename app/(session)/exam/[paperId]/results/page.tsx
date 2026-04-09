@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, XCircle, Clock, Trophy, BarChart3 } from "lucide-react";
+import { requireAuth } from "@/lib/auth";
 
 export default async function ResultsPage({
     params,
@@ -12,12 +13,13 @@ export default async function ResultsPage({
 }) {
     const { paperId } = await params;
     const { sessionId } = await searchParams;
+    const user = await requireAuth();
 
     if (!sessionId) notFound();
 
     const [session, paper] = await Promise.all([
         prisma.testSession.findUnique({
-            where: { id: sessionId },
+            where: { id: sessionId, userId: user.id },
             include: {
                 interactions: {
                     include: {

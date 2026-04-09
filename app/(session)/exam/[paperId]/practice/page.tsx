@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import ActiveSessionClient from "@/components/ActiveSessionClient";
 import { SessionMode } from "@prisma/client";
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 
 export default async function PracticeSessionPage({
     params,
@@ -14,10 +15,11 @@ export default async function PracticeSessionPage({
 }) {
     const { paperId } = await params;
     const { sessionId } = await searchParams;
+    const user = await requireAuth();
     if (!sessionId) redirect(`/exam/${paperId}/lobby`);
 
     const [session, paper] = await Promise.all([
-        prisma.testSession.findUnique({ where: { id: sessionId } }),
+        prisma.testSession.findUnique({ where: { id: sessionId, userId: user.id } }),
         prisma.questionPaper.findUnique({
             where: { id: paperId },
             include: {

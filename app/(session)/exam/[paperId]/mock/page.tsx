@@ -4,6 +4,7 @@ import ActiveSessionClient from "@/components/ActiveSessionClient";
 import { notFound } from "next/navigation";
 import { redirect } from "next/navigation";
 import { SessionMode } from "@prisma/client";
+import { requireAuth } from "@/lib/auth";
 
 export default async function MockSessionPage({
     params,
@@ -14,11 +15,12 @@ export default async function MockSessionPage({
 }) {
     const { paperId } = await params;
     const { sessionId } = await searchParams;
+    const user = await requireAuth();
 
     if (!sessionId) redirect(`/exam/${paperId}/lobby`);
 
     const [session, paper] = await Promise.all([
-        prisma.testSession.findUnique({ where: { id: sessionId } }),
+        prisma.testSession.findUnique({ where: { id: sessionId, userId: user.id } }),
         prisma.questionPaper.findUnique({
             where: { id: paperId },
             include: {
@@ -36,6 +38,12 @@ export default async function MockSessionPage({
             },
         }),
     ]);
+
+    if (!session || session.paperId !== paperId || !paper)
+    {
+        notFound();
+    }
+
     const sanitizedPaper = {
         ...paper,
         questions: paper.questions.map(q => ({
