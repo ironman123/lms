@@ -8,7 +8,7 @@ export interface InteractionMetrics {
     hesitationCount: number;
     isFlagged: boolean;
     selectedAnswer: string | null;
-    isCorrect: boolean;
+    isCorrect: boolean | null;
     wasHinted: boolean;
     confidenceLevel: number | null;
 }
