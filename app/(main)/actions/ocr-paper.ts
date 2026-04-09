@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -51,6 +52,7 @@ async function generateWithRetry(model: any, parts: any[], maxRetries = 3): Prom
 export async function parsePaperPDF(
     base64Data: string
 ): Promise<{ success: true; data: ParsedPaper } | { success: false; error: string }> {
+    await requireAdmin();
 
     if (!process.env.GEMINI_API_KEY)
     {

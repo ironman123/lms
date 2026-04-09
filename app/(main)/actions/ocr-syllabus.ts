@@ -1,31 +1,32 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // ocr-syllabus.ts
 export interface ParsedSyllabus {
-    examName: string | null;
-    categoryNumber: string | null;
-    description: string | null;
-    duration: number | null;       // in minutes
-    totalMarks: number | null;
-    tags: string[];
-    syllabus: { category: string; topics: string[] }[];
+  examName: string | null;
+  categoryNumber: string | null;
+  description: string | null;
+  duration: number | null;       // in minutes
+  totalMarks: number | null;
+  tags: string[];
+  syllabus: { category: string; topics: string[] }[];
 }
 
 // Pass 1 — understand the document structure before extracting
 async function detectDocumentStructure(
-    model: any,
-    base64Content: string,
-    mimeType: string
+  model: any,
+  base64Content: string,
+  mimeType: string
 ): Promise<"structured" | "prose" | "tabular"> {
 
-    const result = await model.generateContent([
-        { inlineData: { data: base64Content, mimeType } },
-        {
-            text: `Analyze this syllabus document and classify its format.
+  const result = await model.generateContent([
+    { inlineData: { data: base64Content, mimeType } },
+    {
+      text: `Analyze this syllabus document and classify its format.
 
 Reply with ONLY one of these three words, nothing else:
 - "structured" → clearly numbered sections with bullet-point topics (e.g. "1. MECHANICS\\n- Rigid bodies\\n- Torque")  
@@ -33,12 +34,12 @@ Reply with ONLY one of these three words, nothing else:
 - "prose" → topics described in flowing paragraphs, no clear bullet structure
 
 Which format is this document?` }
-    ]);
+  ]);
 
-    const format = result.response.text().trim().toLowerCase();
-    if (format.includes("tabular")) return "tabular";
-    if (format.includes("prose")) return "prose";
-    return "structured";
+  const format = result.response.text().trim().toLowerCase();
+  if (format.includes("tabular")) return "tabular";
+  if (format.includes("prose")) return "prose";
+  return "structured";
 }
 
 const STRUCTURED_PROMPT = `
@@ -227,89 +228,90 @@ CATEGORY NUMBER:
 }`;
 
 export async function parseSyllabusPDF(
-    base64Data: string
+  base64Data: string
 ): Promise<{ success: true; data: ParsedSyllabus } | { success: false; error: string }> {
+  await requireAdmin();
 
-    if (!process.env.GEMINI_API_KEY)
+  if (!process.env.GEMINI_API_KEY)
+  {
+    return { success: false, error: "GEMINI_API_KEY is not configured" };
+  }
+
+  const base64Content = base64Data.split(",")[1];
+  if (!base64Content)
+  {
+    return { success: false, error: "Invalid base64 data" };
+  }
+
+  const mimeType = base64Data.split(";")[0].split(":")[1] as
+    "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
+
+  // Detection model — no search needed
+  const detectionModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  // Extraction model — with search
+  const extractionModel = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    tools: [{ googleSearch: {} } as any],
+  });
+
+  try
+  {
+    // Pass 1 — detect format
+    const format = await detectDocumentStructure(detectionModel, base64Content, mimeType);
+    console.log(`Detected format: ${format}`);
+
+    // Pass 2 — extract with format-specific prompt
+    const prompt = format === "tabular"
+      ? TABULAR_PROMPT
+      : format === "prose"
+        ? PROSE_PROMPT
+        : STRUCTURED_PROMPT;
+
+    const result = await extractionModel.generateContent([
+      { inlineData: { data: base64Content, mimeType } },
+      { text: prompt },
+    ]);
+
+    const raw = result.response.text().replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(raw);
+
+    if (!Array.isArray(parsed.syllabus) || parsed.syllabus.length === 0)
     {
-        return { success: false, error: "GEMINI_API_KEY is not configured" };
+      return { success: false, error: "No syllabus content found in document" };
     }
 
-    const base64Content = base64Data.split(",")[1];
-    if (!base64Content)
-    {
-        return { success: false, error: "Invalid base64 data" };
-    }
+    const data: ParsedSyllabus = {
+      examName: parsed.examName?.trim() ?? null,
+      categoryNumber: parsed.categoryNumber?.trim() ?? null,
+      description: parsed.description?.trim() ?? null,
 
-    const mimeType = base64Data.split(";")[0].split(":")[1] as
-        "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
+      // Coerce to number — Gemini sometimes returns "120" as a string
+      duration: parsed.duration != null
+        ? Number(String(parsed.duration).replace(/[^\d]/g, "")) || null
+        : null,
+      totalMarks: parsed.totalMarks != null
+        ? Number(String(parsed.totalMarks).replace(/[^\d]/g, "")) || null
+        : null,
 
-    // Detection model — no search needed
-    const detectionModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      tags: Array.isArray(parsed.tags)
+        ? parsed.tags.map((t: string) => t?.toLowerCase().trim()).filter(Boolean)
+        : [],
 
-    // Extraction model — with search
-    const extractionModel = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        tools: [{ googleSearch: {} } as any],
-    });
+      syllabus: parsed.syllabus.map((item: any) => ({
+        category: item.category?.trim() ?? "Untitled",
+        topics: (item.topics ?? [])
+          .map((t: string) => t?.trim())
+          .filter(Boolean),
+      })),
+    };
 
-    try
-    {
-        // Pass 1 — detect format
-        const format = await detectDocumentStructure(detectionModel, base64Content, mimeType);
-        console.log(`Detected format: ${format}`);
+    console.log(`Exam: ${data.examName} | Cat#: ${data.categoryNumber} | Duration: ${data.duration}m | Marks: ${data.totalMarks} | Format: ${format} | Sections: ${data.syllabus.length}`);
+    return { success: true, data };
 
-        // Pass 2 — extract with format-specific prompt
-        const prompt = format === "tabular"
-            ? TABULAR_PROMPT
-            : format === "prose"
-                ? PROSE_PROMPT
-                : STRUCTURED_PROMPT;
-
-        const result = await extractionModel.generateContent([
-            { inlineData: { data: base64Content, mimeType } },
-            { text: prompt },
-        ]);
-
-        const raw = result.response.text().replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(raw);
-
-        if (!Array.isArray(parsed.syllabus) || parsed.syllabus.length === 0)
-        {
-            return { success: false, error: "No syllabus content found in document" };
-        }
-
-        const data: ParsedSyllabus = {
-            examName: parsed.examName?.trim() ?? null,
-            categoryNumber: parsed.categoryNumber?.trim() ?? null,
-            description: parsed.description?.trim() ?? null,
-
-            // Coerce to number — Gemini sometimes returns "120" as a string
-            duration: parsed.duration != null
-                ? Number(String(parsed.duration).replace(/[^\d]/g, "")) || null
-                : null,
-            totalMarks: parsed.totalMarks != null
-                ? Number(String(parsed.totalMarks).replace(/[^\d]/g, "")) || null
-                : null,
-
-            tags: Array.isArray(parsed.tags)
-                ? parsed.tags.map((t: string) => t?.toLowerCase().trim()).filter(Boolean)
-                : [],
-
-            syllabus: parsed.syllabus.map((item: any) => ({
-                category: item.category?.trim() ?? "Untitled",
-                topics: (item.topics ?? [])
-                    .map((t: string) => t?.trim())
-                    .filter(Boolean),
-            })),
-        };
-
-        console.log(`Exam: ${data.examName} | Cat#: ${data.categoryNumber} | Duration: ${data.duration}m | Marks: ${data.totalMarks} | Format: ${format} | Sections: ${data.syllabus.length}`);
-        return { success: true, data };
-
-    } catch (error: any)
-    {
-        console.error("GEMINI_ERROR:", error.status, error.message);
-        return { success: false, error: error.message ?? "Failed to parse syllabus" };
-    }
+  } catch (error: any)
+  {
+    console.error("GEMINI_ERROR:", error.status, error.message);
+    return { success: false, error: error.message ?? "Failed to parse syllabus" };
+  }
 }
