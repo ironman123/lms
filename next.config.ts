@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '20mb', // Allows large PDFs to pass through
     },
   },
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+    ],
+  },
 };
 
 export default nextConfig;
