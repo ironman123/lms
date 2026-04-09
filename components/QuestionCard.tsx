@@ -232,7 +232,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
             if (q.id)
             {
                 if (!confirm(`Delete question ${q.number}?`)) return;
-                try { await deleteQuestion(q.id, examSlug); }
+                try { await deleteQuestion(q.id, paperId as string, examSlug); }
                 catch { toast.error("Failed to delete"); return; }
             }
             onDelete();
