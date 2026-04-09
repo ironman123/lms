@@ -6,6 +6,7 @@ import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
 import { unstable_cache } from "next/cache";
 import { deleteQuestionPaper } from "../../actions/paper-actions";
+import { getIsAdmin } from "@/lib/auth";
 
 const getPapersData = (query: string, page: number) =>
     unstable_cache(
@@ -53,7 +54,7 @@ export default async function PaperLibraryPage({
     const { q = "", page = "0" } = await searchParams;
     const currentPage = parseInt(page) || 0;
     const { papers, total, totalPages } = await getPapersData(q, currentPage);
-    const isAdmin = true;
+    const isAdmin = await getIsAdmin();
 
     const pyq = papers.filter(p => p.year !== null);
     const mock = papers.filter(p => p.year === null);

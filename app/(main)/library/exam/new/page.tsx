@@ -2,10 +2,10 @@ import prisma from "@/lib/prisma";
 import NewExamForm from "@/components/NewExamForm";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/auth";
 
 export default async function NewExamPage({ searchParams }: { searchParams: Promise<{ categoryId?: string }> }) {
-    await requireAdmin(); // Ensure only admins can access this page
+    await requireAdminPage(); // Ensure only admins can access this page
     // Fetch categories here. Since this is a Server Component, 
     // this code runs on the backend, not the user's browser.
 
