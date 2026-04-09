@@ -58,7 +58,7 @@ const ExamCard = ({ id, name, description, tags, duration, totalMarks, color }: 
 
             {/* Action Button: Color matches the top accent */}
             <Link
-                href={`/library/exam/${id}`}
+                href={`/library/paper`}
                 className="flex items-center justify-center w-full mt-4 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl transition-all hover:brightness-100 group-hover:shadow-lg group-hover:shadow-slate-200"
                 style={{ backgroundColor: color }} // Button matches brand color
             >
