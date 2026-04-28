@@ -52,7 +52,10 @@ async function generateWithRetry(model: any, parts: any[], maxRetries = 3): Prom
 export async function parsePaperPDF(
     base64Data: string
 ): Promise<{ success: true; data: ParsedPaper } | { success: false; error: string }> {
+    console.log("[OCR] Verifying admin access...");
     await requireAdmin();
+
+    console.log("[OCR] Starting paper parsing...");
 
     if (!process.env.GEMINI_API_KEY)
     {

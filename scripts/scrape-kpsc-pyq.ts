@@ -18,6 +18,8 @@ import * as http from "http";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as dotenv from "dotenv";
 import { createRequire } from "module";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 dotenv.config();
 
@@ -25,10 +27,19 @@ const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
 
 // ── Config ────────────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const BASE_URL = "https://www.keralapsc.gov.in";
 const PAPERS_PAGE = "https://www.keralapsc.gov.in/index.php/answerkey_onlineexams";
-const OUTPUT_FILE = path.join(process.cwd(), "scripts", "kpsc-papers.json");
+
+// Look in the exact directory where THIS file lives, not where the terminal is
+const OUTPUT_FILE = path.join(__dirname, "kpsc-papers.json");
+
+
+//const OUTPUT_FILE = path.join(process.cwd(), "scripts", "kpsc-papers.json");
 const SCRAPE_DELAY_MS = 1000;
 const BATCH_DELAY_MS = 5000; // Delay between batches to respect rate limits
 const CONCURRENCY_LIMIT = 4;  // Process 3 PDFs at once
@@ -210,7 +221,7 @@ function cleanExamName(raw: string): string {
 
 // ── Gemini setup ──────────────────────────────────────────────────────────────
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenerativeAI("AIzaSyARCggoYFrYhU26WJ9Kv5aBW2zmNraVMeI");
 
 async function generateWithRetry(model: any, prompt: string | any[], maxRetries = 3): Promise<any> {
     for (let attempt = 0; attempt < maxRetries; attempt++)
@@ -591,11 +602,11 @@ async function processPaper(row: PageRow): Promise<ScrapedPaper> {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-    if (!process.env.GEMINI_API_KEY)
-    {
-        console.error("❌ GEMINI_API_KEY not set in .env");
-        process.exit(1);
-    }
+    // if (!process.env.GEMINI_API_KEY)
+    // {
+    //     console.error("❌ GEMINI_API_KEY not set in .env");
+    //     process.exit(1);
+    // }
 
     // 1. Resume support
     let results: ScrapedPaper[] = [];
@@ -611,7 +622,11 @@ async function main() {
     const allRows = await scrapeAllPages();
 
     const toProcess = allRows
-        .filter(r => !processedUrls.has(r.pdfUrl))
+        // Only skip if the paper is in the file AND its status is "success"
+        .filter(r => {
+            const existingPaper = results.find(saved => saved.pdfUrl === r.pdfUrl);
+            return !existingPaper || existingPaper.status !== "success";
+        })
         .slice(0, MAX_PAPERS);
 
     console.log(`Processing ${toProcess.length} new PDFs (${processedUrls.size} already done)\n`);
