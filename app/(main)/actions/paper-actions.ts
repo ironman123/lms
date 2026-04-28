@@ -6,16 +6,24 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { paperSchema, PaperFormInput } from "@/types/paper";
 import { requireAdmin } from "@/lib/auth";
+import { handlePrismaError } from "@/lib/prisma";
 
 // Link
 export async function linkPaperToExam(paperId: string, examId: string) {
     await requireAdmin();
     if (!paperId || !examId) throw new Error("Invalid IDs");
-    await prisma.examQuestionPaperLink.upsert({
-        where: { examId_paperId: { examId, paperId } },
-        update: {},
-        create: { examId, paperId },
-    });
+    try
+    {
+        await prisma.examQuestionPaperLink.upsert({
+            where: { examId_paperId: { examId, paperId } },
+            update: {},
+            create: { examId, paperId },
+        });
+    }
+    catch (error)
+    {
+        handlePrismaError(error);
+    }
     revalidatePath(`/library/exam/${examId}`);
 }
 
@@ -23,9 +31,16 @@ export async function linkPaperToExam(paperId: string, examId: string) {
 export async function unlinkPaperFromExam(paperId: string, examId: string) {
     await requireAdmin();
     if (!paperId || !examId) throw new Error("Invalid IDs");
-    await prisma.examQuestionPaperLink.delete({
-        where: { examId_paperId: { examId, paperId } },
-    });
+    try
+    {
+        await prisma.examQuestionPaperLink.delete({
+            where: { examId_paperId: { examId, paperId } },
+        });
+    }
+    catch (error)
+    {
+        handlePrismaError(error);
+    }
     revalidatePath(`/library/exam/${examId}`);
 }
 
@@ -59,6 +74,8 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
     {
         // 🔥 THIS WILL PRINT THE EXACT CAUSE OF THE 500 ERROR IN YOUR TERMINAL
         console.error("❌ CREATE PAPER ERROR:", error);
+        handlePrismaError(error);
+
         throw new Error(error.message || "Failed to create paper in database");
     }
 }

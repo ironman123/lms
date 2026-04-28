@@ -19,6 +19,10 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
         });
 
         if (!paper) throw new Error("Question paper not found.");
+        if (paper.questions.length === 0)
+        {
+            return { success: false, error: "This paper has no questions." };
+        }
 
         const session = await prisma.$transaction(async (tx) => {
             const newSession = await tx.testSession.create({
@@ -91,6 +95,10 @@ export async function completeExamSession(
         });
 
         if (!session?.paper) throw new Error("Session or paper not found.");
+        if (session.endTime !== null)
+        {
+            return { success: false, error: "Session already submitted." };
+        }
 
         const questionMap = new Map(
             session.paper.questions.map((q) => [q.id, q])

@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { questionSchema, QuestionFormInput } from "@/types/question";
 import { requireAdmin } from "@/lib/auth";
+import { handlePrismaError } from "@/lib/prisma";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,14 +56,19 @@ export async function createQuestion(
 ) {
     await requireAdmin();
     const validated = questionSchema.parse(data);
-
-    await prisma.question.create({
-        data: {
-            ...buildQuestionData(validated),
-            paperId,
-        },
-    });
-
+    try
+    {
+        await prisma.question.create({
+            data: {
+                ...buildQuestionData(validated),
+                paperId,
+            },
+        });
+    }
+    catch (error)
+    {
+        handlePrismaError(error);
+    }
     revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }
@@ -75,12 +81,17 @@ export async function updateQuestion(
 ) {
     await requireAdmin();
     const validated = questionSchema.parse(data);
-
-    await prisma.question.update({
-        where: { id: questionId, paperId },
-        data: buildQuestionData(validated),
-    });
-
+    try
+    {
+        await prisma.question.update({
+            where: { id: questionId, paperId },
+            data: buildQuestionData(validated),
+        });
+    }
+    catch (error)
+    {
+        handlePrismaError(error);
+    }
     revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }
@@ -91,12 +102,17 @@ export async function deleteQuestion(
     examSlug: string
 ) {
     await requireAdmin();
-
-    await prisma.question.delete({
-        where: { id: questionId, paperId },
-        // Cascade on QuestionInteraction is handled by schema
-    });
-
+    try
+    {
+        await prisma.question.delete({
+            where: { id: questionId, paperId },
+            // Cascade on QuestionInteraction is handled by schema
+        });
+    }
+    catch (error)
+    {
+        handlePrismaError(error);
+    }
     revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }

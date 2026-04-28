@@ -49,6 +49,8 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
+import { Prisma } from "@prisma/client";
+
 
 const connectionString = `${process.env.DATABASE_URL}`
 
@@ -64,5 +66,23 @@ export const prisma =
     })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+export function handlePrismaError(error: unknown): never {
+    if (error instanceof Prisma.PrismaClientKnownRequestError)
+    {
+        switch (error.code)
+        {
+            case "P2025":
+                throw new Error("Record not found.");
+            case "P2003":
+                throw new Error("Referenced record does not exist.");
+            case "P2002":
+                throw new Error("A record with this value already exists.");
+            default:
+                throw new Error(`Database error: ${error.code}`);
+        }
+    }
+    throw error;
+}
 
 export default prisma

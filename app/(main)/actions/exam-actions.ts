@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { examSchema, ExamFormInput } from "@/types/exam";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { handlePrismaError } from "@/lib/prisma";
 
 export async function createExam(data: ExamFormInput) {
     await requireAdmin();
@@ -21,7 +22,7 @@ export async function createExam(data: ExamFormInput) {
 
     // 1. Upsert all categories up front, build name→id map
     const categoryNames = [...new Set(
-        (validated.syllabus ?? []).map((item: any) => item.category.trim())
+        (validated.syllabus ?? []).map((item) => item.category.trim())
     )] as string[];
 
     const categoryMap = new Map<string, string>();
@@ -159,7 +160,7 @@ export async function updateExam(id: string, data: ExamFormInput) {
 
     // Upsert categories
     const categoryNames = [...new Set(
-        (validated.syllabus ?? []).map((item: any) => item.category.trim())
+        (validated.syllabus ?? []).map((item) => item.category.trim())
     )] as string[];
 
     const categoryMap = new Map<string, string>();
@@ -249,8 +250,15 @@ export async function deleteExam(id: string) {
         select: { slug: true, examCategoryId: true }
     });
 
-    await prisma.exam.delete({ where: { id } });
+    try
+    {
 
+        await prisma.exam.delete({ where: { id } });
+    }
+    catch (error)
+    {
+        handlePrismaError(error);
+    }
     revalidateTag("exams", "max");
     revalidatePath("/library/exam");
     if (exam?.examCategoryId) revalidatePath(`/library/category/${exam.examCategoryId}`);

@@ -78,11 +78,11 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
             {
                 if (isEditing)
                 {
-                    await updateQuestionPaper(initialData!.id, { ...data, examId }, examSlug);
+                    await updateQuestionPaper(initialData!.id, { ...data, examIds: examId ? [examId] : [] }, examSlug);
                     toast.success("Paper updated successfully!");
                 } else
                 {
-                    const result = await createQuestionPaper({ ...data, examId }, examSlug);
+                    const result = await createQuestionPaper({ ...data, examIds: examId ? [examId] : [] }, examSlug);
                     setCreatedPaper({ id: result.id, title: result.title, year: result.year });
                     toast.success("Paper created! Now add your questions.");
                 }

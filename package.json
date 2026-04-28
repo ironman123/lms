@@ -30,6 +30,8 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
     "appwrite": "^23.0.0",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
