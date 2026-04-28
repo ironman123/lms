@@ -14,9 +14,10 @@ import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
 // ── Shared Types ──────────────────────────────────────────────────────────────
 
 export interface Option {
-    label: string;
+    index: number;       // 0-based position
+    label: string;       // "A", "B", "C", "D" — display only, derived from index
     text: string;
-    isCorrect: boolean;
+    imageUrl?: string;
 }
 
 export interface Question {
@@ -27,13 +28,23 @@ export interface Question {
     difficulty: "EASY" | "MEDIUM" | "HARD";
     marks: number;
     negativeMarks: number;
-    options: Option[];
-    correctAnswer: string | null;
     explanation: string | null;
     saved: boolean;
     topicId: string;
     topicPath: string;
     categoryId: string;
+
+    // MCQ / MSQ
+    options: Option[];
+    correctOptions: number[];   // [2] for MCQ, [0,2] for MSQ, [] otherwise
+
+    // NUMERICAL
+    exactAnswer: number | null;
+    answerMin: number | null;
+    answerMax: number | null;
+
+    // SUBJECTIVE
+    modelAnswer: string | null;
 }
 
 export interface SyllabusEntry {
@@ -65,36 +76,44 @@ function emptyQuestion(number: number): Question {
         difficulty: "MEDIUM",
         marks: 1,
         negativeMarks: 0,
-        options: [
-            { label: "A", text: "", isCorrect: false },
-            { label: "B", text: "", isCorrect: false },
-            { label: "C", text: "", isCorrect: false },
-            { label: "D", text: "", isCorrect: false },
-        ],
-        correctAnswer: null,
         explanation: null,
         saved: false,
         topicId: "",
         topicPath: "",
         categoryId: "",
+        options: [
+            { index: 0, label: "A", text: "" },
+            { index: 1, label: "B", text: "" },
+            { index: 2, label: "C", text: "" },
+            { index: 3, label: "D", text: "" },
+        ],
+        correctOptions: [],
+        exactAnswer: null,
+        answerMin: null,
+        answerMax: null,
+        modelAnswer: null,
     };
 }
 
 function parsedToQuestion(pq: ParsedQuestion, index: number): Question {
-    const options: Option[] = pq.options.map(o => ({
-        label: o.label,
+    const options: Option[] = pq.options.map((o, i) => ({
+        index: i,
+        label: String.fromCharCode(65 + i), // A, B, C, D
         text: o.text,
-        isCorrect: pq.correctAnswer === o.label,
     }));
 
     while (options.length < 4)
     {
-        options.push({
-            label: String.fromCharCode(65 + options.length),
-            text: "",
-            isCorrect: false,
-        });
+        const i = options.length;
+        options.push({ index: i, label: String.fromCharCode(65 + i), text: "" });
     }
+    const correctOptions: number[] = pq.correctAnswer
+        ? pq.correctAnswer
+            .split(",")                                    // handles MSQ: "A,C"
+            .map((label) => label.trim().toUpperCase())
+            .map((label) => label.charCodeAt(0) - 65)     // "A"→0, "B"→1
+            .filter((idx) => idx >= 0 && idx < options.length)
+        : [];
 
     return {
         number: pq.number || index + 1,
@@ -103,13 +122,19 @@ function parsedToQuestion(pq: ParsedQuestion, index: number): Question {
         difficulty: "MEDIUM",
         marks: 1,
         negativeMarks: 0,
-        options,
-        correctAnswer: pq.correctAnswer,
         explanation: pq.explanation ?? null,
         topicId: "",
         topicPath: "",
         categoryId: "",
         saved: false,
+
+        options,
+        correctOptions,
+
+        exactAnswer: null,
+        answerMin: null,
+        answerMax: null,
+        modelAnswer: null
     };
 }
 

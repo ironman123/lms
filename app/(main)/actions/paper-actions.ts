@@ -1,22 +1,16 @@
+//app/(main)/actions/paper-actions.ts
 "use server";
 
 import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { paperSchema } from "@/types/paper";
+import { paperSchema, PaperFormInput } from "@/types/paper";
 import { requireAdmin } from "@/lib/auth";
-
-// Zod Schema
-// const paperSchema = z.object({
-//     title: z.string().min(3, "Title is required"),
-//     year: z.coerce.number().nullable().optional(), // If null = Mock, If number = PYQ
-//     examId: z.string().nullable().optional(),
-//     //examId: z.string().min(1, "Exam ID is required"),
-// });
 
 // Link
 export async function linkPaperToExam(paperId: string, examId: string) {
     await requireAdmin();
+    if (!paperId || !examId) throw new Error("Invalid IDs");
     await prisma.examQuestionPaperLink.upsert({
         where: { examId_paperId: { examId, paperId } },
         update: {},
@@ -28,13 +22,14 @@ export async function linkPaperToExam(paperId: string, examId: string) {
 // Unlink
 export async function unlinkPaperFromExam(paperId: string, examId: string) {
     await requireAdmin();
+    if (!paperId || !examId) throw new Error("Invalid IDs");
     await prisma.examQuestionPaperLink.delete({
         where: { examId_paperId: { examId, paperId } },
     });
     revalidatePath(`/library/exam/${examId}`);
 }
 
-export async function createQuestionPaper(data: any, examSlug: string) {
+export async function createQuestionPaper(data: PaperFormInput, examSlug: string) {
     await requireAdmin();
     try
     {
@@ -44,9 +39,10 @@ export async function createQuestionPaper(data: any, examSlug: string) {
             data: {
                 title: validated.title,
                 year: validated.year || null,
-                ...(data.examIds && data.examIds.length > 0 && {
+                type: validated.type,
+                ...(validated.examIds.length > 0 && {
                     examQuestionPaperLinks: {
-                        create: data.examIds.map((id: string) => ({ examId: id }))
+                        create: validated.examIds.map((id: string) => ({ examId: id }))
                     }
                 })
             }
@@ -67,7 +63,7 @@ export async function createQuestionPaper(data: any, examSlug: string) {
     }
 }
 
-export async function updateQuestionPaper(paperId: string, data: any, examSlug: string) {
+export async function updateQuestionPaper(paperId: string, data: PaperFormInput, examSlug: string) {
     await requireAdmin();
     if (!paperId)
     {
@@ -81,6 +77,7 @@ export async function updateQuestionPaper(paperId: string, data: any, examSlug: 
             data: {
                 title: validated.title,
                 year: validated.year ?? null,
+                type: validated.type,
             }
         }),
         // Delete existing exam links
@@ -102,9 +99,9 @@ export async function updateQuestionPaper(paperId: string, data: any, examSlug: 
     //redirect(`/library/exam/${examSlug}`);
 }
 
-
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {
     await requireAdmin();
+    if (!paperId) throw new Error("Paper ID is required");
     await prisma.questionPaper.delete({ where: { id: paperId } });
     revalidateTag("exams", "max");
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
@@ -114,6 +111,7 @@ export async function deleteQuestionPaper(paperId: string, examSlug: string) {
 
 export async function getExamSyllabusEntries(examId: string) {
     await requireAdmin();
+    if (!examId) throw new Error("Exam ID is required");
     return prisma.examSyllabusEntry.findMany({
         where: { examId },
         select: {

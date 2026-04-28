@@ -1,102 +1,102 @@
+// app/(main)/actions/question-actions.ts
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { z } from "zod";
-import { questionSchema } from "@/types/question";
+import { questionSchema, QuestionFormInput } from "@/types/question";
 import { requireAdmin } from "@/lib/auth";
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-// ── Actions ─────────────────────────────────────────────────────────────────
-
-export async function createQuestion(paperId: string, examSlug: string, data: any) {
-    await requireAdmin();
-    const validated = questionSchema.parse(data);
-
-    // If it's not an MCQ/MSQ, we shouldn't save options to the database
+function buildQuestionData(validated: ReturnType<typeof questionSchema.parse>) {
     const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
+    const isNumerical = validated.type === "NUMERICAL";
+    const isSubjective = validated.type === "SUBJECTIVE";
 
-    const question = await prisma.question.create({
-        data: {
-            content: validated.content,
-            type: validated.type,
-            difficulty: validated.difficulty,
-            marks: validated.marks,
-            negativeMarks: validated.negativeMarks,
-            explanation: validated.explanation || null,
-            correctAnswer: isOptionsType ? null : (validated.correctAnswer || null),
-            //topicId: validated.topicId,
-            topicPath: validated.topicPath || null,
-            paperId: paperId,
+    return {
+        content: validated.content,
+        type: validated.type,
+        difficulty: validated.difficulty,
+        marks: validated.marks,
+        negativeMarks: validated.negativeMarks,
+        explanation: validated.explanation ?? null,
+        topicPath: validated.topicPath ?? null,
+        topicId: validated.topicId ?? null,
 
-            // Nested write: Create options only if it's an MCQ/MSQ
-            ...(isOptionsType && validated.options && validated.options.length > 0 && {
-                options: {
-                    create: validated.options.map(opt => ({
-                        text: opt.text,
-                        isCorrect: opt.isCorrect,
-                    }))
-                }
-            })
-        }
-    });
+        // MCQ / MSQ — store JSONB options and correctOptions indices
+        options: isOptionsType
+            ? (validated.options as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+        correctOptions: isOptionsType ? validated.correctOptions : [],
 
-    revalidateTag("exams", "max");
-    revalidatePath(`/library/exam/${examSlug}`);
+        // NUMERICAL
+        exactAnswer: isNumerical ? (validated.exactAnswer ?? null) : null,
+        answerMin: isNumerical ? (validated.answerMin ?? null) : null,
+        answerMax: isNumerical ? (validated.answerMax ?? null) : null,
 
-    return { success: true, id: question.id };
+        // SUBJECTIVE
+        modelAnswer: isSubjective ? (validated.modelAnswer ?? null) : null,
+    };
 }
 
-export async function updateQuestion(questionId: string, paperId: string, examSlug: string, data: any) {
-    await requireAdmin();
-    const validated = questionSchema.parse(data);
-    const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
-
-    await prisma.question.update({
-        where: { id: questionId, paperId: paperId },
-        data: {
-            content: validated.content,
-            type: validated.type,
-            difficulty: validated.difficulty,
-            marks: validated.marks,
-            negativeMarks: validated.negativeMarks,
-            explanation: validated.explanation || null,
-            correctAnswer: isOptionsType ? null : (validated.correctAnswer || null),
-            //topicId: validated.topicId,
-            topicPath: validated.topicPath || null,
-            paperId: paperId,
-
-            // Nested write trick: Delete all existing options and create the new ones.
-            // This is much safer than trying to diff which options were added/removed/edited.
-            options: {
-                deleteMany: {}, // Wipe the old ones
-                ...(isOptionsType && validated.options && {
-                    create: validated.options.map(opt => ({
-                        text: opt.text,
-                        isCorrect: opt.isCorrect,
-                    }))
-                })
-            }
-        }
-    });
-
+function revalidateQuestionPaths(examSlug: string, paperId?: string) {
     revalidateTag("exams", "max");
     revalidatePath(`/library/exam/${examSlug}`);
+    if (paperId) revalidatePath(`/library/paper/${paperId}`);
+}
 
+// ── Actions ──────────────────────────────────────────────────────────────────
+
+export async function createQuestion(
+    paperId: string,
+    examSlug: string,
+    data: QuestionFormInput
+) {
+    await requireAdmin();
+    const validated = questionSchema.parse(data);
+
+    await prisma.question.create({
+        data: {
+            ...buildQuestionData(validated),
+            paperId,
+        },
+    });
+
+    revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }
 
-export async function deleteQuestion(questionId: string, paperId: string, examSlug: string) {
+export async function updateQuestion(
+    questionId: string,
+    paperId: string,
+    examSlug: string,
+    data: QuestionFormInput
+) {
     await requireAdmin();
-    // onDelete: Cascade in schema, deleting the question
-    // automatically cleans up the connected Options in the database!
-    await prisma.question.deleteMany({
-        where: { id: questionId, paperId: paperId }
+    const validated = questionSchema.parse(data);
+
+    await prisma.question.update({
+        where: { id: questionId, paperId },
+        data: buildQuestionData(validated),
     });
 
-    revalidateTag("exams", "max");
-    if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
-    revalidatePath(`/library/paper/${paperId}`);
+    revalidateQuestionPaths(examSlug, paperId);
+    return { success: true };
+}
 
+export async function deleteQuestion(
+    questionId: string,
+    paperId: string,
+    examSlug: string
+) {
+    await requireAdmin();
+
+    await prisma.question.delete({
+        where: { id: questionId, paperId },
+        // Cascade on QuestionInteraction is handled by schema
+    });
+
+    revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }

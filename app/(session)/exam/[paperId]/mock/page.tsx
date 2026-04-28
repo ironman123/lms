@@ -1,8 +1,7 @@
-// mock/page.tsx
+// app/(session)/exam/[paperId]/mock/page.tsx
 import prisma from "@/lib/prisma";
 import ActiveSessionClient from "@/components/ActiveSessionClient";
-import { notFound } from "next/navigation";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { SessionMode } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
 
@@ -20,45 +19,38 @@ export default async function MockSessionPage({
     if (!sessionId) redirect(`/exam/${paperId}/lobby`);
 
     const [session, paper] = await Promise.all([
-        prisma.testSession.findUnique({ where: { id: sessionId, userId: user.id } }),
+        prisma.testSession.findUnique({
+            where: { id: sessionId, userId: user.id },
+        }),
         prisma.questionPaper.findUnique({
             where: { id: paperId },
             include: {
-                questions: {
-                    orderBy: { createdAt: "asc" },
-                    include: { options: true },
-                },
+                // `options` is a Json field — always fetched, no `include` needed.
+                questions: { orderBy: { createdAt: "asc" } },
                 examQuestionPaperLinks: {
-                    include: {
-                        exam: {
-                            select: { duration: true }
-                        }
-                    }
-                }
+                    include: { exam: { select: { duration: true } } },
+                    take: 1,
+                },
             },
         }),
     ]);
 
-    if (!session || session.paperId !== paperId || !paper)
-    {
-        notFound();
-    }
+    if (!session || session.paperId !== paperId || !paper) notFound();
 
+    // Strip every answer-revealing field before sending to the client.
+    // `options` (Json) intentionally keeps its display text but we null out
+    // the index-based answer fields so the client cannot derive the answer.
     const sanitizedPaper = {
         ...paper,
-        questions: paper.questions.map(q => ({
+        questions: paper.questions.map((q) => ({
             ...q,
-            correctAnswer: null,      // ← never leak to client during mock
-            options: q.options.map(o => ({
-                ...o,
-                isCorrect: false,     // ← strip this too
-            }))
-        }))
+            correctOptions: [] as number[],   // was Int[] — blank it
+            exactAnswer: null,
+            answerMin: null,
+            answerMax: null,
+            modelAnswer: null,
+        })),
     };
-
-
-
-    if (!session || session.paperId !== paperId || !paper) notFound();
 
     return (
         <ActiveSessionClient

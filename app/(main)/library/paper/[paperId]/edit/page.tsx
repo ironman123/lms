@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PaperBuilder from "@/components/PaperBuilder";
 import { requireAdminPage } from "@/lib/auth";
+import { OptionJSON } from "@/types/question";
+
 
 interface PageProps {
     params: Promise<{ id: string; paperId: string }>;
@@ -18,7 +20,6 @@ export default async function EditPaperPage({ params }: PageProps) {
             where: { id: paperId },
             include: {
                 questions: {
-                    include: { options: true },
                     orderBy: { createdAt: "asc" },
                 },
                 examQuestionPaperLinks: {
@@ -57,26 +58,41 @@ export default async function EditPaperPage({ params }: PageProps) {
         : [];
 
     // Questions belong to QuestionPaper directly — not through the link table
-    const initialQuestions = paper.questions.map((q, i) => ({
-        id: q.id,
-        number: i + 1,
-        content: q.content,
-        type: q.type as any,
-        difficulty: q.difficulty as any,
-        marks: q.marks,
-        negativeMarks: q.negativeMarks,
-        options: q.options.map((o, oi) => ({
-            label: String.fromCharCode(65 + oi),
-            text: o.text,
-            isCorrect: o.isCorrect,
-        })),
-        correctAnswer: q.correctAnswer,
-        explanation: q.explanation,
-        topicPath: q.topicPath ?? "",
-        topicId: q.topicId ?? "",
-        categoryId: "",
-        saved: true,
-    }));
+    const initialQuestions = paper.questions.map((q, i) => {
+        const options = (q.options ?? []) as OptionJSON[];
+
+        return {
+            id: q.id,
+            number: i + 1,
+            content: q.content,
+            type: q.type as any,
+            difficulty: q.difficulty as any,
+            marks: q.marks,
+            negativeMarks: q.negativeMarks,
+            explanation: q.explanation,
+            topicPath: q.topicPath ?? "",
+            topicId: q.topicId ?? "",
+            categoryId: "",
+            saved: true,
+
+            // MCQ / MSQ
+            options: options.map((o) => ({
+                index: o.index,
+                label: String.fromCharCode(65 + o.index), // A, B, C, D
+                text: o.text,
+                imageUrl: o.imageUrl,
+            })),
+            correctOptions: q.correctOptions,  // Int[] directly from DB
+
+            // NUMERICAL
+            exactAnswer: q.exactAnswer ?? null,
+            answerMin: q.answerMin ?? null,
+            answerMax: q.answerMax ?? null,
+
+            // SUBJECTIVE
+            modelAnswer: q.modelAnswer ?? null,
+        };
+    });
 
     return (
         <div className="min-h-screen bg-[#F8F7F4]">

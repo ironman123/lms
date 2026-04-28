@@ -163,36 +163,40 @@ model QuestionPaper {
 }
 
 model Question {
-  id                String                 @id @default(uuid())
+  id                String                @id @default(uuid())
   content           String
   type              QuestionType
-  difficulty        Difficulty             @default(MEDIUM)
-  marks             Float                  @default(1.0)
-  negativeMarks     Float                  @default(0.0)
+  difficulty        Difficulty            @default(MEDIUM)
+  marks             Float                 @default(1.0)
+  negativeMarks     Float                 @default(0.0)
   explanation       String?
-  bloomsTaxonomy    Int                    @default(1)
-  isVisual          Boolean                @default(false)
+  bloomsTaxonomy    Int                   @default(1)
+  isVisual          Boolean               @default(false)
   discriminationIdx Float?
-  avgTimeSeconds    Int                    @default(60)
-  embedding         Unsupported("vector")?
+  avgTimeSeconds    Int                   @default(60)
+  //embedding         Unsupported("vector")?
   topicId           String?
   topicPath         String?
   paperId           String?
-  correctAnswer     String?
-  createdAt         DateTime               @default(now())
-  options           Option[]
-  paper             QuestionPaper?         @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  topic             Topic?                 @relation(fields: [topicId], references: [id])
+  createdAt         DateTime              @default(now())
+  paper             QuestionPaper?        @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  topic             Topic?                @relation(fields: [topicId], references: [id])
   interactions      QuestionInteraction[]
-}
 
-model Option {
-  id         String   @id @default(uuid())
-  text       String
-  isCorrect  Boolean  @default(false)
-  questionId String
-  createdAt  DateTime @default(now())
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  // MCQ + MSQ only
+  options        Json? // OptionJSON[] | null for NUMERICAL/SUBJECTIVE
+  correctOptions Int[] // [2] for MCQ, [0,2] for MSQ, [] for others
+
+  // NUMERICAL only
+  exactAnswer Float? // if answer is a single number
+  answerMin   Float? // if answer is a range, e.g. 9.8 ± 0.1
+  answerMax   Float? // answerMin: 9.7, answerMax: 9.9
+
+  // SUBJECTIVE only
+  modelAnswer String? // expected answer text for manual evaluation
+
+  @@index([paperId])
+  @@index([topicId])
 }
 
 model QuestionInteraction {
@@ -217,6 +221,10 @@ model QuestionInteraction {
   user            User        @relation(fields: [userId], references: [id])
 
   @@unique([userId, questionId, sessionId])
+  @@index([userId]) // "give me all interactions for a user"
+  @@index([sessionId]) // "give me all interactions in a session"
+  @@index([userId, questionId]) // "has this user seen this question before?"
+  @@index([questionId]) // "how many got this question right?" (analytics)
 }
 
 model User {
@@ -246,17 +254,24 @@ model User {
 }
 
 model TestSession {
-  id           String                @id @default(uuid())
-  mode         SessionMode           @default(PRACTICE)
-  startTime    DateTime              @default(now())
-  endTime      DateTime?
-  totalScore   Float?
-  userId       String
-  paperId      String
-  activityLogs ActivityLog[]
-  interactions QuestionInteraction[]
-  paper        QuestionPaper         @relation(fields: [paperId], references: [id])
-  user         User                  @relation(fields: [userId], references: [id])
+  id             String                @id @default(uuid())
+  mode           SessionMode           @default(PRACTICE)
+  startTime      DateTime              @default(now())
+  endTime        DateTime?
+  totalScore     Float?
+  totalQuestions Int                   @default(0)
+  correctCount   Int                   @default(0)
+  accuracy       Float? // correctCount / totalQuestions
+  timeTakenSecs  Int? // actual wall time
+  avgTimePerQ    Float?
+  attemptedCount Int                   @default(0) // not everyone answers all Qs
+  completedAt    DateTime?
+  userId         String
+  paperId        String
+  activityLogs   ActivityLog[]
+  interactions   QuestionInteraction[]
+  paper          QuestionPaper         @relation(fields: [paperId], references: [id])
+  user           User                  @relation(fields: [userId], references: [id])
 }
 
 model ActivityLog {

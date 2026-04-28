@@ -2,11 +2,11 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { examSchema } from "@/types/exam";
+import { examSchema, ExamFormInput } from "@/types/exam";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 
-export async function createExam(data: any) {
+export async function createExam(data: ExamFormInput) {
     await requireAdmin();
     const validated = examSchema.parse(data);
 
@@ -143,8 +143,9 @@ export async function createExam(data: any) {
 }
 
 
-export async function updateExam(id: string, data: any) {
+export async function updateExam(id: string, data: ExamFormInput) {
     await requireAdmin();
+    if (!id) throw new Error("Exam ID required");
     const validated = examSchema.parse(data);
 
     const slug = validated.name
@@ -242,6 +243,7 @@ export async function updateExam(id: string, data: any) {
 
 export async function deleteExam(id: string) {
     await requireAdmin();
+    if (!id) throw new Error("Exam ID required");
     const exam = await prisma.exam.findUnique({
         where: { id },
         select: { slug: true, examCategoryId: true }

@@ -1,77 +1,130 @@
+// types/question.ts
 import { z } from "zod";
 
-// ── Option Schema ───────────────────────────────────────────────────────────
+// ── Option ──────────────────────────────────────────────────────────────────
+// Matches the JSONB shape stored in Question.options
 export const optionSchema = z.object({
-    text: z.string().default(""),
-    isCorrect: z.boolean(),
+    index: z.number().int().min(0),
+    text: z.string().min(1, "Option text cannot be empty"),
+    imageUrl: z.string().url("Invalid image URL").optional(),
 });
 
-// ── Main Question Schema ────────────────────────────────────────────────────
-export const questionSchema = z.object({
-    content: z.string().min(1, "Question content cannot be empty"),
-    type: z.enum(["MCQ", "MSQ", "NUMERICAL", "SUBJECTIVE"]),
-    difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
-    marks: z.coerce.number().min(0, "Marks must be 0 or greater"),
-    negativeMarks: z.coerce.number().min(0, "Enter as a positive number (e.g. 0.25, not -0.25)"),
-    explanation: z.string().optional().nullable().default(""),
-    correctAnswer: z.string().optional().nullable().default(""),
-    topicPath: z.string().optional().nullable().default(""),  // ← add
-    topicId: z.string().optional().default(""),  // ← add
-    options: z.array(optionSchema).optional().default([]),
-}).superRefine((data, ctx) => {
-    // Custom validation logic for specific question types
+// ── Question ─────────────────────────────────────────────────────────────────
+export const questionSchema = z
+    .object({
+        content: z.string().min(1, "Question content cannot be empty"),
+        type: z.enum(["MCQ", "MSQ", "NUMERICAL", "SUBJECTIVE"]),
+        difficulty: z.enum(["EASY", "MEDIUM", "HARD"]).default("MEDIUM"),
+        marks: z.coerce.number().min(0, "Marks must be 0 or greater"),
+        negativeMarks: z.coerce
+            .number()
+            .min(0, "Enter as positive number e.g. 0.25")
+            .default(0),
+        explanation: z.string().optional().nullable(),
+        topicPath: z.string().optional().nullable(),
+        topicId: z.string().optional().nullable(),
 
-    if (data.type === "MCQ" || data.type === "MSQ")
-    {
-        // 1. Must have at least 2 options with actual text
-        const validOptions = data.options?.filter(opt => opt.text.trim() !== "") || [];
-        if (validOptions.length < 2)
+        // MCQ / MSQ
+        options: z.array(optionSchema).default([]),
+        correctOptions: z.array(z.number().int().min(0)).default([]),
+
+        // NUMERICAL
+        exactAnswer: z.coerce.number().optional().nullable(),
+        answerMin: z.coerce.number().optional().nullable(),
+        answerMax: z.coerce.number().optional().nullable(),
+
+        // SUBJECTIVE
+        modelAnswer: z.string().optional().nullable(),
+    })
+    .superRefine((data, ctx) => {
+        if (data.type === "MCQ" || data.type === "MSQ")
         {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "MCQ/MSQ must have at least 2 valid options.",
-                path: ["options"],
-            });
+            const validOptions = data.options.filter((o) => o.text.trim() !== "");
+
+            if (validOptions.length < 2)
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "MCQ/MSQ must have at least 2 options.",
+                    path: ["options"],
+                });
+            }
+
+            if (data.correctOptions.length === 0)
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "You must mark at least one correct option.",
+                    path: ["correctOptions"],
+                });
+            }
+
+            if (data.type === "MCQ" && data.correctOptions.length > 1)
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "MCQ can only have ONE correct option. Use MSQ for multiple.",
+                    path: ["correctOptions"],
+                });
+            }
+
+            // Validate correctOptions indices actually exist in options
+            const maxIndex = data.options.length - 1;
+            for (const idx of data.correctOptions)
+            {
+                if (idx > maxIndex)
+                {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        message: `Correct option index ${idx} does not exist.`,
+                        path: ["correctOptions"],
+                    });
+                }
+            }
         }
 
-        // 2. Must have at least 1 correct option selected
-        const correctCount = validOptions.filter(opt => opt.isCorrect).length;
-        if (correctCount === 0)
+        if (data.type === "NUMERICAL")
         {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "You must select at least one correct option.",
-                path: ["options"],
-            });
+            const hasExact = data.exactAnswer != null;
+            const hasRange = data.answerMin != null && data.answerMax != null;
+
+            if (!hasExact && !hasRange)
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Provide either an exact answer or a min/max range.",
+                    path: ["exactAnswer"],
+                });
+            }
+
+            if (
+                data.answerMin != null &&
+                data.answerMax != null &&
+                data.answerMin > data.answerMax
+            )
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "answerMin cannot be greater than answerMax.",
+                    path: ["answerMin"],
+                });
+            }
         }
 
-        // 3. If MCQ, cannot have MORE than 1 correct option
-        if (data.type === "MCQ" && correctCount > 1)
+        if (data.type === "SUBJECTIVE")
         {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "MCQ can only have ONE correct option. Use MSQ for multiple.",
-                path: ["options"],
-            });
+            if (!data.modelAnswer?.trim())
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Model answer is required for subjective questions.",
+                    path: ["modelAnswer"],
+                });
+            }
         }
-    }
+    });
 
-    if (data.type === "NUMERICAL" || data.type === "SUBJECTIVE")
-    {
-        // Must provide a correct answer string
-        if (!data.correctAnswer || data.correctAnswer.trim() === "")
-        {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Correct answer is required for this question type.",
-                path: ["correctAnswer"],
-            });
-        }
-    }
-});
-
-// ── Inferred Types for TypeScript ───────────────────────────────────────────
-// z.infer automatically generates the TypeScript interfaces based on your schemas above!
-export type OptionFormValues = z.infer<typeof optionSchema>;
+// ── Inferred Types ───────────────────────────────────────────────────────────
+export type OptionJSON = z.infer<typeof optionSchema>;
 export type QuestionFormValues = z.infer<typeof questionSchema>;
 export type QuestionFormInput = z.input<typeof questionSchema>;
