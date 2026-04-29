@@ -19,12 +19,18 @@ async function getExamsData(query: string, page: number) {
             const where = query
                 ? {
                     OR: [
-                        { name: { contains: query, mode: "insensitive" as const } },
-                        { description: { contains: query, mode: "insensitive" as const } },
-                        { categoryNumber: { contains: query, mode: "insensitive" as const } },
+                        // { name: { contains: query, mode: "insensitive" as const } },
+                        // { description: { contains: query, mode: "insensitive" as const } },
+                        // { categoryNumber: { contains: query, mode: "insensitive" as const } },
+                        // { tags: { some: { tag: { name: { contains: query, mode: "insensitive" as const } } } } },
+                        // { syllabusEntries: { some: { topicPath: { contains: query, mode: "insensitive" as const } } } },
+                        // { syllabusEntries: { some: { category: { name: { contains: query, mode: "insensitive" as const } } } } },
+
+                        // Full-text on name/description — uses GIN index
+                        { name: { search: query.split(" ").join(" & "), mode: "insensitive" as const } },
+                        { description: { search: query.split(" ").join(" & "), mode: "insensitive" as const } },
+                        // Keep tag/syllabus LIKE — these are smaller tables, acceptable
                         { tags: { some: { tag: { name: { contains: query, mode: "insensitive" as const } } } } },
-                        { syllabusEntries: { some: { topicPath: { contains: query, mode: "insensitive" as const } } } },
-                        { syllabusEntries: { some: { category: { name: { contains: query, mode: "insensitive" as const } } } } },
                     ],
                 }
                 : {};
