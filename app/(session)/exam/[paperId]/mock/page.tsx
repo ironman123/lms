@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { SessionMode } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { getCachedPaper } from "@/lib/cache";
+import { Question } from "@prisma/client";
 
 export default async function MockSessionPage({
     params,
@@ -48,7 +49,7 @@ export default async function MockSessionPage({
     // the index-based answer fields so the client cannot derive the answer.
     const sanitizedPaper = {
         ...paper,
-        questions: paper.questions.map((q) => ({
+        questions: paper.questions.map((q: Question) => ({
             ...q,
             correctOptions: [] as number[],   // was Int[] — blank it
             exactAnswer: null,
