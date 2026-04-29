@@ -901,7 +901,6 @@ const prisma = new PrismaClient();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface AuditRecord {
@@ -911,7 +910,7 @@ interface AuditRecord {
     paperId: string | null;
     status: "SUCCESS" | "SKIPPED_DUPLICATE_URL" | "SKIPPED_NO_QUESTIONS" | "ERROR";
     questionsInserted: number;
-    optionsInserted: number;
+    optionsEmbedded: number; // Options stored in JSONB, not separate rows
     pdfUrl: string | null;
     testDate: string | null;
     errorMessage?: string;
@@ -919,6 +918,7 @@ interface AuditRecord {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
 
 function mapQuestionType(raw: string): "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE" {
     const t = (raw ?? "").toUpperCase().trim();
@@ -1010,7 +1010,7 @@ async function seedQuestionPapers() {
                 paperId: null,
                 status: "SKIPPED_DUPLICATE_URL",
                 questionsInserted: 0,
-                optionsInserted: 0,
+                optionsEmbedded: 0,
                 pdfUrl: currentUrl,
                 testDate: paper.testDate ?? null,
                 executionTimeMs: Date.now() - startTime,
@@ -1031,7 +1031,7 @@ async function seedQuestionPapers() {
                 paperId: null,
                 status: "SKIPPED_NO_QUESTIONS",
                 questionsInserted: 0,
-                optionsInserted: 0,
+                optionsEmbedded: 0,
                 pdfUrl: currentUrl,
                 testDate: paper.testDate ?? null,
                 executionTimeMs: Date.now() - startTime,
@@ -1051,7 +1051,6 @@ async function seedQuestionPapers() {
         // ── Build flat arrays in RAM ─────────────────────────────────────
         const paperId = crypto.randomUUID();
         const questionsToInsert: any[] = [];
-        const optionsToInsert: any[] = [];
 
         for (const q of questions)
         {
@@ -1060,33 +1059,44 @@ async function seedQuestionPapers() {
             const questionId = crypto.randomUUID();
             const qType = mapQuestionType(q.type);
 
+            // Build JSONB options
+            const rawOptions = Array.isArray(q.options) ? q.options : [];
+            const optionsJson = rawOptions
+                .filter((o: any) => o.text?.trim())
+                .map((o: any, idx: number) => ({
+                    index: idx,
+                    text: o.text.trim(),
+                }));
+
+            // Derive correctOptions indices from correctAnswer label ("A", "B", etc.)
+            const correctOptions: number[] = [];
+            if (q.correctAnswer && (qType === "MCQ" || qType === "MSQ"))
+            {
+                const labels = q.correctAnswer.toUpperCase().split(",").map((s: string) => s.trim());
+                for (const label of labels)
+                {
+                    const idx = label.charCodeAt(0) - 65; // "A"→0, "B"→1
+                    if (idx >= 0 && idx < optionsJson.length) correctOptions.push(idx);
+                }
+            }
+
             questionsToInsert.push({
                 id: questionId,
                 paperId,
                 content: q.content.trim(),
                 type: qType,
-                correctAnswer: q.correctAnswer ?? null,
                 explanation: q.explanation ?? null,
+                options: optionsJson.length > 0 ? optionsJson : undefined,
+                correctOptions,
+                // NUMERICAL mapping
+                exactAnswer: qType === "NUMERICAL" && q.correctAnswer
+                    ? parseFloat(q.correctAnswer) || null
+                    : null,
             });
-
-            if (Array.isArray(q.options))
-            {
-                for (const opt of q.options)
-                {
-                    if (!opt.text?.trim()) continue;
-                    optionsToInsert.push({
-                        id: crypto.randomUUID(),
-                        questionId,
-                        text: opt.text.trim(),
-                        isCorrect: q.correctAnswer
-                            ? opt.label?.toUpperCase().trim() === q.correctAnswer.toUpperCase().trim()
-                            : false,
-                    });
-                }
-            }
         }
 
-        console.log(`  ⚙  Prepared: ${questionsToInsert.length} questions, ${optionsToInsert.length} options`);
+        const totalEmbeddedOptions = questionsToInsert.reduce((s, q) => s + (q.options?.length ?? 0), 0);
+        console.log(`  ⚙  Prepared: ${questionsToInsert.length} questions, ${totalEmbeddedOptions} options`);
 
         // ── Insert in transaction ────────────────────────────────────────
         try
@@ -1100,24 +1110,14 @@ async function seedQuestionPapers() {
                         url: currentUrl,
                         type: mapPaperType(paper.paperType ?? ""),
                         year: paper.extractedYear ?? null,
-
                     }
                 });
 
-                // 2. Bulk insert questions
+                // 2. Bulk insert questions (Options are now inside this!)
                 if (questionsToInsert.length > 0)
                 {
                     await tx.question.createMany({
                         data: questionsToInsert,
-                        skipDuplicates: true,
-                    });
-                }
-
-                // 3. Bulk insert options
-                if (optionsToInsert.length > 0)
-                {
-                    await tx.option.createMany({
-                        data: optionsToInsert,
                         skipDuplicates: true,
                     });
                 }
@@ -1134,7 +1134,7 @@ async function seedQuestionPapers() {
             console.log(`     📄 Title:        ${title}`);
             console.log(`     🌐 PDF URL:      ${currentUrl ?? 'none'}`);
             console.log(`     ❓ Questions:    ${questionsToInsert.length}`);
-            console.log(`     🔠 Options:      ${optionsToInsert.length}`);
+            console.log(`     🔠 Options:      ${totalEmbeddedOptions}`);
 
             auditLog.push({
                 index: i + 1,
@@ -1143,7 +1143,7 @@ async function seedQuestionPapers() {
                 paperId,
                 status: "SUCCESS",
                 questionsInserted: questionsToInsert.length,
-                optionsInserted: optionsToInsert.length,
+                optionsEmbedded: totalEmbeddedOptions,
                 pdfUrl: currentUrl,
                 testDate: paper.testDate ?? null,
                 executionTimeMs: ms,
@@ -1162,7 +1162,7 @@ async function seedQuestionPapers() {
                 paperId,
                 status: "ERROR",
                 questionsInserted: 0,
-                optionsInserted: 0,
+                optionsEmbedded: 0,
                 pdfUrl: currentUrl,
                 testDate: paper.testDate ?? null,
                 errorMessage: err.message,
@@ -1185,7 +1185,7 @@ async function seedQuestionPapers() {
     const totalMs = Date.now() - startTotal;
     const successRecords = auditLog.filter(r => r.status === "SUCCESS");
     const totalQ = successRecords.reduce((s, r) => s + r.questionsInserted, 0);
-    const totalO = successRecords.reduce((s, r) => s + r.optionsInserted, 0);
+    const totalO = successRecords.reduce((s, r) => s + r.optionsEmbedded, 0);
     const renamed = successRecords.filter(r => r.title !== r.originalTitle).length;
 
     console.log(`\n${"═".repeat(55)}`);

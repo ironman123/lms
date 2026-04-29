@@ -7,7 +7,6 @@ import StartExamButton from "@/components/StartExamButton";
 import { Timer, ClipboardCheck, AlertCircle, BookOpen, Layers, Trophy } from "lucide-react";
 import Link from "next/link";
 import { SessionMode } from "@prisma/client";
-import { Session } from "inspector/promises";
 
 export default async function PaperLobbyPage({ params }: { params: Promise<{ id: string, paperId: string }> }) {
     const { id, paperId } = await params;

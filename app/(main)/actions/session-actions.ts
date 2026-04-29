@@ -9,9 +9,18 @@ import { InteractionMetrics } from "../hooks/useExamTelemetry";
 import { updateUserStats } from "@/lib/stats";
 import { qstash } from "@/lib/qstash";
 import type { InteractionPayload } from "@/app/api/queues/interactions/route";
+import { sessionRatelimit, actionRatelimit } from "@/lib/ratelimit";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
     const user = await requireAuth();
+    const { success } = await sessionRatelimit.limit(user.id);
+    if (!success)
+    {
+        return {
+            success: false,
+            error: "You are creating too many sessions. Please wait a few minutes."
+        };
+    }
 
     try
     {
@@ -66,6 +75,8 @@ export async function completeExamSession(
     metrics: InteractionMetrics[]
 ) {
     const user = await requireAuth();
+    const { success } = await actionRatelimit.limit(`submit_${user.id}`);
+    if (!success) return { success: false, error: "Too many submissions." };
 
     try
     {

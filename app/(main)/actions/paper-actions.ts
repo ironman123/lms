@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { paperSchema, PaperFormInput } from "@/types/paper";
 import { requireAdmin } from "@/lib/auth";
 import { handlePrismaError } from "@/lib/prisma";
-import { invalidateTag } from "@/lib/cache";
+import { invalidateTag, invalidateKey } from "@/lib/cache";
 
 export async function linkPaperToExam(paperId: string, examId: string) {
     await requireAdmin();
@@ -18,6 +18,8 @@ export async function linkPaperToExam(paperId: string, examId: string) {
             update: {},
             create: { examId, paperId },
         });
+        await invalidateTag("exams");
+        await invalidateKey(`paper:${paperId}`);
     } catch (error)
     {
         handlePrismaError(error);
@@ -33,6 +35,8 @@ export async function unlinkPaperFromExam(paperId: string, examId: string) {
         await prisma.examQuestionPaperLink.delete({
             where: { examId_paperId: { examId, paperId } },
         });
+        await invalidateTag("exams");
+        await invalidateKey(`paper:${paperId}`);
     } catch (error)
     {
         handlePrismaError(error);
@@ -95,6 +99,7 @@ export async function updateQuestionPaper(
     ]);
 
     await invalidateTag("exams");
+    await invalidateKey(`paper:${paperId}`);
     revalidatePath(`/library/exam/${examSlug}`);
 }
 
@@ -103,6 +108,8 @@ export async function deleteQuestionPaper(paperId: string, examSlug: string) {
     if (!paperId) throw new Error("Paper ID is required");
     await prisma.questionPaper.delete({ where: { id: paperId } });
     await invalidateTag("exams");
+    await invalidateKey(`paper:${paperId}`);
+
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
     revalidatePath("/library/paper");
     return { success: true };

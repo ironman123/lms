@@ -82,3 +82,12 @@ export async function invalidateKey(key: string): Promise<void> {
         console.warn(`[cache] invalidateKey(${key}) failed:`, err);
     }
 }
+
+export async function getCachedPaper(paperId: string, fetcher: () => Promise<any>) {
+    return withCache(
+        `paper:${paperId}`,
+        86400, // 24 hours (86,400 seconds)
+        fetcher,
+        ["papers", `paper:${paperId}`] // Tags for easy invalidation
+    );
+}

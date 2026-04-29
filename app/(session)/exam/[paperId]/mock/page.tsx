@@ -4,6 +4,7 @@ import ActiveSessionClient from "@/components/ActiveSessionClient";
 import { notFound, redirect } from "next/navigation";
 import { SessionMode } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
+import { getCachedPaper } from "@/lib/cache";
 
 export default async function MockSessionPage({
     params,
@@ -20,19 +21,24 @@ export default async function MockSessionPage({
 
     const [session, paper] = await Promise.all([
         prisma.testSession.findUnique({
-            where: { id: sessionId, userId: user.id },
+            where: { id: sessionId, userId: user.id }
         }),
-        prisma.questionPaper.findUnique({
-            where: { id: paperId },
-            include: {
-                // `options` is a Json field — always fetched, no `include` needed.
-                questions: { orderBy: { createdAt: "asc" } },
-                examQuestionPaperLinks: {
-                    include: { exam: { select: { duration: true } } },
-                    take: 1,
+
+        // Wrap the paper fetch in the new Redis cache helper
+        getCachedPaper(paperId, () =>
+            prisma.questionPaper.findUnique({
+                where: { id: paperId },
+                include: {
+                    examQuestionPaperLinks: {
+                        include: { exam: { select: { name: true, duration: true } } },
+                        take: 1,
+                    },
+                    questions: {
+                        orderBy: { createdAt: "asc" }
+                    },
                 },
-            },
-        }),
+            })
+        ),
     ]);
 
     if (!session || session.paperId !== paperId || !paper) notFound();

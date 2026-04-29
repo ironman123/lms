@@ -1,3 +1,4 @@
+// app/results/page.tsx
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -24,7 +25,19 @@ export default async function ResultsPage({
                 interactions: {
                     include: {
                         question: {
-                            include: { options: true }
+                            // Replaced include with select to handle the new JSONB/array fields
+                            select: {
+                                id: true,
+                                content: true,
+                                marks: true,
+                                type: true,
+                                explanation: true,
+                                correctOptions: true,
+                                exactAnswer: true,
+                                answerMin: true,
+                                answerMax: true,
+                                options: true, // JSON field
+                            }
                         }
                     }
                 }
@@ -46,25 +59,30 @@ export default async function ResultsPage({
     const exam = paper.examQuestionPaperLinks[0]?.exam;
     const interactions = session.interactions;
 
-    // Score calculation
+    // Score calculation with new schema logic
     const attempted = interactions.filter(i => i.selectedAnswer);
     const correct = interactions.filter(i => {
         if (!i.selectedAnswer) return false;
         const q = i.question;
+
         if (q.type === "MCQ")
         {
-            const correctOption = q.options.find(o => o.isCorrect);
-            return correctOption?.id === i.selectedAnswer;
+            return q.correctOptions[0] === parseInt(i.selectedAnswer, 10);
         }
         if (q.type === "MSQ")
         {
-            const correctIds = q.options.filter(o => o.isCorrect).map(o => o.id).sort().join(",");
-            const selectedIds = i.selectedAnswer.split(",").sort().join(",");
-            return correctIds === selectedIds;
+            const submitted = i.selectedAnswer.split(",").map(Number).sort().join(",");
+            const correctIds = [...q.correctOptions].sort().join(",");
+            return submitted === correctIds;
         }
         if (q.type === "NUMERICAL")
         {
-            return i.selectedAnswer?.trim() === q.correctAnswer?.trim();
+            const val = parseFloat(i.selectedAnswer);
+            if (q.exactAnswer != null) return val === q.exactAnswer;
+            if (q.answerMin != null && q.answerMax != null)
+            {
+                return val >= q.answerMin && val <= q.answerMax;
+            }
         }
         return false;
     });
@@ -140,6 +158,29 @@ export default async function ResultsPage({
                         const isCorrectAnswer = correct.includes(interaction);
                         const wasAttempted = !!interaction.selectedAnswer;
 
+                        // Formatting the correct answer for display
+                        let displayCorrectAnswer = "";
+                        if (q.type === "MCQ" || q.type === "MSQ")
+                        {
+                            // Map [0, 1] -> "A, B"
+                            displayCorrectAnswer = q.correctOptions
+                                .sort()
+                                .map((idx: number) => String.fromCharCode(65 + idx))
+                                .join(", ");
+                        } else if (q.type === "NUMERICAL")
+                        {
+                            if (q.exactAnswer != null)
+                            {
+                                displayCorrectAnswer = String(q.exactAnswer);
+                            } else if (q.answerMin != null && q.answerMax != null)
+                            {
+                                displayCorrectAnswer = `${q.answerMin} - ${q.answerMax}`;
+                            } else
+                            {
+                                displayCorrectAnswer = "—";
+                            }
+                        }
+
                         return (
                             <div key={interaction.id} className={`bg-white rounded-2xl border p-5 ${!wasAttempted ? "border-slate-200" :
                                 isCorrectAnswer ? "border-green-200" : "border-red-200"
@@ -157,11 +198,14 @@ export default async function ResultsPage({
                                         <p className="text-sm font-bold text-slate-800 leading-snug">
                                             {i + 1}. {q.content}
                                         </p>
-                                        {wasAttempted && !isCorrectAnswer && q.correctAnswer && (
+
+                                        {/* Display formatted correct answer for wrong attempts */}
+                                        {wasAttempted && !isCorrectAnswer && displayCorrectAnswer && (
                                             <p className="text-xs text-green-600 font-bold mt-2">
-                                                Correct: {q.correctAnswer}
+                                                Correct: {displayCorrectAnswer}
                                             </p>
                                         )}
+
                                         {q.explanation && (
                                             <p className="text-xs text-slate-400 italic mt-2 leading-relaxed">
                                                 {q.explanation}

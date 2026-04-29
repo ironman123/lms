@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import ActiveSessionClient from "@/components/ActiveSessionClient";
 import { SessionMode } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
+import { getCachedPaper } from "@/lib/cache";
 
 export default async function PracticeSessionPage({
     params,
@@ -18,24 +19,27 @@ export default async function PracticeSessionPage({
 
     if (!sessionId) redirect(`/exam/${paperId}/lobby`);
 
+    // Inside your page component:
     const [session, paper] = await Promise.all([
         prisma.testSession.findUnique({
-            where: { id: sessionId, userId: user.id },
+            where: { id: sessionId, userId: user.id }
         }),
-        prisma.questionPaper.findUnique({
-            where: { id: paperId },
-            include: {
-                examQuestionPaperLinks: {
-                    include: { exam: { select: { name: true, duration: true } } },
-                    take: 1,
+
+        // Wrap the paper fetch in the new Redis cache helper
+        getCachedPaper(paperId, () =>
+            prisma.questionPaper.findUnique({
+                where: { id: paperId },
+                include: {
+                    examQuestionPaperLinks: {
+                        include: { exam: { select: { name: true, duration: true } } },
+                        take: 1,
+                    },
+                    questions: {
+                        orderBy: { createdAt: "asc" }
+                    },
                 },
-                // `options` is a Json field on Question — it is always fetched with the
-                // row, so `include: { options: true }` is invalid and was removed.
-                questions: {
-                    orderBy: { createdAt: "asc" },
-                },
-            },
-        }),
+            })
+        ),
     ]);
 
     if (!session || session.paperId !== paperId || !paper) notFound();

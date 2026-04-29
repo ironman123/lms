@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { questionSchema, QuestionFormInput } from "@/types/question";
 import { requireAdmin } from "@/lib/auth";
 import { handlePrismaError } from "@/lib/prisma";
-import { invalidateTag } from "@/lib/cache";
+import { invalidateKey, invalidateTag } from "@/lib/cache";
 
 function buildQuestionData(validated: ReturnType<typeof questionSchema.parse>) {
     const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
@@ -36,6 +36,10 @@ function buildQuestionData(validated: ReturnType<typeof questionSchema.parse>) {
 
 async function revalidateQuestionPaths(examSlug: string, paperId?: string) {
     await invalidateTag("exams");
+    if (paperId)
+    {
+        await invalidateKey(`paper:${paperId}`);
+    }
     revalidatePath(`/library/exam/${examSlug}`);
     if (paperId) revalidatePath(`/library/paper/${paperId}`);
 }
