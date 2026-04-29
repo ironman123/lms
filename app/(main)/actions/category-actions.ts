@@ -1,47 +1,47 @@
+// app/(main)/actions/category-actions.ts
 "use server";
 
-import prisma from "@/lib/prisma"; // Ensure this exports: new PrismaClient()
+import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { revalidateTag } from "next/cache";
-import { CategoryFormValues } from "@/types/category"; // Import your Zod type
-import { categorySchema } from "@/types/category";
+import { CategoryFormValues, categorySchema } from "@/types/category";
 import { requireAdmin } from "@/lib/auth";
+import { invalidateTag } from "@/lib/cache";
+
+function makeSlug(name: string) {
+    return name
+        .toLowerCase()
+        .replace(/[;,|]+/g, "-")
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/-{2,}/g, "-")
+        .replace(/^-|-$/g, "")
+        .trim();
+}
 
 export async function createCategory(values: CategoryFormValues) {
-    await requireAdmin(); // Ensure only admins can create categories
-    // 1. Generate slug from name
-    const slug = values.name
-        .toLowerCase()
-        .replace(/[;,|]+/g, '-')     // semicolons/commas → dash
-        .replace(/\s+/g, '-')         // spaces → dash
-        .replace(/[^\w\-]+/g, '')     // strip everything else
-        .replace(/-{2,}/g, '-')       // collapse multiple dashes
-        .replace(/^-|-$/g, '')        // trim leading/trailing dashes
-        .trim();
+    await requireAdmin();
+    const slug = makeSlug(values.name);
 
     try
     {
-        // 2. Save to Supabase via Prisma
         await prisma.examCategory.create({
             data: {
                 name: values.name,
-                slug: slug,
+                slug,
                 description: values.description,
                 icon: values.icon,
                 color: values.color,
-                image: values.image, // The Cloudinary Public ID
+                image: values.image,
             },
         });
-
     } catch (error)
     {
         console.error("Database Error:", error);
         throw new Error("Failed to create category.");
     }
 
-    // 3. Refresh & Redirect
-    revalidateTag("examCategories");
+    await invalidateTag("examCategories");
     revalidatePath("/library/category");
     redirect("/library/category");
 }
@@ -49,15 +49,7 @@ export async function createCategory(values: CategoryFormValues) {
 export async function updateCategory(categoryId: string, data: CategoryFormValues) {
     await requireAdmin();
     const validated = categorySchema.parse(data);
-
-    const slug = validated.name
-        .toLowerCase()
-        .replace(/[;,|]+/g, '-')     // semicolons/commas → dash
-        .replace(/\s+/g, '-')         // spaces → dash
-        .replace(/[^\w\-]+/g, '')     // strip everything else
-        .replace(/-{2,}/g, '-')       // collapse multiple dashes
-        .replace(/^-|-$/g, '')        // trim leading/trailing dashes
-        .trim();
+    const slug = makeSlug(validated.name);
 
     await prisma.examCategory.update({
         where: { id: categoryId },
@@ -71,13 +63,13 @@ export async function updateCategory(categoryId: string, data: CategoryFormValue
         },
     });
 
-    revalidateTag("examCategories", "max");
+    await invalidateTag("examCategories");
     redirect(`/library/category/${slug}`);
 }
 
 export async function deleteCategory(categoryId: string) {
     await requireAdmin();
     await prisma.examCategory.delete({ where: { id: categoryId } });
-    revalidateTag("examCategories", "max");
+    await invalidateTag("examCategories");
     redirect("/library/category");
 }

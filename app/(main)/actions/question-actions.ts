@@ -3,12 +3,11 @@
 
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { questionSchema, QuestionFormInput } from "@/types/question";
 import { requireAdmin } from "@/lib/auth";
 import { handlePrismaError } from "@/lib/prisma";
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
+import { invalidateTag } from "@/lib/cache";
 
 function buildQuestionData(validated: ReturnType<typeof questionSchema.parse>) {
     const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
@@ -24,30 +23,22 @@ function buildQuestionData(validated: ReturnType<typeof questionSchema.parse>) {
         explanation: validated.explanation ?? null,
         topicPath: validated.topicPath ?? null,
         topicId: validated.topicId ?? null,
-
-        // MCQ / MSQ — store JSONB options and correctOptions indices
         options: isOptionsType
             ? (validated.options as Prisma.InputJsonValue)
             : Prisma.JsonNull,
         correctOptions: isOptionsType ? validated.correctOptions : [],
-
-        // NUMERICAL
         exactAnswer: isNumerical ? (validated.exactAnswer ?? null) : null,
         answerMin: isNumerical ? (validated.answerMin ?? null) : null,
         answerMax: isNumerical ? (validated.answerMax ?? null) : null,
-
-        // SUBJECTIVE
         modelAnswer: isSubjective ? (validated.modelAnswer ?? null) : null,
     };
 }
 
-function revalidateQuestionPaths(examSlug: string, paperId?: string) {
-    revalidateTag("exams", "max");
+async function revalidateQuestionPaths(examSlug: string, paperId?: string) {
+    await invalidateTag("exams");
     revalidatePath(`/library/exam/${examSlug}`);
     if (paperId) revalidatePath(`/library/paper/${paperId}`);
 }
-
-// ── Actions ──────────────────────────────────────────────────────────────────
 
 export async function createQuestion(
     paperId: string,
@@ -58,18 +49,12 @@ export async function createQuestion(
     const validated = questionSchema.parse(data);
     try
     {
-        await prisma.question.create({
-            data: {
-                ...buildQuestionData(validated),
-                paperId,
-            },
-        });
-    }
-    catch (error)
+        await prisma.question.create({ data: { ...buildQuestionData(validated), paperId } });
+    } catch (error)
     {
         handlePrismaError(error);
     }
-    revalidateQuestionPaths(examSlug, paperId);
+    await revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }
 
@@ -87,12 +72,11 @@ export async function updateQuestion(
             where: { id: questionId, paperId },
             data: buildQuestionData(validated),
         });
-    }
-    catch (error)
+    } catch (error)
     {
         handlePrismaError(error);
     }
-    revalidateQuestionPaths(examSlug, paperId);
+    await revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }
 
@@ -104,15 +88,11 @@ export async function deleteQuestion(
     await requireAdmin();
     try
     {
-        await prisma.question.delete({
-            where: { id: questionId, paperId },
-            // Cascade on QuestionInteraction is handled by schema
-        });
-    }
-    catch (error)
+        await prisma.question.delete({ where: { id: questionId, paperId } });
+    } catch (error)
     {
         handlePrismaError(error);
     }
-    revalidateQuestionPaths(examSlug, paperId);
+    await revalidateQuestionPaths(examSlug, paperId);
     return { success: true };
 }

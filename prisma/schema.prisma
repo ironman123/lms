@@ -43,6 +43,8 @@ model Exam {
   //examTopics     ExamTopic[]
   syllabusEntries        ExamSyllabusEntry[]
   examQuestionPaperLinks ExamQuestionPaperLink[]
+
+  userExamStats UserExamStats[]
 }
 
 model Tag {
@@ -251,6 +253,9 @@ model User {
   interactions    QuestionInteraction[]
   sessions        TestSession[]
   topicMasteries  TopicMastery[]
+
+  userStats UserStats?
+  examStats UserExamStats[]
 }
 
 model TestSession {
@@ -296,6 +301,39 @@ model TopicMastery {
   user         User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, topicId])
+}
+
+model UserStats {
+  userId          String   @id
+  totalTests      Int      @default(0)
+  totalQuestions  Int      @default(0)
+  totalCorrect    Int      @default(0)
+  totalStudySecs  Int      @default(0)
+  scoreSum        Float    @default(0)
+  currentStreak   Int      @default(0)
+  lastActiveDate  String?
+  typeAccuracy    Json     @default("{}")
+  diffAccuracy    Json     @default("{}")
+  subjectAccuracy Json     @default("{}")
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model UserExamStats {
+  id             String   @id @default(uuid())
+  userId         String
+  examId         String
+  testsAttempted Int      @default(0)
+  scoreSum       Float    @default(0)
+  bestScore      Float    @default(0)
+  lastScore      Float?
+  prevScore      Float?
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id])
+  exam           Exam     @relation(fields: [examId], references: [id])
+
+  @@unique([userId, examId])
+  @@index([userId])
 }
 
 enum UserRole {

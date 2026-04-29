@@ -4,20 +4,30 @@ import WorkspacePaperCard from "@/components/WorkspacePaperCard";
 import Link from "next/link";
 import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
-import { unstable_cache } from "next/cache";
 import { deleteQuestionPaper } from "../../actions/paper-actions";
 import { getIsAdmin } from "@/lib/auth";
+import { withCache } from "@/lib/cache";
 
-const getPapersData = (query: string, page: number) =>
-    unstable_cache(
+const BATCH_SIZE = 30;
+
+async function getPapersData(query: string, page: number) {
+    const cacheKey = `papers:q:${query}:p:${page}`;
+    return withCache(
+        cacheKey,
+        3600,
         async () => {
-            const BATCH_SIZE = 30;
-            const where = query ? {
-                OR: [
-                    { title: { contains: query, mode: "insensitive" as const } },
-                    { examQuestionPaperLinks: { some: { exam: { name: { contains: query, mode: "insensitive" as const } } } } },
-                ],
-            } : {};
+            const where = query
+                ? {
+                    OR: [
+                        { title: { contains: query, mode: "insensitive" as const } },
+                        {
+                            examQuestionPaperLinks: {
+                                some: { exam: { name: { contains: query, mode: "insensitive" as const } } },
+                            },
+                        },
+                    ],
+                }
+                : {};
 
             const [papers, total] = await Promise.all([
                 prisma.questionPaper.findMany({
@@ -26,8 +36,8 @@ const getPapersData = (query: string, page: number) =>
                         examQuestionPaperLinks: {
                             include: {
                                 exam: {
-                                    select: { id: true, name: true, slug: true, duration: true, color: true }
-                                }
+                                    select: { id: true, name: true, slug: true, duration: true, color: true },
+                                },
                             },
                             take: 1,
                         },
@@ -42,9 +52,9 @@ const getPapersData = (query: string, page: number) =>
 
             return { papers, total, totalPages: Math.ceil(total / BATCH_SIZE) };
         },
-        [`papers-list-${query}-${page}`],
-        { revalidate: 3600, tags: ["exams"] }
-    )();
+        ["exams"]
+    );
+}
 
 export default async function PaperLibraryPage({
     searchParams,
@@ -53,16 +63,17 @@ export default async function PaperLibraryPage({
 }) {
     const { q = "", page = "0" } = await searchParams;
     const currentPage = parseInt(page) || 0;
-    const { papers, total, totalPages } = await getPapersData(q, currentPage);
-    const isAdmin = await getIsAdmin();
+    const [{ papers, total, totalPages }, isAdmin] = await Promise.all([
+        getPapersData(q, currentPage),
+        getIsAdmin(),
+    ]);
 
-    const pyq = papers.filter(p => p.year !== null);
-    const mock = papers.filter(p => p.year === null);
+    const pyq = papers.filter((p) => p.year !== null);
+    const mock = papers.filter((p) => p.year === null);
 
     return (
         <div className="min-h-screen bg-slate-50">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-
                 <div className="text-center max-w-2xl mx-auto mb-10">
                     <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4">
                         Question <span className="text-slate-400 font-light">Papers</span>
@@ -94,7 +105,7 @@ export default async function PaperLibraryPage({
                             Previous Year Papers · {pyq.length}
                         </h2>
                         <div className="flex flex-wrap gap-6">
-                            {pyq.map(p => {
+                            {pyq.map((p) => {
                                 const exam = p.examQuestionPaperLinks[0]?.exam;
                                 const boundDelete = deleteQuestionPaper.bind(null, p.id, "");
                                 return (
@@ -126,7 +137,7 @@ export default async function PaperLibraryPage({
                             Mock / Practice Papers · {mock.length}
                         </h2>
                         <div className="flex flex-wrap gap-6">
-                            {mock.map(p => {
+                            {mock.map((p) => {
                                 const exam = p.examQuestionPaperLinks[0]?.exam;
                                 const boundDelete = deleteQuestionPaper.bind(null, p.id, "");
                                 return (
@@ -137,7 +148,6 @@ export default async function PaperLibraryPage({
                                         isAdmin={isAdmin}
                                         onDelete={boundDelete}
                                         type="Mock"
-                                        //year="Mock"
                                         pricing="Free"
                                         examId={exam?.id ?? ""}
                                         examSlug={exam?.slug ?? ""}
@@ -157,7 +167,10 @@ export default async function PaperLibraryPage({
                         <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
                         <h3 className="text-lg font-bold text-slate-900">No papers found</h3>
                         {q && (
-                            <Link href="/library/paper" className="mt-4 inline-block text-sm text-slate-500 hover:text-slate-900">
+                            <Link
+                                href="/library/paper"
+                                className="mt-4 inline-block text-sm text-slate-500 hover:text-slate-900"
+                            >
                                 Clear search
                             </Link>
                         )}
@@ -167,13 +180,21 @@ export default async function PaperLibraryPage({
                 {totalPages > 1 && (
                     <div className="flex items-center justify-center gap-3 mt-16">
                         {currentPage > 0 && (
-                            <Link href={`?q=${q}&page=${currentPage - 1}`} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors">
+                            <Link
+                                href={`?q=${q}&page=${currentPage - 1}`}
+                                className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors"
+                            >
                                 Previous
                             </Link>
                         )}
-                        <span className="text-sm text-slate-500 font-medium">{currentPage + 1} / {totalPages}</span>
+                        <span className="text-sm text-slate-500 font-medium">
+                            {currentPage + 1} / {totalPages}
+                        </span>
                         {currentPage < totalPages - 1 && (
-                            <Link href={`?q=${q}&page=${currentPage + 1}`} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors">
+                            <Link
+                                href={`?q=${q}&page=${currentPage + 1}`}
+                                className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors"
+                            >
                                 Next
                             </Link>
                         )}

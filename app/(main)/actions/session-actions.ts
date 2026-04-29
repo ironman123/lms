@@ -6,7 +6,9 @@ import { SessionMode } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { InteractionMetrics } from "../hooks/useExamTelemetry";
-import { OptionJSON } from "@/types/question";
+import { updateUserStats } from "@/lib/stats";
+import { qstash } from "@/lib/qstash";
+import type { InteractionPayload } from "@/app/api/queues/interactions/route";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
     const user = await requireAuth();
@@ -34,22 +36,19 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
                 },
             });
 
-            if (paper.questions.length > 0)
-            {
-                await tx.questionInteraction.createMany({
-                    data: paper.questions.map((q) => ({
-                        userId: user.id,
-                        sessionId: newSession.id,
-                        questionId: q.id,
-                        isCorrect: false,
-                        visitCount: 0,
-                        totalDwellTime: 0,
-                        hesitationCount: 0,
-                        isFlagged: false,
-                        wasHinted: false,
-                    })),
-                });
-            }
+            await tx.questionInteraction.createMany({
+                data: paper.questions.map((q) => ({
+                    userId: user.id,
+                    sessionId: newSession.id,
+                    questionId: q.id,
+                    isCorrect: false,
+                    visitCount: 0,
+                    totalDwellTime: 0,
+                    hesitationCount: 0,
+                    isFlagged: false,
+                    wasHinted: false,
+                })),
+            });
 
             return newSession;
         });
@@ -70,23 +69,28 @@ export async function completeExamSession(
 
     try
     {
-        // No more include: { options: true } — questions are self-contained now
         const session = await prisma.testSession.findUnique({
             where: { id: sessionId, userId: user.id },
             include: {
                 paper: {
                     include: {
+                        // Take the first linked exam so we can update UserExamStats
+                        examQuestionPaperLinks: {
+                            select: { examId: true },
+                            take: 1,
+                        },
                         questions: {
                             select: {
                                 id: true,
                                 type: true,
+                                difficulty: true,   // needed for stats breakdown
+                                topicPath: true,    // needed for subject breakdown
                                 marks: true,
                                 negativeMarks: true,
-                                correctOptions: true, // [2] or [0,2]
+                                correctOptions: true,
                                 exactAnswer: true,
                                 answerMin: true,
                                 answerMax: true,
-                                // modelAnswer intentionally excluded — subjective can't auto-grade
                             },
                         },
                     },
@@ -121,21 +125,12 @@ export async function completeExamSession(
             {
                 if (q.type === "MCQ")
                 {
-                    // answer is stored as stringified index: "2"
-                    const submitted = parseInt(answer, 10);
-                    isCorrect = q.correctOptions[0] === submitted;
-
+                    isCorrect = q.correctOptions[0] === parseInt(answer, 10);
                 } else if (q.type === "MSQ")
                 {
-                    // answer is comma-separated indices: "0,2"
-                    const submitted = answer
-                        .split(",")
-                        .map(Number)
-                        .sort()
-                        .join(",");
+                    const submitted = answer.split(",").map(Number).sort().join(",");
                     const correct = [...q.correctOptions].sort().join(",");
                     isCorrect = submitted === correct;
-
                 } else if (q.type === "NUMERICAL")
                 {
                     const submitted = parseFloat(answer);
@@ -146,12 +141,11 @@ export async function completeExamSession(
                             isCorrect = submitted === q.exactAnswer;
                         } else if (q.answerMin != null && q.answerMax != null)
                         {
-                            isCorrect =
-                                submitted >= q.answerMin && submitted <= q.answerMax;
+                            isCorrect = submitted >= q.answerMin && submitted <= q.answerMax;
                         }
                     }
                 }
-                // SUBJECTIVE: always false, needs manual review
+                // SUBJECTIVE: always false — needs manual review
             }
 
             if (isCorrect)
@@ -165,7 +159,7 @@ export async function completeExamSession(
             return { ...m, isCorrect };
         });
 
-        // Aggregate stats for TestSession
+        // ── Aggregate stats ───────────────────────────────────────────────────
         const attemptedCount = verifiedMetrics.filter(
             (m) => m.selectedAnswer?.trim()
         ).length;
@@ -182,44 +176,69 @@ export async function completeExamSession(
             (Date.now() - session.startTime.getTime()) / 1000
         );
 
-        // Single transaction — update all interactions + close session
-        await prisma.$transaction([
-            // Bulk update interactions
-            // Still N updates here — we'll fix this in Phase 5 with the queue
-            ...verifiedMetrics.map((m) =>
-                prisma.questionInteraction.updateMany({
-                    where: { sessionId, questionId: m.questionId },
-                    data: {
-                        selectedAnswer: m.selectedAnswer ?? null,
-                        isCorrect: m.isCorrect ?? false,
-                        visitCount: m.visitCount,
-                        totalDwellTime: m.dwellTimeSeconds,
-                        hesitationCount: m.hesitationCount,
-                        isFlagged: m.isFlagged ?? false,
-                        wasHinted: m.wasHinted ?? false,
-                    },
-                })
-            ),
-            // Close session with all computed stats
-            prisma.testSession.update({
-                where: { id: sessionId, userId: user.id },
-                data: {
-                    endTime: new Date(),
-                    completedAt: new Date(),
-                    totalScore,
-                    correctCount,
-                    attemptedCount,
-                    accuracy,
-                    timeTakenSecs,
-                    avgTimePerQ:
-                        attemptedCount > 0
-                            ? parseFloat((timeTakenSecs / attemptedCount).toFixed(1))
-                            : 0,
-                },
-            }),
-        ]);
+        // ── Persist session ───────────────────────────────────────────────────
+        // We handle the session update directly first.
+        await prisma.testSession.update({
+            where: { id: sessionId, userId: user.id },
+            data: {
+                endTime: new Date(),
+                completedAt: new Date(),
+                totalScore,
+                correctCount,
+                attemptedCount,
+                accuracy,
+                timeTakenSecs,
+                avgTimePerQ:
+                    attemptedCount > 0
+                        ? parseFloat((timeTakenSecs / attemptedCount).toFixed(1))
+                        : 0,
+            },
+        });
 
-        revalidatePath("/results");
+        // ── Queue Interactions (Non-blocking) ─────────────────────────────────
+        const qPayload: InteractionPayload = {
+            sessionId,
+            userId: user.id,
+            metrics: verifiedMetrics.map((m) => ({
+                questionId: m.questionId,
+                selectedAnswer: m.selectedAnswer ?? null,
+                isCorrect: m.isCorrect ?? false,
+                visitCount: m.visitCount,
+                dwellTimeSeconds: m.dwellTimeSeconds,
+                hesitationCount: m.hesitationCount,
+                isFlagged: m.isFlagged ?? false,
+                wasHinted: m.wasHinted ?? false,
+            })),
+        };
+
+        await qstash.publishJSON({
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/api/queues/interactions`,
+            body: qPayload,
+            retries: 3,
+        });
+
+        // ── Update aggregate stats (non-fatal) ────────────────────────────────
+        // Build the question-result array for stats using the verified metrics
+        // and the question map (which has difficulty + topicPath).
+        const questionResults = verifiedMetrics.map((m) => {
+            const q = questionMap.get(m.questionId);
+            return {
+                isCorrect: m.isCorrect ?? false,
+                type: q?.type ?? "MCQ",
+                difficulty: q?.difficulty ?? "MEDIUM",
+                topicPath: q?.topicPath ?? null,
+            };
+        });
+
+        await updateUserStats({
+            userId: user.id,
+            examId: session.paper.examQuestionPaperLinks[0]?.examId ?? null,
+            sessionScore: totalScore,
+            timeTakenSecs,
+            questions: questionResults,
+        });
+
+        revalidatePath("/dashboard");
         return { success: true };
     } catch (error)
     {
