@@ -1,3 +1,4 @@
+//app/(main)/library/category/[id]/edit/page.tsx
 import prisma from "@/lib/prisma";
 import NewCategoryForm from "@/components/NewCategoryForm";
 import { ChevronLeft } from "lucide-react";

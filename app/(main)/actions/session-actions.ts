@@ -10,9 +10,23 @@ import { updateUserStats } from "@/lib/stats";
 import { qstash } from "@/lib/qstash";
 import type { InteractionPayload } from "@/app/api/queues/interactions/route";
 import { sessionRatelimit, actionRatelimit } from "@/lib/ratelimit";
+import { checkPaperAccess } from "./purchase-actions";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
     const user = await requireAuth();
+
+    const paperWithBundle = await prisma.productBundle.findFirst({
+        where: { paperIds: { has: paperId }, isActive: true },
+    });
+    if (paperWithBundle)
+    {
+        const hasAccess = await checkPaperAccess(user.id, paperId);
+        if (!hasAccess)
+        {
+            return { success: false, error: "PAYMENT_REQUIRED", bundleId: paperWithBundle.id };
+        }
+    }
+
     const { success } = await sessionRatelimit.limit(user.id);
     if (!success)
     {

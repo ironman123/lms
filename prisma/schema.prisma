@@ -45,6 +45,10 @@ model Exam {
   examQuestionPaperLinks ExamQuestionPaperLink[]
 
   userExamStats UserExamStats[]
+
+  bundles       ProductBundle[]
+  events        ExamEvent[]
+  notifications Notification[]
 }
 
 model Tag {
@@ -256,6 +260,10 @@ model User {
 
   userStats UserStats?
   examStats UserExamStats[]
+
+  purchases UserPurchase[]
+  pushSubs  PushSubscription[]
+  notifLogs NotificationLog[]
 }
 
 model TestSession {
@@ -334,6 +342,138 @@ model UserExamStats {
 
   @@unique([userId, examId])
   @@index([userId])
+}
+
+// ── Monetization ──────────────────────────────────────────────────────────────
+
+model ProductBundle {
+  id          String     @id @default(uuid())
+  name        String // "KPSC Assistant Grade II — Mock Pack"
+  description String?
+  examId      String
+  bundleType  BundleType @default(MOCK_PACK)
+  paperIds    String[] // empty = all papers for this exam
+  price       Int // in paise (9900 = ₹99)
+  currency    String     @default("INR")
+  validDays   Int? // null = lifetime, 30 = monthly
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+
+  exam      Exam           @relation(fields: [examId], references: [id])
+  purchases UserPurchase[]
+
+  @@index([examId])
+}
+
+model UserPurchase {
+  id                String         @id @default(uuid())
+  userId            String
+  bundleId          String
+  razorpayOrderId   String         @unique
+  razorpayPaymentId String?        @unique
+  razorpaySignature String?
+  status            PurchaseStatus @default(PENDING)
+  amountPaid        Int // actual amount paid in paise
+  expiresAt         DateTime? // null = lifetime
+  createdAt         DateTime       @default(now())
+
+  user   User          @relation(fields: [userId], references: [id])
+  bundle ProductBundle @relation(fields: [bundleId], references: [id])
+
+  @@index([userId])
+  @@index([userId, bundleId])
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  title     String
+  body      String
+  url       String? // deep link on click
+  examId    String? // null = broadcast to all
+  type      NotificationType
+  sentAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  exam Exam?             @relation(fields: [examId], references: [id])
+  logs NotificationLog[]
+}
+
+model NotificationLog {
+  id             String   @id @default(uuid())
+  notificationId String
+  userId         String
+  delivered      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([notificationId])
+  @@index([userId])
+}
+
+// ── Exam Calendar (admin-entered) ─────────────────────────────────────────────
+
+model ExamEvent {
+  id          String    @id @default(uuid())
+  examId      String? // null = general KPSC news
+  title       String
+  description String?
+  eventDate   DateTime
+  type        EventType
+  sourceUrl   String? // link to official notification
+  isVerified  Boolean   @default(false) // admin-reviewed
+  createdAt   DateTime  @default(now())
+
+  exam Exam? @relation(fields: [examId], references: [id])
+
+  @@index([examId])
+  @@index([eventDate])
+}
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum BundleType {
+  MOCK_PACK // fixed set of mocks
+  FULL_ACCESS // all papers for exam
+}
+
+enum PurchaseStatus {
+  PENDING
+  PAID
+  REFUNDED
+  EXPIRED
+}
+
+enum NotificationType {
+  EXAM_DATE
+  NEW_MOCK
+  RESULT
+  GENERAL
+}
+
+enum EventType {
+  NOTIFICATION_OUT // exam announced
+  APPLY_START
+  APPLY_END
+  ADMIT_CARD
+  EXAM_DATE
+  RESULT
 }
 
 enum UserRole {

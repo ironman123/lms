@@ -45,7 +45,7 @@
 
 // if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
 
-
+//lib/prisma.ts
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
