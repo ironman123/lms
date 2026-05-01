@@ -251,7 +251,7 @@ model User {
   lastActive      DateTime              @default(now())
   onboarded       Boolean               @default(false)
   questionsSolved Int                   @default(0)
-  targetExam      String?
+  targetExams     String[]
   role            UserRole              @default(STUDENT)
   activityLogs    ActivityLog[]
   interactions    QuestionInteraction[]

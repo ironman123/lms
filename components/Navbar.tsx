@@ -3,10 +3,25 @@ import Image from 'next/image'
 import NavItems from './NavItems'
 import { getOptionalUser } from '@/lib/auth'
 import UserMenu from './UserMenu'
+import NotificationBell from "./NotificationBell";
+import {
+    getRecentNotifications,
+    getNotificationSeenAt,
+} from "@/app/(main)/actions/notification-actions";
+
 //import { Show, SignInButton, UserButton } from '@clerk/nextjs'
 
 const Navbar = async () => {
     const user = await getOptionalUser();
+
+    const [notifications, seenAt] = user
+        ? await Promise.all([
+            getRecentNotifications(),
+            getNotificationSeenAt(user.id),
+        ])
+        : [[], null];
+
+
     return (
         <nav className='navbar'>
             <Link href='/'>
@@ -27,12 +42,19 @@ const Navbar = async () => {
                     </SignInButton>
                 </Show> */}
                 {user ? (
-                    <UserMenu
-                        name={user.name}
-                        email={user.email}
-                        avatarUrl={user.avatarUrl}
-                        role={user.role}
-                    />
+                    <>
+                        <NotificationBell
+                            notifications={notifications}
+                            seenAt={seenAt}
+                        />
+
+                        <UserMenu
+                            name={user.name}
+                            email={user.email}
+                            avatarUrl={user.avatarUrl}
+                            role={user.role}
+                        />
+                    </>
                 ) : (
                     <Link
                         href='/login'

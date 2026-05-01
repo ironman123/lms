@@ -1,9 +1,61 @@
+// app/(main)/actions/purchase-actions.ts
 "use server";
 
 import prisma from "@/lib/prisma";
 import { razorpay, verifyRazorpaySignature } from "@/lib/razorpay";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireAdmin } from "@/lib/auth";
+import { invalidateTag } from "@/lib/cache";
+import { revalidatePath } from "next/cache";
 
+// ── Admin: create a bundle ────────────────────────────────────────────────────
+export async function createBundle(data: {
+    name: string;
+    description?: string;
+    examId: string;
+    bundleType: "MOCK_PACK" | "FULL_ACCESS";
+    paperIds: string[];   // empty = all papers (FULL_ACCESS)
+    priceRupees: number;  // we accept rupees, store paise
+    validDays?: number;   // undefined = lifetime
+}) {
+    await requireAdmin();
+
+    if (!data.name?.trim()) return { success: false, error: "Bundle name is required." };
+    if (!data.examId) return { success: false, error: "Exam is required." };
+    if (data.priceRupees <= 0) return { success: false, error: "Price must be greater than 0." };
+
+    const bundle = await prisma.productBundle.create({
+        data: {
+            name: data.name.trim(),
+            description: data.description?.trim() || null,
+            examId: data.examId,
+            bundleType: data.bundleType,
+            paperIds: data.bundleType === "FULL_ACCESS" ? [] : data.paperIds,
+            price: Math.round(data.priceRupees * 100), // rupees → paise
+            validDays: data.validDays ?? null,
+            isActive: true,
+        },
+    });
+
+    await invalidateTag("bundles");
+    revalidatePath("/library/bundles");
+    revalidatePath("/subscription");
+    return { success: true, id: bundle.id };
+}
+
+// ── Admin: toggle bundle active/inactive ─────────────────────────────────────
+export async function toggleBundle(bundleId: string, isActive: boolean) {
+    await requireAdmin();
+    await prisma.productBundle.update({
+        where: { id: bundleId },
+        data: { isActive },
+    });
+    await invalidateTag("bundles");
+    revalidatePath("/library/bundles");
+    revalidatePath("/subscription");
+    return { success: true };
+}
+
+// ── Student: create Razorpay order ────────────────────────────────────────────
 export async function createOrder(bundleId: string) {
     const user = await requireAuth();
 
@@ -12,7 +64,6 @@ export async function createOrder(bundleId: string) {
     });
     if (!bundle) throw new Error("Bundle not found");
 
-    // Check not already purchased
     const existing = await prisma.userPurchase.findFirst({
         where: {
             userId: user.id,
@@ -30,7 +81,6 @@ export async function createOrder(bundleId: string) {
         notes: { userId: user.id, bundleId },
     });
 
-    // Create PENDING purchase row
     await prisma.userPurchase.create({
         data: {
             userId: user.id,
@@ -52,6 +102,7 @@ export async function createOrder(bundleId: string) {
     };
 }
 
+// ── Student: verify payment after Razorpay callback ──────────────────────────
 export async function verifyPayment(
     orderId: string,
     paymentId: string,
@@ -86,12 +137,11 @@ export async function verifyPayment(
     return { success: true };
 }
 
-// Call this before createExamSession to check access
+// ── Internal: check if user has access to a paper ────────────────────────────
 export async function checkPaperAccess(
     userId: string,
     paperId: string
 ): Promise<boolean> {
-    // Check if paper belongs to any bundle the user has paid for
     const access = await prisma.userPurchase.findFirst({
         where: {
             userId,
@@ -105,6 +155,29 @@ export async function checkPaperAccess(
             },
         },
     });
-
     return !!access;
+}
+
+// ── Read: get all bundles for subscription page ───────────────────────────────
+export async function getBundlesForSubscriptionPage() {
+    return prisma.productBundle.findMany({
+        where: { isActive: true },
+        include: {
+            exam: { select: { id: true, name: true, slug: true, color: true } },
+            _count: { select: { purchases: { where: { status: "PAID" } } } },
+        },
+        orderBy: { createdAt: "desc" },
+    });
+}
+
+// ── Read: get bundles with purchase status for a user ─────────────────────────
+export async function getUserBundles(userId: string) {
+    return prisma.userPurchase.findMany({
+        where: {
+            userId,
+            status: "PAID",
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        select: { bundleId: true, expiresAt: true },
+    });
 }

@@ -1,16 +1,21 @@
+// components/BuyButton.tsx
 "use client";
 import { useState } from "react";
 import { createOrder, verifyPayment } from "@/app/(main)/actions/purchase-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
-declare global {
-    interface Window { Razorpay: any; }
-}
+declare global { interface Window { Razorpay: any } }
 
 export default function BuyButton({
-    bundleId, bundleName, price
-}: { bundleId: string; bundleName: string; price: number }) {
+    bundleId, bundleName, priceRupees, className,
+}: {
+    bundleId: string;
+    bundleName: string;
+    priceRupees: number;
+    className?: string;
+}) {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
@@ -19,38 +24,34 @@ export default function BuyButton({
         try
         {
             const order = await createOrder(bundleId);
+
             if ("alreadyOwned" in order)
             {
-                toast.info("You already own this pack");
+                toast.info("You already have access to this pack.");
                 return;
             }
 
-            // Load Razorpay script dynamically
             if (!window.Razorpay)
             {
                 await new Promise<void>((res) => {
-                    const script = document.createElement("script");
-                    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-                    script.onload = () => res();
-                    document.body.appendChild(script);
+                    const s = document.createElement("script");
+                    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+                    s.onload = () => res();
+                    document.body.appendChild(s);
                 });
             }
 
-            const rzp = new window.Razorpay({
+            new window.Razorpay({
                 key: order.keyId,
                 amount: order.amount,
                 currency: order.currency,
                 order_id: order.orderId,
-                name: "ExamPrep",
+                name: "Converso",
                 description: bundleName,
-                handler: async (response: any) => {
+                handler: async (res: any) => {
                     try
                     {
-                        await verifyPayment(
-                            response.razorpay_order_id,
-                            response.razorpay_payment_id,
-                            response.razorpay_signature
-                        );
+                        await verifyPayment(res.razorpay_order_id, res.razorpay_payment_id, res.razorpay_signature);
                         toast.success("Payment successful! Access unlocked.");
                         router.refresh();
                     } catch
@@ -59,13 +60,13 @@ export default function BuyButton({
                     }
                 },
                 theme: { color: "#0f172a" },
-            });
-            rzp.open();
+                modal: {
+                    ondismiss: () => setLoading(false),
+                },
+            }).open();
         } catch (err: any)
         {
-            toast.error(err.message);
-        } finally
-        {
+            toast.error(err.message ?? "Something went wrong.");
             setLoading(false);
         }
     };
@@ -74,9 +75,9 @@ export default function BuyButton({
         <button
             onClick={handleBuy}
             disabled={loading}
-            className="w-full h-12 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50"
+            className={className ?? "w-full h-12 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"}
         >
-            {loading ? "Loading..." : `Buy for ₹${price / 100}`}
+            {loading ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : `Buy for ₹${priceRupees}`}
         </button>
     );
 }

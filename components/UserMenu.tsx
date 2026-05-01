@@ -2,9 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import { LogOut, User, Settings, ChevronDown } from "lucide-react";
+import { LogOut, User, Settings, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { signOut } from "@/app/actions/auth-actions";
 
 interface Props {
@@ -62,6 +61,14 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                                 className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-xl transition-colors font-medium"                             >
                                 <User size={15} className="text-slate-400" />
                                 Dashboard
+                            </a>
+
+                            <a
+                                href="/settings"
+                                className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-xl transition-colors font-medium"
+                            >
+                                <SlidersHorizontal size={15} className="text-slate-400" />
+                                Settings
                             </a>
 
                             {role === "ADMIN" && (

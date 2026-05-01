@@ -5,6 +5,8 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import DynamicBreadcrumb from "@/components/DynamicBreadcrumb";
 import LibrarySidebar from "@/components/LibrarySidebar";
+import { getOptionalUser } from "@/lib/auth";
+import PushRegistrar from "@/components/PushRegistrar";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -21,6 +23,8 @@ export default async function MainLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getOptionalUser();
+
   return (
     <>
       <Navbar />
@@ -28,6 +32,7 @@ export default async function MainLayout({
       <div className="relative">
         <LibrarySidebar />
         <main>
+          {user && <PushRegistrar />}
           {children}
         </main>
       </div>

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
 
     // Sync user to your Prisma DB
-    await prisma.user.upsert({
+    const dbUser = await prisma.user.upsert({
         where: { supabaseId: data.user.id },
         update: {
             email: data.user.email ?? undefined,
@@ -72,6 +72,11 @@ export async function GET(request: NextRequest) {
             role: UserRole.STUDENT,
         },
     })
+
+    if (!dbUser.onboarded)
+    {
+        return NextResponse.redirect(new URL("/onboarding", origin));
+    }
 
     return NextResponse.redirect(new URL(safeNext, origin));
 }
