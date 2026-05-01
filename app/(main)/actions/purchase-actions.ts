@@ -2,7 +2,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { razorpay, verifyRazorpaySignature } from "@/lib/razorpay";
+//import { razorpay, verifyRazorpaySignature } from "@/lib/razorpay";
 import { requireAuth, requireAdmin } from "@/lib/auth";
 import { invalidateTag } from "@/lib/cache";
 import { revalidatePath } from "next/cache";
@@ -58,6 +58,8 @@ export async function toggleBundle(bundleId: string, isActive: boolean) {
 // ── Student: create Razorpay order ────────────────────────────────────────────
 export async function createOrder(bundleId: string) {
     const user = await requireAuth();
+    const { getRazorpay, verifyRazorpaySignature } = await import("@/lib/razorpay");
+    const razorpay = getRazorpay();
 
     const bundle = await prisma.productBundle.findUnique({
         where: { id: bundleId, isActive: true },
@@ -109,6 +111,7 @@ export async function verifyPayment(
     signature: string
 ) {
     const user = await requireAuth();
+    const { verifyRazorpaySignature } = await import("@/lib/razorpay");
 
     if (!verifyRazorpaySignature(orderId, paymentId, signature))
     {
