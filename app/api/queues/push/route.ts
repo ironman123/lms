@@ -4,6 +4,8 @@ import { Receiver } from "@upstash/qstash";
 import prisma from "@/lib/prisma";
 import { webpush } from "@/lib/webpush";
 
+export const dynamic = "force-dynamic";
+
 const receiver = new Receiver({
     currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY!,
     nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY!,
