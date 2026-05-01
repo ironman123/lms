@@ -1,4 +1,7 @@
+"use client"; // Required if using Next.js App Router
 import { Search } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 interface HeroProps {
@@ -8,6 +11,16 @@ interface HeroProps {
 }
 
 const MinimalHero = ({ title, subtitle, backgroundImage }: HeroProps) => {
+    const [query, setQuery] = useState("");
+    const router = useRouter();
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" && query.trim() !== "")
+        {
+            // Redirects to /library/paper?q=YOUR_QUERY
+            router.push(`/library/paper?q=${encodeURIComponent(query)}`);
+        }
+    };
     return (
         <section className="relative w-full py-24 px-6 overflow-hidden border-b border-slate-100 bg-white rounded-md">
 
@@ -45,7 +58,9 @@ const MinimalHero = ({ title, subtitle, backgroundImage }: HeroProps) => {
                         />
                         <input
                             type="text"
-                            placeholder="Find an exam..."
+                            placeholder="Find a questionpaper..."
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyDown={handleKeyDown}
                             className="w-full pl-8 py-3 bg-transparent border-b border-slate-200 text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-slate-900 transition-all text-lg font-medium"
                         />
                     </div>
