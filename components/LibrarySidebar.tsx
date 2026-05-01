@@ -9,6 +9,7 @@ import {
     GraduationCap,
     LayoutDashboard,
     BookMarked,
+    BellRing
 } from "lucide-react";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -27,6 +28,7 @@ const NAV = [
         section: "Dashboard",
         items: [
             { label: "My Dashboard", href: "/dashboard", icon: LayoutDashboard },
+            { label: "Notifications", href: "/library/notifications", icon: BellRing },
             //{ label: "Bookmarks", href: "/dashboard/exams", icon: BookMarked },
         ],
     }
