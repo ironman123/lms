@@ -96,8 +96,8 @@ body {
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: #fe5933;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -163,7 +163,7 @@ body {
   }
 
   .input {
-    @apply !border-black !bg-white !w-full;
+    @apply !border-border !bg-background !w-full;
   }
 
   .input:focus-visible {
@@ -171,7 +171,7 @@ body {
   }
 
   .rounded-border {
-    @apply rounded-4xl border border-black;
+    @apply rounded-4xl border border-border;
   }
 
   .cta-section {
@@ -187,15 +187,15 @@ body {
   }
 
   .navbar {
-    @apply flex items-center justify-between mx-auto w-full px-14 py-4 bg-white max-sm:px-4;
+    @apply flex items-center justify-between mx-auto w-full px-14 py-4 bg-background border-b border-border max-sm:px-4;
   }
 
   .btn-signin {
-    @apply border border-black rounded-4xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2 cursor-pointer;
+    @apply border border-border rounded-4xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2 cursor-pointer;
   }
 
   .recent-list {
-    @apply rounded-4xl border border-black px-7 pt-7 pb-10 max-lg:w-full bg-white;
+    @apply rounded-4xl border border-border px-7 pt-7 pb-10 max-lg:w-full bg-card text-card-foreground;
   }
 
   .companion-limit {

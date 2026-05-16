@@ -6,7 +6,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Flag, Hash } from "lucide-react";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/ui/sheet";
+import { ChevronLeft, ChevronRight, Flag, Hash, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SessionTimer from "./SessionTimer";
 import { useRouter } from "next/navigation";
@@ -41,6 +48,7 @@ export default function ActiveSessionClient({
     const [flagged, setFlagged] = useState<Set<string>>(new Set());
     const [isLocked, setIsLocked] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const numericalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const currentQuestion = paper.questions[currentIndex];
@@ -95,8 +103,7 @@ export default function ActiveSessionClient({
         const qId = currentQuestion.id;
         const indexStr = String(optionIndex);
 
-        if (currentQuestion.type === "MSQ")
-        {
+        if (currentQuestion.type === "MSQ") {
             setAnswers((prev) => {
                 const current = (prev[qId] as string[]) ?? [];
                 const updated = current.includes(indexStr)
@@ -107,8 +114,7 @@ export default function ActiveSessionClient({
                 handleAnswerSelection(qId, updated.join(","), false, "MSQ");
                 return { ...prev, [qId]: updated };
             });
-        } else
-        {
+        } else {
             // MCQ — single index string
             const isCorrect =
                 mode === SessionMode.PRACTICE
@@ -166,8 +172,7 @@ export default function ActiveSessionClient({
     };
 
     // ── Guard ─────────────────────────────────────────────────────────────────
-    if (!currentQuestion || totalQuestions === 0)
-    {
+    if (!currentQuestion || totalQuestions === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[50vh] p-8">
                 <div className="p-8 bg-white rounded-3xl shadow-sm border border-slate-200 text-center space-y-4 max-w-md w-full">
@@ -402,6 +407,89 @@ export default function ActiveSessionClient({
                             />
                             FLAG
                         </Button>
+
+                        {/* Mobile-only: open question navigator sheet */}
+                        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+                            <SheetTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="xl:hidden rounded-xl font-black italic text-[9px] md:text-[10px] px-2 h-9"
+                                    disabled={isLocked}
+                                >
+                                    <LayoutGrid className="mr-0.5 h-3 w-3" />
+                                    QUESTIONS
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="bottom" className="h-[85dvh] rounded-t-3xl p-0 flex flex-col">
+                                <SheetHeader className="px-6 pt-5 pb-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-0.5">Navigation</p>
+                                    <SheetTitle className="text-sm font-bold text-slate-900 leading-none">
+                                        Jump to question
+                                    </SheetTitle>
+                                </SheetHeader>
+
+                                <ScrollArea className="flex-1">
+                                    <div className="grid grid-cols-6 gap-2 p-4">
+                                        {paper.questions.map((q: any, i: number) => {
+                                            const isAnswered = !!answers[q.id];
+                                            const isFlagged = flagged.has(q.id);
+                                            const isCurrent = currentIndex === i;
+
+                                            return (
+                                                <button
+                                                    key={q.id}
+                                                    disabled={isLocked}
+                                                    onClick={() => {
+                                                        onNavigate(i);
+                                                        setMobileNavOpen(false);
+                                                    }}
+                                                    className={cn(
+                                                        "aspect-square rounded-lg flex items-center justify-center text-[11px] font-black transition-all border-2 relative",
+                                                        isCurrent
+                                                            ? "border-slate-900 bg-white text-slate-900 shadow-md scale-110 z-10"
+                                                            : isAnswered
+                                                                ? isFlagged
+                                                                    ? "bg-slate-900 border-amber-400 text-white ring-1 ring-amber-400"
+                                                                    : "bg-slate-900 border-slate-900 text-white"
+                                                                : isFlagged
+                                                                    ? "bg-amber-50 border-amber-400 text-amber-700"
+                                                                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-400",
+                                                        isLocked && "pointer-events-none opacity-70"
+                                                    )}
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </ScrollArea>
+
+                                <div className="px-5 pb-6 pt-4 bg-slate-50/50 border-t border-slate-100 space-y-4 shrink-0">
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-end">
+                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-tighter">
+                                                Completion
+                                            </span>
+                                            <span className="text-xs font-black text-slate-900 italic">
+                                                {Math.round(progress)}%
+                                            </span>
+                                        </div>
+                                        <Progress value={progress} className="h-1 bg-slate-200" />
+                                    </div>
+                                    <Button
+                                        onClick={() => {
+                                            setMobileNavOpen(false);
+                                            handleSubmit();
+                                        }}
+                                        disabled={isSubmitting || isLocked}
+                                        className="w-full h-11 rounded-xl bg-slate-900 font-bold"
+                                    >
+                                        {isSubmitting ? "Submitting..." : "Submit Exam"}
+                                    </Button>
+                                </div>
+                            </SheetContent>
+                        </Sheet>
                     </div>
 
                     <div className="flex gap-1 md:gap-2">
