@@ -30,19 +30,19 @@ export default async function EditCategoryPage({ params }: PageProps) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12">
+        <div className="min-h-screen bg-background py-12">
             <div className="max-w-5xl mx-auto px-4">
                 <Link
                     href={`/library/category/${slug}`}
-                    className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-8 transition-colors"
+                    className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-8 transition-colors"
                 >
                     <ChevronLeft className="w-4 h-4 mr-1" />
                     Back to {category.name}
                 </Link>
 
                 <div className="mb-10">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                        Edit <span className="text-slate-400 font-light">{category.name}</span>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">
+                        Edit <span className="text-muted-foreground font-light">{category.name}</span>
                     </h1>
                 </div>
 

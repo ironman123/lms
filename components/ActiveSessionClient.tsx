@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -22,30 +22,69 @@ import DevMetricsOverlay from "./DevMetricsOverlay";
 import { useExamTelemetry } from "@/app/(main)/hooks/useExamTelemetry";
 import { SessionMode } from "@prisma/client";
 import { OptionJSON } from "@/types/question";
+import type { RestoredInteraction } from "@/lib/session-interactions";
 
 export default function ActiveSessionClient({
     paper,
     mode,
     sessionId,
     userId,
+    sessionStartedAt,
+    restoredInteractions,
 }: {
     paper: any;
     mode: SessionMode;
     sessionId: string;
     userId: string;
+    sessionStartedAt: string;
+    restoredInteractions: RestoredInteraction[];
 }) {
     const router = useRouter();
     const durationInMinutes =
         paper?.examQuestionPaperLinks?.[0]?.exam?.duration ?? 60;
 
     // ── UI State ──────────────────────────────────────────────────────────────
-    const [currentIndex, setCurrentIndex] = useState(0);
+    const restoredAnswers = useMemo(() => {
+        const questionTypes = new Map(
+            paper.questions.map((question: any) => [
+                question.id,
+                question.type,
+            ])
+        );
+
+        return Object.fromEntries(
+            restoredInteractions
+                .filter((interaction) => interaction.selectedAnswer?.trim())
+                .map((interaction) => [
+                    interaction.questionId,
+                    questionTypes.get(interaction.questionId) === "MSQ"
+                        ? interaction.selectedAnswer!.split(",").filter(Boolean)
+                        : interaction.selectedAnswer!,
+                ])
+        ) as Record<string, string | string[]>;
+    }, [paper.questions, restoredInteractions]);
+    const restoredQuestionIndex = Math.max(
+        0,
+        paper.questions.findIndex(
+            (question: any) => !(question.id in restoredAnswers)
+        )
+    );
+
+    const [currentIndex, setCurrentIndex] = useState(restoredQuestionIndex);
     const [showAnswer, setShowAnswer] = useState(false);
     // MCQ  → answers[qId] = "2"          (stringified index)
     // MSQ  → answers[qId] = ["0","2"]    (array of stringified indices)
     // NUMERICAL/SUBJECTIVE → answers[qId] = raw string value
-    const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
-    const [flagged, setFlagged] = useState<Set<string>>(new Set());
+    const [answers, setAnswers] =
+        useState<Record<string, string | string[]>>(restoredAnswers);
+    const [flagged, setFlagged] = useState<Set<string>>(
+        () =>
+            new Set(
+                restoredInteractions
+                    .filter((interaction) => interaction.isFlagged)
+                    .map((interaction) => interaction.questionId)
+            )
+    );
     const [isLocked, setIsLocked] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -66,9 +105,24 @@ export default function ActiveSessionClient({
         recentActivities,
         handleNavigation,
         handleAnswerSelection,
+        syncAnswers,
         flushAndSubmit,
         toggleFlag: telemetryToggleFlag,
-    } = useExamTelemetry(sessionId, currentQuestion?.id ?? "");
+    } = useExamTelemetry(
+        sessionId,
+        currentQuestion?.id ?? "",
+        restoredInteractions
+    );
+
+    useEffect(() => {
+        syncAnswers(answers);
+    }, [answers, syncAnswers]);
+
+    useEffect(() => {
+        if (restoredInteractions.length > 0) {
+            toast.success("Your saved session progress was restored.");
+        }
+    }, [restoredInteractions.length]);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -175,14 +229,14 @@ export default function ActiveSessionClient({
     if (!currentQuestion || totalQuestions === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[50vh] p-8">
-                <div className="p-8 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 text-center space-y-4 max-w-md w-full">
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Empty Paper</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                <div className="w-full max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
+                    <h2 className="text-2xl font-black text-foreground">Empty Paper</h2>
+                    <p className="text-sm text-muted-foreground">
                         This question paper doesn't have any questions yet.
                     </p>
                     <button
                         onClick={() => window.history.back()}
-                        className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors mt-4"
+                        className="mt-4 w-full rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                         Go Back
                     </button>
@@ -196,7 +250,7 @@ export default function ActiveSessionClient({
     const correctOptions: number[] = currentQuestion.correctOptions ?? [];
 
     return (
-        <div className="flex h-full w-full bg-slate-50/50 dark:bg-slate-950/50 p-1 pt-3 overflow-hidden">
+        <div className="flex h-full w-full overflow-hidden bg-background p-1 pt-3">
             <DevMetricsOverlay
                 sessionMode={mode}
                 sessionId={sessionId}
@@ -206,8 +260,11 @@ export default function ActiveSessionClient({
             />
 
             {durationInMinutes && (
-                <div className="fixed top-4 right-6 z-50">
-                    <SessionTimer durationSeconds={durationInMinutes * 60} />
+                <div className="fixed right-4 top-3 z-50 md:right-6">
+                    <SessionTimer
+                        durationSeconds={durationInMinutes * 60}
+                        startedAt={sessionStartedAt}
+                    />
                 </div>
             )}
 
@@ -215,26 +272,26 @@ export default function ActiveSessionClient({
             <div className="flex-1 flex flex-col min-w-0 h-full p-2">
                 <ScrollArea className="flex-1 p-1">
                     <div className="max-w-4xl mx-auto flex flex-col justify-center min-h-[70vh]">
-                        <Card className="rounded-[1.5rem] md:rounded-[2rem] border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden bg-white dark:bg-slate-900">
-                            <CardHeader className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/30 px-4 py-3 md:px-8 md:py-4 flex-row items-center justify-between space-y-0">
+                        <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card shadow-sm md:rounded-[2rem]">
+                            <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border bg-muted/25 px-4 py-3 md:px-8 md:py-4">
                                 <div className="flex items-center gap-2 md:gap-4">
                                     <Badge
                                         variant="outline"
-                                        className="rounded-md font-black text-[9px] md:text-[10px] bg-white dark:bg-slate-800 px-2 py-0 dark:border-slate-700"
+                                        className="rounded-md border-border bg-background px-2 py-0 text-[9px] font-black md:text-[10px]"
                                     >
                                         Q {currentIndex + 1}
                                     </Badge>
-                                    <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1 truncate max-w-[120px] md:max-w-none">
+                                    <span className="flex max-w-[120px] items-center gap-1 truncate text-[9px] font-black uppercase tracking-widest text-muted-foreground md:max-w-none md:text-[10px]">
                                         <Hash size={10} />
                                         {topicLabel(currentQuestion)}
                                     </span>
                                 </div>
                                 <Badge
                                     className={cn(
-                                        "font-black italic text-[9px] md:text-[10px] uppercase px-2 py-0",
+                                        "px-2 py-0 text-[9px] font-black uppercase md:text-[10px]",
                                         currentQuestion.difficulty === "HARD"
-                                            ? "bg-red-500"
-                                            : "bg-slate-900"
+                                            ? "bg-destructive text-white"
+                                            : "bg-secondary text-secondary-foreground"
                                     )}
                                 >
                                     {currentQuestion.difficulty}
@@ -242,7 +299,7 @@ export default function ActiveSessionClient({
                             </CardHeader>
 
                             <CardContent className="p-5 md:p-7">
-                                <h2 className="text-base md:text-lg font-black text-slate-900 dark:text-slate-100 leading-snug italic tracking-tight mb-6 md:mb-8">
+                                <h2 className="mb-6 text-base font-bold leading-snug tracking-tight text-foreground md:mb-8 md:text-lg">
                                     {currentQuestion.content}
                                 </h2>
 
@@ -269,29 +326,29 @@ export default function ActiveSessionClient({
                                                         disabled={isLocked}
                                                         onClick={() => onSelectOption(option.index)}
                                                         className={cn(
-                                                            "group flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all duration-200 text-left",
+                                                            "group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 md:gap-4 md:rounded-2xl md:p-4",
                                                             isSelected
-                                                                ? "border-slate-900 dark:border-slate-100 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-md"
-                                                                : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-200 dark:hover:border-slate-700",
+                                                                ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                                                : "border-border bg-background hover:border-primary/50 hover:bg-accent/40",
                                                             // Practice-only reveals
                                                             mode === SessionMode.PRACTICE &&
                                                             showAnswer &&
                                                             isCorrectOption &&
-                                                            "border-green-500 bg-green-50 text-slate-900",
+                                                            "border-success/50 bg-success/10 text-foreground",
                                                             mode === SessionMode.PRACTICE &&
                                                             showAnswer &&
                                                             isSelected &&
                                                             !isCorrectOption &&
-                                                            "border-red-500 bg-red-50 text-slate-900",
+                                                            "border-destructive/60 bg-destructive/10 text-foreground",
                                                             isLocked && "pointer-events-none opacity-70"
                                                         )}
                                                     >
                                                         <div
                                                             className={cn(
-                                                                "w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center font-black text-[10px] md:text-xs shrink-0 border-2 transition-colors",
+                                                                "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[10px] font-black transition-colors md:h-8 md:w-8 md:text-xs",
                                                                 isSelected
-                                                                    ? "border-white/20 dark:border-slate-900/20 bg-white/10 dark:bg-slate-900/10 text-white dark:text-slate-900"
-                                                                    : "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500"
+                                                                    ? "border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground"
+                                                                    : "border-border bg-muted text-muted-foreground"
                                                             )}
                                                         >
                                                             {currentQuestion.type === "MSQ"
@@ -312,7 +369,7 @@ export default function ActiveSessionClient({
                                 {/* ── NUMERICAL ──────────────────────────────────── */}
                                 {currentQuestion.type === "NUMERICAL" && (
                                     <div className="space-y-3">
-                                        <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                        <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                                             Enter your answer
                                         </label>
                                         <input
@@ -322,13 +379,13 @@ export default function ActiveSessionClient({
                                             onChange={(e) => onNumericalChange(e.target.value)}
                                             placeholder="Type numerical answer..."
                                             className={cn(
-                                                "w-full h-14 px-5 text-lg font-bold rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors",
-                                                isLocked && "pointer-events-none opacity-70 bg-slate-50 dark:bg-slate-800/50"
+                                                "h-14 w-full rounded-2xl border border-input bg-background px-5 text-lg font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15",
+                                                isLocked && "pointer-events-none bg-muted opacity-70"
                                             )}
                                         />
                                         {mode === SessionMode.PRACTICE && showAnswer && (
-                                            <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-                                                <p className="text-sm font-bold text-green-700">
+                                            <div className="rounded-xl border border-success/30 bg-success/10 p-4">
+                                                <p className="text-sm font-bold text-success">
                                                     Correct Answer: {numericalCorrectLabel(currentQuestion)}
                                                 </p>
                                             </div>
@@ -339,7 +396,7 @@ export default function ActiveSessionClient({
                                 {/* ── SUBJECTIVE ─────────────────────────────────── */}
                                 {currentQuestion.type === "SUBJECTIVE" && (
                                     <div className="space-y-3">
-                                        <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                        <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                                             Write your answer
                                         </label>
                                         <textarea
@@ -354,18 +411,18 @@ export default function ActiveSessionClient({
                                             placeholder="Write your answer here..."
                                             rows={6}
                                             className={cn(
-                                                "w-full px-5 py-4 text-sm font-medium rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors resize-none",
-                                                isLocked && "pointer-events-none opacity-70 bg-slate-50 dark:bg-slate-800/50"
+                                                "w-full resize-none rounded-2xl border border-input bg-background px-5 py-4 text-sm font-medium outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15",
+                                                isLocked && "pointer-events-none bg-muted opacity-70"
                                             )}
                                         />
                                         {mode === SessionMode.PRACTICE &&
                                             showAnswer &&
                                             currentQuestion.modelAnswer && (
-                                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                                                    <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">
+                                                <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
+                                                    <p className="mb-1 text-xs font-black uppercase tracking-widest text-primary">
                                                         Model Answer
                                                     </p>
-                                                    <p className="text-sm font-medium text-blue-800">
+                                                    <p className="text-sm font-medium text-foreground">
                                                         {currentQuestion.modelAnswer}
                                                     </p>
                                                 </div>
@@ -378,12 +435,12 @@ export default function ActiveSessionClient({
                 </ScrollArea>
 
                 {/* ── Bottom toolbar ────────────────────────────────────────── */}
-                <div className="h-14 md:h-16 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-3xl mx-1 md:mx-4 mb-2 px-3 md:px-6 flex items-center justify-between shadow-sm shrink-0">
+                <div className="mx-1 mb-2 flex h-14 shrink-0 items-center justify-between rounded-2xl border border-border bg-card px-3 shadow-sm md:mx-4 md:h-16 md:rounded-3xl md:px-6">
                     <div className="flex gap-1 md:gap-2">
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="rounded-xl font-black italic text-[9px] md:text-[10px] px-2 h-9"
+                            className="h-9 rounded-xl px-2 text-[9px] font-black md:text-[10px]"
                             disabled={currentIndex === 0 || isLocked}
                             onClick={() => onNavigate(currentIndex - 1)}
                         >
@@ -394,8 +451,8 @@ export default function ActiveSessionClient({
                             size="sm"
                             disabled={isLocked}
                             className={cn(
-                                "rounded-xl font-black italic text-[9px] md:text-[10px] px-2 h-9",
-                                flagged.has(currentQuestion.id) && "text-amber-500"
+                                "h-9 rounded-xl px-2 text-[9px] font-black md:text-[10px]",
+                                flagged.has(currentQuestion.id) && "text-warning"
                             )}
                             onClick={onToggleFlag}
                         >
@@ -414,7 +471,7 @@ export default function ActiveSessionClient({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="xl:hidden rounded-xl font-black italic text-[9px] md:text-[10px] px-2 h-9"
+                                    className="h-9 rounded-xl px-2 text-[9px] font-black md:text-[10px] xl:hidden"
                                     disabled={isLocked}
                                 >
                                     <LayoutGrid className="mr-0.5 h-3 w-3" />
@@ -422,9 +479,9 @@ export default function ActiveSessionClient({
                                 </Button>
                             </SheetTrigger>
                             <SheetContent side="bottom" className="h-[85dvh] rounded-t-3xl p-0 flex flex-col">
-                                <SheetHeader className="px-6 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
-                                    <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-0.5">Navigation</p>
-                                    <SheetTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-none">
+                                <SheetHeader className="shrink-0 border-b border-border bg-muted/25 px-6 pb-4 pt-5">
+                                    <p className="mb-0.5 text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">Navigation</p>
+                                    <SheetTitle className="text-sm font-bold leading-none text-foreground">
                                         Jump to question
                                     </SheetTitle>
                                 </SheetHeader>
@@ -445,19 +502,26 @@ export default function ActiveSessionClient({
                                                         setMobileNavOpen(false);
                                                     }}
                                                     className={cn(
-                                                        "aspect-square rounded-lg flex items-center justify-center text-[11px] font-black transition-all border-2 relative",
+                                                        "relative flex aspect-square items-center justify-center rounded-lg border text-[11px] font-black transition-all",
                                                         isCurrent
-                                                            ? "border-slate-900 dark:border-slate-100 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-md scale-110 z-10"
+                                                            ? isFlagged
+                                                                ? "z-10 border-warning bg-warning/15 text-warning shadow-sm"
+                                                                : "z-10 border-primary bg-primary/10 text-primary shadow-sm"
                                                             : isAnswered
                                                                 ? isFlagged
-                                                                    ? "bg-slate-900 dark:bg-slate-100 border-amber-400 text-white dark:text-slate-900 ring-1 ring-amber-400"
-                                                                    : "bg-slate-900 dark:bg-slate-100 border-slate-900 dark:border-slate-100 text-white dark:text-slate-900"
+                                                                    ? "border-warning bg-foreground text-background ring-1 ring-warning"
+                                                                    : "border-foreground bg-foreground text-background"
                                                                 : isFlagged
-                                                                    ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400 text-amber-700 dark:text-amber-400"
-                                                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500",
+                                                                    ? "border-warning bg-warning/10 text-warning"
+                                                                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-accent",
+                                                        isFlagged &&
+                                                            "ring-2 ring-warning/60 ring-offset-2 ring-offset-card",
                                                         isLocked && "pointer-events-none opacity-70"
                                                     )}
                                                 >
+                                                    {isFlagged && (
+                                                        <Flag className="absolute right-1 top-1 h-2.5 w-2.5 fill-warning text-warning" />
+                                                    )}
                                                     {i + 1}
                                                 </button>
                                             );
@@ -465,17 +529,17 @@ export default function ActiveSessionClient({
                                     </div>
                                 </ScrollArea>
 
-                                <div className="px-5 pb-6 pt-4 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 space-y-4 shrink-0">
+                                <div className="shrink-0 space-y-4 border-t border-border bg-muted/25 px-5 pb-6 pt-4">
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between items-end">
-                                            <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-tighter">
+                                            <span className="text-[9px] font-black uppercase tracking-tighter text-muted-foreground">
                                                 Completion
                                             </span>
-                                            <span className="text-xs font-black text-slate-900 dark:text-slate-100 italic">
+                                            <span className="text-xs font-black text-foreground">
                                                 {Math.round(progress)}%
                                             </span>
                                         </div>
-                                        <Progress value={progress} className="h-1 bg-slate-200 dark:bg-slate-700" />
+                                        <Progress value={progress} className="h-1 bg-muted" />
                                     </div>
                                     <Button
                                         onClick={() => {
@@ -483,7 +547,7 @@ export default function ActiveSessionClient({
                                             handleSubmit();
                                         }}
                                         disabled={isSubmitting || isLocked}
-                                        className="w-full h-11 rounded-xl bg-slate-900 dark:bg-slate-100 dark:text-slate-900 font-bold"
+                                        className="h-11 w-full rounded-xl font-bold"
                                     >
                                         {isSubmitting ? "Submitting..." : "Submit Exam"}
                                     </Button>
@@ -498,7 +562,7 @@ export default function ActiveSessionClient({
                                 disabled={isLocked}
                                 variant="secondary"
                                 size="sm"
-                                className="rounded-xl font-black italic text-[9px] md:text-[10px] bg-green-500 text-white hover:bg-green-600 h-9 px-3"
+                                className="h-9 rounded-xl bg-success px-3 text-[9px] font-black text-success-foreground hover:bg-success/90 md:text-[10px]"
                                 onClick={() => setShowAnswer(true)}
                             >
                                 CHECK
@@ -507,7 +571,7 @@ export default function ActiveSessionClient({
                         {isLastQuestion ? (
                             <Button
                                 size="sm"
-                                className="rounded-xl font-black italic text-[9px] md:text-[10px] bg-green-600 text-white px-5 md:px-8 h-9"
+                                className="h-9 rounded-xl bg-success px-5 text-[9px] font-black text-success-foreground hover:bg-success/90 md:px-8 md:text-[10px]"
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || isLocked}
                             >
@@ -517,7 +581,7 @@ export default function ActiveSessionClient({
                             <Button
                                 size="sm"
                                 disabled={isLocked}
-                                className="rounded-xl font-black italic text-[9px] md:text-[10px] bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white px-5 md:px-8 h-9"
+                                className="h-9 rounded-xl px-5 text-[9px] font-black md:px-8 md:text-[10px]"
                                 onClick={() => onNavigate(currentIndex + 1)}
                             >
                                 NEXT <ChevronRight className="ml-1 h-3 w-3" />
@@ -528,12 +592,12 @@ export default function ActiveSessionClient({
             </div>
 
             {/* ── Question navigator sidebar ────────────────────────────────── */}
-            <aside className="hidden xl:flex w-72 flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl m-4 ml-0 overflow-hidden shadow-sm shrink-0">
-                <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/30">
-                    <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-1">
+            <aside className="m-4 ml-0 hidden w-72 shrink-0 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-sm xl:flex">
+                <div className="border-b border-border bg-muted/25 p-6">
+                    <h3 className="mb-1 text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
                         Navigation
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100">Jump to question</p>
+                    <p className="text-[10px] font-bold text-foreground">Jump to question</p>
                 </div>
 
                 <ScrollArea className="flex-1 p-2">
@@ -549,17 +613,25 @@ export default function ActiveSessionClient({
                                     disabled={isLocked}
                                     onClick={() => onNavigate(i)}
                                     className={cn(
-                                        "aspect-square rounded-xl flex items-center justify-center text-[10px] font-black transition-all border-2 relative",
+                                        "relative flex aspect-square items-center justify-center rounded-xl border text-[10px] font-black transition-all",
                                         isCurrent
-                                            ? "border-slate-900 bg-white text-slate-900 shadow-md scale-110 z-10"
+                                            ? isFlagged
+                                                ? "z-10 border-warning bg-warning/15 text-warning shadow-sm"
+                                                : "z-10 border-primary bg-primary/10 text-primary shadow-sm"
                                             : isAnswered
-                                                ? "bg-slate-900 border-slate-900 text-white"
-                                                : "bg-white border-slate-100 text-slate-300 hover:border-slate-200",
+                                                ? isFlagged
+                                                    ? "border-warning bg-foreground text-background"
+                                                    : "border-foreground bg-foreground text-background"
+                                                : isFlagged
+                                                    ? "border-warning bg-warning/10 text-warning"
+                                                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-accent",
+                                        isFlagged &&
+                                            "ring-2 ring-warning/60 ring-offset-2 ring-offset-card",
                                         isLocked && "pointer-events-none opacity-70"
                                     )}
                                 >
                                     {isFlagged && (
-                                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full border border-white" />
+                                        <Flag className="absolute right-1 top-1 h-2.5 w-2.5 fill-warning text-warning" />
                                     )}
                                     {i + 1}
                                 </button>
@@ -568,22 +640,22 @@ export default function ActiveSessionClient({
                     </div>
                 </ScrollArea>
 
-                <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                <div className="space-y-4 border-t border-border bg-muted/25 p-6">
                     <div className="space-y-1.5">
                         <div className="flex justify-between items-end">
-                            <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-tighter">
+                            <span className="text-[9px] font-black uppercase tracking-tighter text-muted-foreground">
                                 Completion
                             </span>
-                            <span className="text-xs font-black text-slate-900 dark:text-slate-100 italic">
+                            <span className="text-xs font-black text-foreground">
                                 {Math.round(progress)}%
                             </span>
                         </div>
-                        <Progress value={progress} className="h-1 bg-slate-200 dark:bg-slate-700" />
+                        <Progress value={progress} className="h-1 bg-muted" />
                     </div>
                     <Button
                         onClick={handleSubmit}
                         disabled={isSubmitting || isLocked}
-                        className="w-full h-10 rounded-xl bg-slate-900 dark:bg-slate-100 dark:text-slate-900 font-bold"
+                        className="h-10 w-full rounded-xl font-bold"
                     >
                         {isSubmitting ? "Submitting..." : "Submit Exam"}
                     </Button>

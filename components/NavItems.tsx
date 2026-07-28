@@ -17,7 +17,7 @@ const NavItems = () => {
                 <Link
                     key={label}
                     href={href}
-                    className={cn("text-gray-700 hover:text-black transition hover:scale-105 transition-transform duration-100", pathname === href && 'text-primary font-bold')}
+                    className={cn("text-muted-foreground hover:text-foreground transition hover:scale-105 transition-transform duration-100", pathname === href && 'text-primary font-bold')}
                 >
                     {label}
                 </Link>

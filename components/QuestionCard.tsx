@@ -54,15 +54,15 @@ function OptionRow({
     return (
         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-150 ${isCorrect
                 ? "bg-emerald-50 border-emerald-300 shadow-sm"
-                : "bg-white border-slate-200 hover:border-slate-300"
+                : "bg-card border-border hover:border-slate-300"
             }`}>
             <button type="button" onClick={onToggle} className="shrink-0 transition-transform active:scale-90">
                 {isCorrect
                     ? <CheckCircle2 size={18} className="text-emerald-500" />
-                    : <Circle size={18} className="text-slate-300 hover:text-slate-400" />
+                    : <Circle size={18} className="text-muted-foreground/60 hover:text-muted-foreground" />
                 }
             </button>
-            <span className={`font-mono text-sm font-bold w-5 shrink-0 ${isCorrect ? "text-emerald-600" : "text-slate-400"}`}>
+            <span className={`font-mono text-sm font-bold w-5 shrink-0 ${isCorrect ? "text-emerald-600" : "text-muted-foreground"}`}>
                 {option.label}
             </span>
             <input
@@ -70,11 +70,11 @@ function OptionRow({
                 value={option.text}
                 onChange={e => onChange(e.target.value)}
                 placeholder={`Option ${option.label}`}
-                className={`flex-1 bg-transparent text-sm outline-none placeholder:text-slate-300 ${isCorrect ? "text-emerald-800 font-medium" : "text-slate-700"
+                className={`flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 ${isCorrect ? "text-emerald-800 font-medium" : "text-foreground/80"
                     }`}
             />
             {canRemove && (
-                <button type="button" onClick={onRemove} className="shrink-0 text-slate-300 hover:text-red-400 transition-colors">
+                <button type="button" onClick={onRemove} className="shrink-0 text-muted-foreground/60 hover:text-red-400 transition-colors">
                     <X size={14} />
                 </button>
             )}
@@ -98,7 +98,7 @@ function TopicPicker({
 
     return (
         <div className="relative space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Topic</label>
+            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">Topic</label>
             {selected ? (
                 <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <div>
@@ -110,30 +110,30 @@ function TopicPicker({
                     </button>
                 </div>
             ) : (
-                <div className="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
-                        <Search size={12} className="text-slate-400 shrink-0" />
+                <div className="border border-border rounded-lg bg-card overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60">
+                        <Search size={12} className="text-muted-foreground shrink-0" />
                         <input
                             type="text"
                             value={query}
                             onChange={e => setQuery(e.target.value)}
                             placeholder="Search topics..."
-                            className="flex-1 text-sm outline-none text-slate-700 placeholder:text-slate-300"
+                            className="flex-1 text-sm outline-none text-foreground/80 placeholder:text-muted-foreground/60"
                         />
                     </div>
-                    <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                    <div className="max-h-48 overflow-y-auto divide-y divide-border/60">
                         {filtered.length === 0 ? (
-                            <p className="text-xs text-slate-400 px-3 py-3 text-center">No topics found</p>
+                            <p className="text-xs text-muted-foreground px-3 py-3 text-center">No topics found</p>
                         ) : (
                             filtered.map(e => (
                                 <button
                                     key={e.id}
                                     type="button"
                                     onClick={() => { onChange(e.topicId ?? "", e.topicPath, e.categoryId); setQuery(""); }}
-                                    className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors"
+                                    className="w-full text-left px-3 py-2.5 hover:bg-background transition-colors"
                                 >
-                                    <p className="text-xs font-medium text-slate-700">{e.topicPath.split(">").pop()?.trim()}</p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">{e.topicPath}</p>
+                                    <p className="text-xs font-medium text-foreground/80">{e.topicPath.split(">").pop()?.trim()}</p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{e.topicPath}</p>
                                 </button>
                             ))
                         )}
@@ -345,13 +345,13 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
             <div
                 ref={wrapperRef}
                 className={`rounded-2xl border transition-all duration-200 overflow-hidden ${q.saved
-                        ? "border-slate-200 bg-white shadow-sm"
+                        ? "border-border bg-card shadow-sm"
                         : "border-blue-200 bg-blue-50/30 shadow-sm"
                     }`}
             >
                 {/* ── Header ── */}
                 <div className="flex items-start gap-3 px-5 py-4">
-                    <span className="font-black text-slate-300 text-sm w-8 pt-0.5 shrink-0">
+                    <span className="font-black text-muted-foreground/60 text-sm w-8 pt-0.5 shrink-0">
                         {String(q.number).padStart(2, "0")}
                     </span>
                     <div className="flex-1 min-w-0">
@@ -360,12 +360,12 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 value={q.content}
                                 onChange={e => updateField("content", e.target.value)}
                                 placeholder="Enter question text..."
-                                className="w-full text-sm text-slate-800 bg-transparent outline-none resize-none placeholder:text-slate-300 leading-relaxed min-h-[60px]"
+                                className="w-full text-sm text-foreground bg-transparent outline-none resize-none placeholder:text-muted-foreground/60 leading-relaxed min-h-[60px]"
                                 rows={3}
                             />
                         ) : (
-                            <p className="text-sm text-slate-800 leading-snug line-clamp-2">
-                                {q.content || <span className="text-slate-300 italic">No content yet</span>}
+                            <p className="text-sm text-foreground leading-snug line-clamp-2">
+                                {q.content || <span className="text-muted-foreground/60 italic">No content yet</span>}
                             </p>
                         )}
                         {!expanded && (
@@ -373,10 +373,10 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${DIFF_STYLES[q.difficulty]}`}>
                                     {q.difficulty}
                                 </span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
                                     {q.type}
                                 </span>
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-[10px] text-muted-foreground">
                                     {q.marks}M / -{q.negativeMarks}M
                                 </span>
                                 {collapsedAnswer() && (
@@ -396,14 +396,14 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         <button
                             type="button"
                             onClick={() => setExpanded(!expanded)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors rounded-lg hover:bg-slate-100"
+                            className="p-1.5 text-muted-foreground hover:text-foreground/80 transition-colors rounded-lg hover:bg-muted"
                         >
                             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         </button>
                         <button
                             type="button"
                             onClick={handleDelete}
-                            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                            className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
                         >
                             <Trash2 size={15} />
                         </button>
@@ -412,46 +412,46 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 
                 {/* ── Expanded body ── */}
                 {expanded && (
-                    <div className="px-5 pb-5 space-y-4 border-t border-slate-100 pt-4">
+                    <div className="px-5 pb-5 space-y-4 border-t border-border/60 pt-4">
 
                         {/* Meta fields */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">Type</label>
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">Type</label>
                                 <select
                                     value={q.type}
                                     onChange={e => updateField("type", e.target.value as Question["type"])}
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
                                 >
                                     {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">Difficulty</label>
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">Difficulty</label>
                                 <select
                                     value={q.difficulty}
                                     onChange={e => updateField("difficulty", e.target.value as Question["difficulty"])}
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
                                 >
                                     {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">Marks</label>
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">Marks</label>
                                 <input
                                     type="number" step="0.5"
                                     value={q.marks}
                                     onChange={e => updateField("marks", parseFloat(e.target.value) || 0)}
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">Negative</label>
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">Negative</label>
                                 <input
                                     type="number" step="0.25"
                                     value={q.negativeMarks}
                                     onChange={e => updateField("negativeMarks", parseFloat(e.target.value) || 0)}
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
                                 />
                             </div>
                         </div>
@@ -459,9 +459,9 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         {/* MCQ / MSQ options */}
                         {isOptionsType && (
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
                                     Options
-                                    <span className="ml-2 normal-case font-normal text-slate-400">
+                                    <span className="ml-2 normal-case font-normal text-muted-foreground">
                                         {q.type === "MSQ" ? "— select all correct" : "— select one correct"}
                                     </span>
                                 </label>
@@ -481,7 +481,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                     <button
                                         type="button"
                                         onClick={addOption}
-                                        className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1 mt-1 transition-colors"
+                                        className="text-xs text-muted-foreground hover:text-foreground/80 flex items-center gap-1 mt-1 transition-colors"
                                     >
                                         <Plus size={12} /> Add option
                                     </button>
@@ -492,42 +492,42 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         {/* NUMERICAL */}
                         {isNumerical && (
                             <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
                                     Correct Answer
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div>
-                                        <label className="text-[10px] text-slate-400 mb-1 block">Exact value</label>
+                                        <label className="text-[10px] text-muted-foreground mb-1 block">Exact value</label>
                                         <input
                                             type="number" step="any"
                                             value={q.exactAnswer ?? ""}
                                             onChange={e => updateField("exactAnswer", e.target.value ? parseFloat(e.target.value) : null)}
                                             placeholder="e.g. 9.8"
-                                            className="w-full h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-slate-400 mb-1 block">Range min</label>
+                                        <label className="text-[10px] text-muted-foreground mb-1 block">Range min</label>
                                         <input
                                             type="number" step="any"
                                             value={q.answerMin ?? ""}
                                             onChange={e => updateField("answerMin", e.target.value ? parseFloat(e.target.value) : null)}
                                             placeholder="e.g. 9.7"
-                                            className="w-full h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-slate-400 mb-1 block">Range max</label>
+                                        <label className="text-[10px] text-muted-foreground mb-1 block">Range max</label>
                                         <input
                                             type="number" step="any"
                                             value={q.answerMax ?? ""}
                                             onChange={e => updateField("answerMax", e.target.value ? parseFloat(e.target.value) : null)}
                                             placeholder="e.g. 9.9"
-                                            className="w-full h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
                                         />
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-slate-400">
+                                <p className="text-[10px] text-muted-foreground">
                                     Fill exact value OR both range fields — not both.
                                 </p>
                             </div>
@@ -536,7 +536,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         {/* SUBJECTIVE */}
                         {isSubjective && (
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">
                                     Model Answer
                                 </label>
                                 <textarea
@@ -544,7 +544,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                     onChange={e => updateField("modelAnswer", e.target.value || null)}
                                     placeholder="Expected answer for manual grading..."
                                     rows={3}
-                                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring resize-none"
                                 />
                             </div>
                         )}
@@ -560,7 +560,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 
                         {/* Explanation */}
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">
                                 Explanation <span className="font-normal normal-case">— optional</span>
                             </label>
                             <textarea
@@ -568,7 +568,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 onChange={e => updateField("explanation", e.target.value || null)}
                                 placeholder="Why is this answer correct?"
                                 rows={2}
-                                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring resize-none"
                             />
                         </div>
 

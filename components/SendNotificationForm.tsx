@@ -75,8 +75,8 @@ export default function SendNotificationForm() {
     return (
         <div className="space-y-5">
             {/* Type */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-3">
-                <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Type</h2>
+            <div className="bg-card rounded-3xl border border-border p-6 space-y-3">
+                <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Type</h2>
                 <div className="grid grid-cols-2 gap-2">
                     {TYPES.map((t) => (
                         <button
@@ -85,14 +85,14 @@ export default function SendNotificationForm() {
                             className={cn(
                                 "p-3 rounded-xl border-2 text-sm font-bold transition-all text-left",
                                 type === t.value
-                                    ? "border-slate-900 bg-slate-900 text-white"
-                                    : "border-slate-200 text-slate-600 hover:border-slate-400"
+                                    ? "border-foreground bg-slate-900 text-white"
+                                    : "border-border text-muted-foreground hover:border-slate-400"
                             )}
                         >
                             {t.label}
                             <p className={cn(
                                 "text-[10px] font-normal mt-0.5",
-                                type === t.value ? "text-slate-300" : "text-slate-400"
+                                type === t.value ? "text-muted-foreground/60" : "text-muted-foreground"
                             )}>
                                 {t.desc}
                             </p>
@@ -102,55 +102,55 @@ export default function SendNotificationForm() {
             </div>
 
             {/* Content */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4">
-                <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Content</h2>
+            <div className="bg-card rounded-3xl border border-border p-6 space-y-4">
+                <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Content</h2>
 
                 <div>
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-1.5">Title</label>
+                    <label className="text-xs font-black text-muted-foreground uppercase tracking-wider block mb-1.5">Title</label>
                     <input
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="e.g. New KPSC mock test available"
-                        className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-900 transition-colors"
+                        className="w-full h-11 px-4 rounded-xl border border-border text-sm outline-none focus:border-foreground transition-colors"
                     />
                 </div>
 
                 <div>
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-1.5">Body</label>
+                    <label className="text-xs font-black text-muted-foreground uppercase tracking-wider block mb-1.5">Body</label>
                     <textarea
                         value={body}
                         onChange={(e) => setBody(e.target.value)}
                         placeholder="The full notification message..."
                         rows={3}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-900 transition-colors resize-none"
+                        className="w-full px-4 py-3 rounded-xl border border-border text-sm outline-none focus:border-foreground transition-colors resize-none"
                     />
                 </div>
 
                 <div>
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-1.5">
-                        Link URL <span className="normal-case font-normal text-slate-400">— optional, deep link on click</span>
+                    <label className="text-xs font-black text-muted-foreground uppercase tracking-wider block mb-1.5">
+                        Link URL <span className="normal-case font-normal text-muted-foreground">— optional, deep link on click</span>
                     </label>
                     <input
                         type="text"
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         placeholder="/library/exam/kpsc-assistant"
-                        className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 transition-colors"
+                        className="w-full h-11 px-4 rounded-xl border border-border text-sm outline-none focus:border-slate-400 transition-colors"
                     />
                 </div>
             </div>
 
             {/* Targeting */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-3">
+            <div className="bg-card rounded-3xl border border-border p-6 space-y-3">
                 <div>
-                    <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Target Audience</h2>
-                    <p className="text-xs text-slate-400 mt-1">Leave blank to broadcast to all subscribers.</p>
+                    <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Target Audience</h2>
+                    <p className="text-xs text-muted-foreground mt-1">Leave blank to broadcast to all subscribers.</p>
                 </div>
                 <select
                     value={examId}
                     onChange={(e) => setExamId(e.target.value)}
-                    className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-900 transition-colors bg-white"
+                    className="w-full h-11 px-4 rounded-xl border border-border text-sm outline-none focus:border-foreground transition-colors bg-card"
                 >
                     <option value="">All subscribers (broadcast)</option>
                     {exams.map((e) => (

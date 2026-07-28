@@ -95,19 +95,19 @@ export default async function EditPaperPage({ params }: PageProps) {
     });
 
     return (
-        <div className="min-h-screen bg-[#F8F7F4]">
+        <div className="min-h-screen bg-background">
             <div className="max-w-3xl mx-auto px-4 pt-8">
                 <Link
                     href={currentExam ? `/library/exam/${currentExam.slug}` : "/library/paper"}
-                    className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mb-6 group"
+                    className="inline-flex items-center text-sm font-bold text-muted-foreground hover:text-foreground transition-colors mb-6 group"
                 >
                     <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
                     {currentExam ? `Back to ${currentExam.name}` : "Back to Papers"}
                 </Link>
 
                 <div className="mb-8">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                        Edit <span className="text-slate-400 font-light">{paper.title}</span>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">
+                        Edit <span className="text-muted-foreground font-light">{paper.title}</span>
                     </h1>
                 </div>
             </div>

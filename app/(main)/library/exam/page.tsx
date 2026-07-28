@@ -73,13 +73,13 @@ export default async function ExamIndexPage({
     ]);
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
                 <div className="text-center max-w-2xl mx-auto mb-10">
-                    <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4">
-                        All <span className="text-slate-400 font-light">Exams</span>
+                    <h1 className="text-4xl md:text-5xl font-black text-foreground tracking-tight mb-4">
+                        All <span className="text-muted-foreground font-light">Exams</span>
                     </h1>
-                    <p className="text-lg text-slate-500 leading-relaxed">
+                    <p className="text-lg text-muted-foreground leading-relaxed">
                         {total} exams across all categories.
                     </p>
                 </div>
@@ -142,18 +142,18 @@ export default async function ExamIndexPage({
                                 {currentPage > 0 && (
                                     <Link
                                         href={`?q=${q}&page=${currentPage - 1}`}
-                                        className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors"
+                                        className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                                     >
                                         Previous
                                     </Link>
                                 )}
-                                <span className="text-sm text-slate-500 font-medium">
+                                <span className="text-sm text-muted-foreground font-medium">
                                     {currentPage + 1} / {totalPages}
                                 </span>
                                 {currentPage < totalPages - 1 && (
                                     <Link
                                         href={`?q=${q}&page=${currentPage + 1}`}
-                                        className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors"
+                                        className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                                     >
                                         Next
                                     </Link>
@@ -162,20 +162,20 @@ export default async function ExamIndexPage({
                         )}
                     </>
                 ) : (
-                    <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-[2rem] text-center bg-white max-w-2xl mx-auto w-full">
-                        <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
-                        <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                    <div className="col-span-full p-12 border-2 border-dashed border-border rounded-[2rem] text-center bg-card max-w-2xl mx-auto w-full">
+                        <Search className="w-10 h-10 text-muted-foreground/60 mb-4 mx-auto" />
+                        <h3 className="text-lg font-bold text-foreground tracking-tight">
                             No exams found
                         </h3>
                         {q && (
-                            <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                                 Nothing matching{" "}
-                                <span className="font-bold text-slate-900">"{q}"</span>
+                                <span className="font-bold text-foreground">"{q}"</span>
                             </p>
                         )}
                         <Link
                             href="/library/exam"
-                            className="mt-6 inline-flex items-center justify-center px-4 py-2 bg-slate-100 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                            className="mt-6 inline-flex items-center justify-center px-4 py-2 bg-muted text-foreground/80 text-sm font-bold rounded-xl hover:bg-muted transition-colors"
                         >
                             Clear search
                         </Link>

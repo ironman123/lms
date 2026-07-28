@@ -46,14 +46,14 @@ export default function SearchFilter({ value }: { value: string }) {
     return (
         <div className="relative mb-3 max-w-md w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search size={18} className={isPending ? "text-blue-600" : "text-slate-400"} />
+                <Search size={18} className={isPending ? "text-blue-600" : "text-muted-foreground"} />
             </div>
             <input
                 type="text"
                 value={localValue}
                 onChange={(e) => setLocalValue(e.target.value)}
                 placeholder="Search..."
-                className="block w-full h-12 pl-10 pr-12 py-3 border rounded-xl border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700/70 transition-all"
+                className="block w-full h-12 pl-10 pr-12 py-3 border rounded-xl border-border bg-card focus:outline-none focus:ring-2 focus:ring-blue-700/70 transition-all"
             />
 
             {isPending && (

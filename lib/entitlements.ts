@@ -1,0 +1,95 @@
+import "server-only";
+
+import prisma from "@/lib/prisma";
+
+export type SessionLaunchAccess =
+    | { exists: false }
+    | {
+        exists: true;
+        questionCount: number;
+        allowed: true;
+      }
+    | {
+        exists: true;
+        questionCount: number;
+        allowed: false;
+        bundleId: string;
+      };
+
+/**
+ * Resolves paper metadata and paid access together.
+ *
+ * FULL_ACCESS is scoped to an exam linked to the paper. MOCK_PACK access is
+ * scoped to an active bundle for that same exam that explicitly contains the
+ * paper. This avoids the previous cross-exam and empty-paperIds loopholes.
+ */
+export async function getSessionLaunchAccess(
+    userId: string,
+    paperId: string
+): Promise<SessionLaunchAccess> {
+    const now = new Date();
+    const paper = await prisma.questionPaper.findUnique({
+        where: { id: paperId },
+        select: {
+            _count: { select: { questions: true } },
+            examQuestionPaperLinks: {
+                select: {
+                    exam: {
+                        select: {
+                            bundles: {
+                                where: {
+                                    isActive: true,
+                                    OR: [
+                                        { bundleType: "FULL_ACCESS" },
+                                        {
+                                            bundleType: "MOCK_PACK",
+                                            paperIds: { has: paperId },
+                                        },
+                                    ],
+                                },
+                                orderBy: { price: "asc" },
+                                select: {
+                                    id: true,
+                                    purchases: {
+                                        where: {
+                                            userId,
+                                            status: "PAID",
+                                            OR: [
+                                                { expiresAt: null },
+                                                { expiresAt: { gt: now } },
+                                            ],
+                                        },
+                                        select: { id: true },
+                                        take: 1,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    if (!paper) return { exists: false };
+
+    const bundles = paper.examQuestionPaperLinks.flatMap(
+        (link) => link.exam.bundles
+    );
+    const uniqueBundles = [...new Map(bundles.map((bundle) => [bundle.id, bundle])).values()];
+
+    if (uniqueBundles.length === 0 || uniqueBundles.some((bundle) => bundle.purchases.length > 0)) {
+        return {
+            exists: true,
+            questionCount: paper._count.questions,
+            allowed: true,
+        };
+    }
+
+    return {
+        exists: true,
+        questionCount: paper._count.questions,
+        allowed: false,
+        bundleId: uniqueBundles[0].id,
+    };
+}

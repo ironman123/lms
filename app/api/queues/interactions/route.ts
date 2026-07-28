@@ -1,59 +1,48 @@
-// app/api/queues/interactions/route.ts
-import { NextRequest, NextResponse } from "next/server";
 import { Receiver } from "@upstash/qstash";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { interactionPayloadSchema } from "@/lib/session-interactions";
+import {
+    FINAL_INTERACTION_REVISION,
+    persistSessionInteractions,
+} from "@/lib/interaction-repository";
 
 const receiver = new Receiver({
     currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY!,
     nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY!,
 });
 
-export interface InteractionPayload {
-    sessionId: string;
-    userId: string;
-    metrics: Array<{
-        questionId: string;
-        selectedAnswer: string | null;
-        isCorrect: boolean;
-        visitCount: number;
-        dwellTimeSeconds: number;
-        hesitationCount: number;
-        isFlagged: boolean;
-        wasHinted: boolean;
-    }>;
-}
-
 export async function POST(req: NextRequest) {
     const body = await req.text();
-
-    // Verify it's actually from QStash
     const isValid = await receiver.verify({
         signature: req.headers.get("upstash-signature") ?? "",
         body,
     });
-    if (!isValid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isValid) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const payload: InteractionPayload = JSON.parse(body);
-    const { sessionId, metrics } = payload;
+    let json: unknown;
+    try {
+        json = JSON.parse(body);
+    } catch {
+        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
-    // Single raw SQL upsert — replaces 100 updateMany calls
-    // inside the POST handler, replace the $executeRaw with:
-    await Promise.all(
-        metrics.map(m =>
-            prisma.questionInteraction.updateMany({
-                where: { sessionId, questionId: m.questionId },
-                data: {
-                    selectedAnswer: m.selectedAnswer ?? null,
-                    isCorrect: m.isCorrect,
-                    visitCount: m.visitCount,
-                    totalDwellTime: m.dwellTimeSeconds,
-                    hesitationCount: m.hesitationCount,
-                    isFlagged: m.isFlagged,
-                    wasHinted: m.wasHinted,
-                },
-            })
-        )
-    );
+    const parsed = interactionPayloadSchema.safeParse(json);
+    if (!parsed.success) {
+        return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
 
-    return NextResponse.json({ ok: true });
+    const { sessionId, userId, metrics } = parsed.data;
+    const result = await persistSessionInteractions({
+        sessionId,
+        userId,
+        metrics,
+        checkpointRevision: FINAL_INTERACTION_REVISION,
+    });
+
+    if (result.status === "not_found") {
+        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, upserted: result.upserted });
 }

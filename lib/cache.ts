@@ -9,14 +9,42 @@
 // withCache(..., ["exams"]) registers the key in the set on every cache write.
 
 import { redis } from "@/lib/redis";
+import { after } from "next/server";
 
 const TAG_PREFIX = "tag:";
+
+type CacheOptions = {
+    deferWrite?: boolean;
+};
+
+async function writeCache<T>(
+    key: string,
+    value: T,
+    ttlSeconds: number,
+    tags: string[]
+) {
+    try
+    {
+        const pipeline = redis.pipeline();
+        pipeline.set(key, value, { ex: ttlSeconds });
+        for (const tag of tags)
+        {
+            pipeline.sadd(`${TAG_PREFIX}${tag}`, key);
+            pipeline.expire(`${TAG_PREFIX}${tag}`, ttlSeconds + 120);
+        }
+        await pipeline.exec();
+    } catch (err)
+    {
+        console.warn("[cache] write failed:", err);
+    }
+}
 
 export async function withCache<T>(
     key: string,
     ttlSeconds: number,
     fn: () => Promise<T>,
-    tags: string[] = []
+    tags: string[] = [],
+    options: CacheOptions = {}
 ): Promise<T> {
     // ── Cache read ────────────────────────────────────────────────────────────
     try
@@ -33,20 +61,12 @@ export async function withCache<T>(
     const value = await fn();
 
     // ── Cache write (non-fatal) ───────────────────────────────────────────────
-    try
+    if (options.deferWrite)
     {
-        const pipeline = redis.pipeline();
-        pipeline.set(key, value, { ex: ttlSeconds });
-        for (const tag of tags)
-        {
-            pipeline.sadd(`${TAG_PREFIX}${tag}`, key);
-            // Keep the tag set alive a bit longer than the values it tracks
-            pipeline.expire(`${TAG_PREFIX}${tag}`, ttlSeconds + 120);
-        }
-        await pipeline.exec();
-    } catch (err)
+        after(() => writeCache(key, value, ttlSeconds, tags));
+    } else
     {
-        console.warn("[cache] write failed:", err);
+        await writeCache(key, value, ttlSeconds, tags);
     }
 
     return value;
@@ -83,11 +103,12 @@ export async function invalidateKey(key: string): Promise<void> {
     }
 }
 
-export async function getCachedPaper(paperId: string, fetcher: () => Promise<any>) {
+export async function getCachedPaper<T>(paperId: string, fetcher: () => Promise<T>) {
     return withCache(
         `paper:${paperId}`,
         86400, // 24 hours (86,400 seconds)
         fetcher,
-        ["papers", `paper:${paperId}`] // Tags for easy invalidation
+        ["papers", `paper:${paperId}`], // Tags for easy invalidation
+        { deferWrite: true }
     );
 }

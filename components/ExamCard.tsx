@@ -15,7 +15,7 @@ interface ExamCardProps {
 const ExamCard = ({ id, name, description, tags, duration, totalMarks, color }: ExamCardProps) => {
     return (
         <article
-            className="group relative flex flex-col p-6 bg-white border border-slate-100 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl hover:border-transparent"
+            className="group relative flex flex-col p-6 bg-card border border-border/60 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl hover:border-transparent"
             style={{ borderTop: `4px solid ${color}` }} // Subtle color accent
         >
             {/* Header: Tags & Bookmark */}
@@ -24,34 +24,34 @@ const ExamCard = ({ id, name, description, tags, duration, totalMarks, color }: 
                     {tags.map((tag, index) => (
                         <span
                             key={index}
-                            className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-slate-100 text-slate-600"
+                            className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-muted text-muted-foreground"
                         >
                             {tag}
                         </span>
                     ))}
                 </div>
-                <button className="p-1.5 rounded-full hover:bg-slate-50 transition-colors">
-                    <Bookmark size={16} strokeWidth={1.5} className="text-slate-300 group-hover:text-slate-900 transition-colors" />
+                <button className="p-1.5 rounded-full hover:bg-background transition-colors">
+                    <Bookmark size={16} strokeWidth={1.5} className="text-muted-foreground/60 group-hover:text-foreground transition-colors" />
                 </button>
             </div>
 
             {/* Content Area */}
             <div className="flex-1 mb-6">
-                <h2 className="text-xl font-extrabold text-slate-800 leading-tight mb-2 uppercase tracking-tight">
+                <h2 className="text-xl font-extrabold text-foreground leading-tight mb-2 uppercase tracking-tight">
                     {name}
                 </h2>
-                <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
+                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                     {description}
                 </p>
             </div>
 
             {/* Meta Info (Duration, Marks) */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
-                <div className="flex items-center gap-1.5 text-slate-600">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
                     <Clock size={14} strokeWidth={1.5} className="opacity-60" />
                     <span className="text-xs font-semibold">{duration} min</span>
                 </div>
-                <div className="text-xs font-bold text-slate-400">
+                <div className="text-xs font-bold text-muted-foreground">
                     {totalMarks} Marks
                 </div>
             </div>

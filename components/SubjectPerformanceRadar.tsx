@@ -12,10 +12,10 @@ interface SubjectPerformanceRadarProps {
 
 export default function SubjectPerformanceRadar({ subjects }: SubjectPerformanceRadarProps) {
     return (
-        <Card className="border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden flex flex-col h-full">
-            <CardHeader className="border-b border-slate-50 bg-slate-50/50 pb-4">
-                <h3 className="font-black text-slate-900 tracking-tight text-sm">Subject-wise Performance</h3>
-                <p className="text-xs text-slate-500 font-medium">Average accuracy across subjects</p>
+        <Card className="border-border shadow-sm rounded-2xl bg-card overflow-hidden flex flex-col h-full">
+            <CardHeader className="border-b border-slate-50 bg-background/50 pb-4">
+                <h3 className="font-black text-foreground tracking-tight text-sm">Subject-wise Performance</h3>
+                <p className="text-xs text-muted-foreground font-medium">Average accuracy across subjects</p>
             </CardHeader>
             <CardContent className="p-6 flex-1 min-h-[300px]">
                 {subjects.length > 2 ? (
@@ -46,7 +46,7 @@ export default function SubjectPerformanceRadar({ subjects }: SubjectPerformance
                         </RadarChart>
                     </ResponsiveContainer>
                 ) : (
-                    <div className="h-full w-full flex items-center justify-center text-slate-400 text-sm font-medium text-center px-4">
+                    <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm font-medium text-center px-4">
                         Attempt questions in at least 3 different subjects to unlock the radar chart.
                     </div>
                 )}

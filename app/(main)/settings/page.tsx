@@ -8,13 +8,13 @@ export default async function SettingsPage() {
     const exams = await getExamsForPicker();
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-2xl mx-auto px-4 py-12">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">
                         Settings
                     </h1>
-                    <p className="text-slate-500 mt-1 text-sm">
+                    <p className="text-muted-foreground mt-1 text-sm">
                         Manage your profile and preferences.
                     </p>
                 </div>

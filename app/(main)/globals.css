@@ -1,16 +1,15 @@
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  color-scheme: light;
   --primary: #fe5933;
-
-  --cta: #2c2c2c;
+  --cta: #252525;
   --cta-gold: #fccc41;
   --radius: 0.625rem;
-  --background: #f9f9f9;
+  --background: oklch(0.982 0.002 247.839);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -40,6 +39,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --success: oklch(0.627 0.194 149.214);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.769 0.188 70.08);
+  --warning-foreground: oklch(0.205 0 0);
 }
 
 @theme inline {
@@ -48,9 +51,8 @@
   --color-primary: var(--primary);
   --color-cta: var(--cta);
   --color-cta-gold: var(--cta-gold);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-bricolage: "Bricolage Grotesque", sans-serif;
+  --font-sans: var(--font-app);
+  --font-bricolage: var(--font-app);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -79,6 +81,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -86,41 +92,47 @@
 }
 
 body {
-  font-family: var(--font-bricolage);
+  font-family: var(--font-app), sans-serif;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
+  --background: oklch(0.13 0.006 285.885);
+  --foreground: oklch(0.962 0.004 286.32);
+  --card: oklch(0.178 0.008 285.823);
+  --card-foreground: oklch(0.962 0.004 286.32);
+  --popover: oklch(0.19 0.008 285.823);
+  --popover-foreground: oklch(0.962 0.004 286.32);
   --primary: #fe5933;
   --primary-foreground: #ffffff;
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.235 0.009 285.93);
+  --secondary-foreground: oklch(0.962 0.004 286.32);
+  --muted: oklch(0.225 0.008 285.93);
+  --muted-foreground: oklch(0.72 0.012 286.067);
+  --accent: oklch(0.255 0.012 285.93);
+  --accent-foreground: oklch(0.962 0.004 286.32);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: oklch(0.985 0 0 / 14%);
+  --input: oklch(0.985 0 0 / 18%);
+  --ring: oklch(0.67 0.16 37);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.165 0.008 285.823);
+  --sidebar-foreground: oklch(0.962 0.004 286.32);
+  --sidebar-primary: #fe5933;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: oklch(0.235 0.009 285.93);
+  --sidebar-accent-foreground: oklch(0.962 0.004 286.32);
+  --sidebar-border: oklch(0.985 0 0 / 14%);
+  --sidebar-ring: oklch(0.67 0.16 37);
+  --cta: oklch(0.205 0.008 285.823);
+  --success: oklch(0.723 0.191 149.579);
+  --success-foreground: oklch(0.15 0.03 149);
+  --warning: oklch(0.82 0.17 80);
+  --warning-foreground: oklch(0.2 0.035 80);
 }
 
 @layer base {
@@ -129,11 +141,11 @@ body {
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply min-h-dvh bg-background text-foreground;
   }
 
   main {
-    @apply mx-auto px-14 flex flex-col gap-8 bg-background h-full max-w-[1400px] pt-10 max-sm:px-2;
+    @apply mx-auto flex h-full max-w-[1400px] flex-col gap-8 bg-background px-14 pt-10 max-sm:px-2;
   }
 
   h1 {
@@ -151,15 +163,15 @@ body {
   }
 
   .exam-card {
-    @apply flex flex-col rounded-4xl border border-black px-4 py-4 gap-5 w-full min-lg:max-w-[410px] justify-between;
+    @apply flex w-full flex-col justify-between gap-5 rounded-4xl border border-border bg-card px-4 py-4 text-card-foreground min-lg:max-w-[410px];
   }
 
   .tag-badge {
-    @apply bg-black text-white rounded-4xl text-xs px-2 py-1 capitalize;
+    @apply rounded-4xl bg-foreground px-2 py-1 text-xs text-background capitalize;
   }
 
   .exam-bookmark {
-    @apply px-2 bg-black rounded-4xl flex items-center h-full aspect-square cursor-pointer;
+    @apply flex h-full aspect-square cursor-pointer items-center rounded-4xl bg-foreground px-2 text-background;
   }
 
   .input {
@@ -167,7 +179,7 @@ body {
   }
 
   .input:focus-visible {
-    @apply !ring-0 !border-black;
+    @apply !border-ring !ring-0;
   }
 
   .rounded-border {
@@ -191,7 +203,7 @@ body {
   }
 
   .btn-signin {
-    @apply border border-border rounded-4xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2 cursor-pointer;
+    @apply flex cursor-pointer items-center gap-2 rounded-4xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground hover:bg-accent;
   }
 
   .recent-list {
@@ -219,11 +231,11 @@ body {
   }
 
   .user-avatar {
-    @apply border-2 border-black flex flex-col gap-4 items-center rounded-lg py-8 max-sm:hidden;
+    @apply flex flex-col items-center gap-4 rounded-lg border-2 border-border bg-card py-8 max-sm:hidden;
   }
 
   .btn-mic {
-    @apply border-2 border-black rounded-lg flex flex-col gap-2 items-center py-8 max-sm:py-2 cursor-pointer w-full;
+    @apply flex w-full cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-card py-8 max-sm:py-2;
   }
 
   .transcript {

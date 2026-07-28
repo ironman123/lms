@@ -97,52 +97,52 @@ export default async function ResultsPage({
     const durationMin = Math.floor(durationMs / 60000);
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12">
+        <div className="min-h-screen bg-background py-12">
             <div className="max-w-3xl mx-auto px-4 space-y-6">
 
                 {/* Header */}
                 <div className="text-center">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Results</p>
-                    <h1 className="text-3xl font-black text-slate-900">{paper.title}</h1>
-                    {exam && <p className="text-slate-500 mt-1">{exam.name}</p>}
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">Results</p>
+                    <h1 className="text-3xl font-black text-foreground">{paper.title}</h1>
+                    {exam && <p className="text-muted-foreground mt-1">{exam.name}</p>}
                 </div>
 
                 {/* Score card */}
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 text-center">
-                    <div className="text-6xl font-black text-slate-900 mb-1">
+                <div className="bg-card rounded-3xl border border-border shadow-sm p-8 text-center">
+                    <div className="text-6xl font-black text-foreground mb-1">
                         {earnedMarks.toFixed(1)}
-                        <span className="text-2xl text-slate-400 font-light">/{totalMarks}</span>
+                        <span className="text-2xl text-muted-foreground font-light">/{totalMarks}</span>
                     </div>
-                    <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Total Score</p>
+                    <p className="text-muted-foreground text-sm font-bold uppercase tracking-widest">Total Score</p>
 
                     <div className="grid grid-cols-3 gap-4 mt-8">
-                        <div className="bg-slate-50 rounded-2xl p-4">
+                        <div className="bg-background rounded-2xl p-4">
                             <p className="text-2xl font-black text-green-600">{correct.length}</p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Correct</p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Correct</p>
                         </div>
-                        <div className="bg-slate-50 rounded-2xl p-4">
+                        <div className="bg-background rounded-2xl p-4">
                             <p className="text-2xl font-black text-red-500">{attempted.length - correct.length}</p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Wrong</p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Wrong</p>
                         </div>
-                        <div className="bg-slate-50 rounded-2xl p-4">
-                            <p className="text-2xl font-black text-slate-400">{interactions.length - attempted.length}</p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Skipped</p>
+                        <div className="bg-background rounded-2xl p-4">
+                            <p className="text-2xl font-black text-muted-foreground">{interactions.length - attempted.length}</p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Skipped</p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-3">
-                            <BarChart3 size={16} className="text-slate-400" />
+                        <div className="bg-background rounded-2xl p-4 flex items-center gap-3">
+                            <BarChart3 size={16} className="text-muted-foreground" />
                             <div className="text-left">
-                                <p className="text-sm font-black text-slate-900">{accuracy}%</p>
-                                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Accuracy</p>
+                                <p className="text-sm font-black text-foreground">{accuracy}%</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Accuracy</p>
                             </div>
                         </div>
-                        <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-3">
-                            <Clock size={16} className="text-slate-400" />
+                        <div className="bg-background rounded-2xl p-4 flex items-center gap-3">
+                            <Clock size={16} className="text-muted-foreground" />
                             <div className="text-left">
-                                <p className="text-sm font-black text-slate-900">{durationMin}m</p>
-                                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Time taken</p>
+                                <p className="text-sm font-black text-foreground">{durationMin}m</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Time taken</p>
                             </div>
                         </div>
                     </div>
@@ -150,7 +150,7 @@ export default async function ResultsPage({
 
                 {/* Question review */}
                 <div className="space-y-3">
-                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 px-1">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">
                         Question Review
                     </h2>
                     {interactions.map((interaction, i) => {
@@ -182,20 +182,20 @@ export default async function ResultsPage({
                         }
 
                         return (
-                            <div key={interaction.id} className={`bg-white rounded-2xl border p-5 ${!wasAttempted ? "border-slate-200" :
+                            <div key={interaction.id} className={`bg-card rounded-2xl border p-5 ${!wasAttempted ? "border-border" :
                                 isCorrectAnswer ? "border-green-200" : "border-red-200"
                                 }`}>
                                 <div className="flex items-start gap-3">
                                     <div className="shrink-0 mt-0.5">
                                         {!wasAttempted
-                                            ? <div className="w-5 h-5 rounded-full border-2 border-slate-200" />
+                                            ? <div className="w-5 h-5 rounded-full border-2 border-border" />
                                             : isCorrectAnswer
                                                 ? <CheckCircle2 size={20} className="text-green-500" />
                                                 : <XCircle size={20} className="text-red-500" />
                                         }
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-slate-800 leading-snug">
+                                        <p className="text-sm font-bold text-foreground leading-snug">
                                             {i + 1}. {q.content}
                                         </p>
 
@@ -207,12 +207,12 @@ export default async function ResultsPage({
                                         )}
 
                                         {q.explanation && (
-                                            <p className="text-xs text-slate-400 italic mt-2 leading-relaxed">
+                                            <p className="text-xs text-muted-foreground italic mt-2 leading-relaxed">
                                                 {q.explanation}
                                             </p>
                                         )}
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                                    <span className="text-[10px] font-bold text-muted-foreground shrink-0">
                                         {q.marks}M
                                     </span>
                                 </div>
@@ -225,7 +225,7 @@ export default async function ResultsPage({
                 <div className="flex gap-3 pb-8">
                     <Link
                         href={`/exam/${paperId}/lobby`}
-                        className="flex-1 h-12 flex items-center justify-center border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:border-slate-400 transition-colors"
+                        className="flex-1 h-12 flex items-center justify-center border border-border rounded-2xl text-sm font-bold text-muted-foreground hover:border-slate-400 transition-colors"
                     >
                         Retake
                     </Link>

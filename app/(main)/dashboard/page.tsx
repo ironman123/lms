@@ -16,7 +16,7 @@ function getHeatmapColor(score: number) {
 }
 
 function getActivityColor(count: number) {
-    if (count === 0) return "bg-slate-100 border-slate-200";
+    if (count === 0) return "bg-muted border-border";
     if (count < 10) return "bg-emerald-200 border-emerald-300";
     if (count < 25) return "bg-emerald-400 border-emerald-500";
     return "bg-emerald-600 border-emerald-700";
@@ -32,14 +32,14 @@ export default async function DashboardPage() {
     } = await getDashboardOverview();
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-10">
 
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                        Performance <span className="text-slate-400 font-light">Analytics</span>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">
+                        Performance <span className="text-muted-foreground font-light">Analytics</span>
                     </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Detailed insights into your exam preparation and progress</p>
+                    <p className="text-muted-foreground mt-1 text-sm">Detailed insights into your exam preparation and progress</p>
                 </div>
                 {weakSubject && (
                     <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
                         </div>
                         <Link
                             href="/library/paper" // Or wherever they generate quick practice tests
-                            className="shrink-0 bg-white text-violet-900 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors flex items-center gap-2"
+                            className="shrink-0 bg-white text-violet-900 px-6 py-3 rounded-xl font-bold text-sm hover:bg-violet-50 transition-colors flex items-center gap-2"
                         >
                             Practice {weakSubject.name} <ArrowRight size={16} />
                         </Link>
@@ -71,8 +71,8 @@ export default async function DashboardPage() {
                 </div>
 
                 {/* 🔥 NEW: 30-Day Consistency Heatmap */}
-                <div className="bg-white border border-slate-200 rounded-3xl p-6">
-                    <h2 className="text-sm font-black text-slate-900 mb-4 uppercase tracking-widest">30-Day Consistency</h2>
+                <div className="bg-card border border-border rounded-3xl p-6">
+                    <h2 className="text-sm font-black text-foreground mb-4 uppercase tracking-widest">30-Day Consistency</h2>
                     <div className="flex flex-wrap gap-1.5">
                         {heatmapData.map((day, i) => (
                             <div
@@ -85,12 +85,12 @@ export default async function DashboardPage() {
 
                 {/* Exam-wise */}
                 <div>
-                    <h2 className="text-lg font-black text-slate-900 mb-4">Exam-wise Performance</h2>
+                    <h2 className="text-lg font-black text-foreground mb-4">Exam-wise Performance</h2>
                     <div className="space-y-4">
                         {examStats.length === 0 ? (
-                            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
-                                <p className="text-slate-400 font-medium">No tests attempted yet.</p>
-                                <p className="text-slate-300 text-sm mt-1">Start a mock test to see your analytics here.</p>
+                            <div className="bg-card border border-border rounded-2xl p-12 text-center">
+                                <p className="text-muted-foreground font-medium">No tests attempted yet.</p>
+                                <p className="text-muted-foreground/60 text-sm mt-1">Start a mock test to see your analytics here.</p>
                             </div>
                         ) : (
                             examStats.map(exam => <ExamPerformanceCard key={exam.examId} {...exam} trend={exam.trend as "improving" | "declining" | "neutral"} />)
@@ -98,16 +98,16 @@ export default async function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-3xl p-6">
-                    <h2 className="text-sm font-black text-slate-900 mb-4 uppercase tracking-widest">By Difficulty</h2>
+                <div className="bg-card border border-border rounded-3xl p-6">
+                    <h2 className="text-sm font-black text-foreground mb-4 uppercase tracking-widest">By Difficulty</h2>
                     <div className="space-y-4">
                         {diffStats.map(stat => (
                             <div key={stat.diff}>
                                 <div className="flex justify-between text-xs font-bold mb-1.5">
-                                    <span className="text-slate-600">{stat.diff}</span>
+                                    <span className="text-muted-foreground">{stat.diff}</span>
                                     <span className={stat.accuracy >= 70 ? 'text-green-600' : stat.accuracy >= 40 ? 'text-amber-500' : 'text-red-500'}>{stat.accuracy}%</span>
                                 </div>
-                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                                     <div className={`h-full rounded-full ${stat.accuracy >= 70 ? 'bg-green-500' : stat.accuracy >= 40 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${stat.accuracy}%` }} />
                                 </div>
                             </div>
@@ -116,23 +116,23 @@ export default async function DashboardPage() {
                 </div>
 
                 {/* 🔥 NEW: Type Mastery */}
-                <div className="bg-white border border-slate-200 rounded-3xl p-6">
-                    <h2 className="text-sm font-black text-slate-900 mb-4 uppercase tracking-widest">By Question Type</h2>
+                <div className="bg-card border border-border rounded-3xl p-6">
+                    <h2 className="text-sm font-black text-foreground mb-4 uppercase tracking-widest">By Question Type</h2>
                     <div className="space-y-4">
                         {typeStats.map(stat => (
-                            <div key={stat.type} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                <span className="text-xs font-bold text-slate-700">{stat.type}</span>
-                                <span className="text-sm font-black text-slate-900">{stat.accuracy}%</span>
+                            <div key={stat.type} className="flex items-center justify-between p-3 bg-background rounded-xl border border-border/60">
+                                <span className="text-xs font-bold text-foreground/80">{stat.type}</span>
+                                <span className="text-sm font-black text-foreground">{stat.accuracy}%</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 <div>
-                    <h2 className="text-lg font-black text-slate-900 mb-4">Recent Activity</h2>
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+                    <h2 className="text-lg font-black text-foreground mb-4">Recent Activity</h2>
+                    <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
                         {recentActivity.length === 0 ? (
-                            <p className="text-sm text-slate-400 text-center py-4">No recent activity.</p>
+                            <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>
                         ) : (
                             recentActivity.map(session => (
                                 <div
@@ -141,8 +141,8 @@ export default async function DashboardPage() {
                                     className={`flex items-center justify-between p-3 rounded-xl transition-colors border ${getHeatmapColor(session.score)}`}
                                 >
                                     <div className="min-w-0 pr-4">
-                                        <p className="text-sm font-bold text-slate-900 truncate">{session.title}</p>
-                                        <p className="text-xs text-slate-500 mt-0.5">{session.date}</p>
+                                        <p className="text-sm font-bold text-foreground truncate">{session.title}</p>
+                                        <p className="text-xs text-muted-foreground mt-0.5">{session.date}</p>
                                     </div>
                                     <div className="shrink-0 text-right">
                                         <p className={`text-sm font-black ${session.score >= 80 ? 'text-emerald-700' : session.score >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
@@ -150,7 +150,7 @@ export default async function DashboardPage() {
                                         </p>
                                         <Link
                                             href={`/exam/${session.paperId}/results?sessionId=${session.id}`}
-                                            className="text-[10px] font-bold text-slate-500 hover:text-slate-900 hover:underline"
+                                            className="text-[10px] font-bold text-muted-foreground hover:text-foreground hover:underline"
                                         >
                                             Review
                                         </Link>

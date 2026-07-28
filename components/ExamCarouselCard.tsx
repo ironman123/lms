@@ -68,7 +68,7 @@ const ExamCarouselCard = ({
 
     return (
         <>
-            <Card className="group relative overflow-hidden border-slate-200 shadow-2xl bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-[400px] transition-all duration-300 hover:shadow-slate-200 dark:hover:shadow-slate-800">
+            <Card className="group relative overflow-hidden border-border shadow-2xl bg-card dark:bg-slate-900 rounded-[2rem] w-full max-w-[400px] transition-all duration-300 hover:shadow-slate-200 dark:hover:shadow-slate-800">
 
                 {/* 1. GHOST LINK (Covers entire card for navigation) */}
                 {!isPreview && (
@@ -88,7 +88,7 @@ const ExamCarouselCard = ({
                                 e.stopPropagation();
                                 if (id) router.push(`/library/exam/${id}/edit`);
                             }}
-                            className="p-2 bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 rounded-full hover:bg-blue-500 hover:text-white transition-colors shadow-sm"
+                            className="p-2 bg-card/90 dark:bg-slate-800/90 text-foreground/80 dark:text-slate-300 rounded-full hover:bg-blue-500 hover:text-white transition-colors shadow-sm"
                         >
                             <Edit size={16} />
                         </button>
@@ -98,7 +98,7 @@ const ExamCarouselCard = ({
                                 e.stopPropagation();
                                 setShowDeleteDialog(true);
                             }}
-                            className="p-2 bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 rounded-full hover:bg-red-500 hover:text-white transition-colors shadow-sm"
+                            className="p-2 bg-card/90 dark:bg-slate-800/90 text-foreground/80 dark:text-slate-300 rounded-full hover:bg-red-500 hover:text-white transition-colors shadow-sm"
                         >
                             <Trash2 size={16} />
                         </button>
@@ -152,7 +152,7 @@ const ExamCarouselCard = ({
 
                         <div className="flex gap-1">
                             {tags.slice(0, 5).map((tag, i) => (
-                                <span key={i} className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                                <span key={i} className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
                                     #{tag}
                                 </span>
                             ))}
@@ -162,7 +162,7 @@ const ExamCarouselCard = ({
 
                 {/* 4. SYLLABUS AREA (z-20 keeps it scrollable/interactive above ghost link) */}
                 <div className="p-6 relative z-20">
-                    <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-[0.25em] mb-4">
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.25em] mb-4">
                         Syllabus Explorer
                     </h4>
 
@@ -171,9 +171,9 @@ const ExamCarouselCard = ({
                             {syllabus.map((section, i) => (
                                 <CarouselItem key={i}>
                                     <div className="p-0.5">
-                                        <div className="border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-xl overflow-hidden shadow-sm">
-                                            <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center">
-                                                <h5 className="text-xs font-black text-slate-800 dark:text-slate-200 truncate max-w-[150px]">
+                                        <div className="border border-border dark:border-slate-800 bg-background dark:bg-slate-800/50 rounded-xl overflow-hidden shadow-sm">
+                                            <div className="p-3 border-b border-border dark:border-slate-800 bg-card dark:bg-slate-900 flex justify-between items-center">
+                                                <h5 className="text-xs font-black text-foreground dark:text-slate-200 truncate max-w-[150px]">
                                                     {section.category || "Untitled"}
                                                 </h5>
                                                 <p className="text-[10px] font-black uppercase tracking-tighter" style={{ color: finalAccentColor }}>
@@ -185,12 +185,12 @@ const ExamCarouselCard = ({
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {section.topics.length > 0 && section.topics[0] !== "" ? (
                                                         section.topics.map((topic, j) => topic && (
-                                                            <span key={j} className="text-[10px] font-bold px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm">
+                                                            <span key={j} className="text-[10px] font-bold px-2 py-1 bg-card dark:bg-slate-900 border border-border dark:border-slate-700 rounded-lg text-muted-foreground dark:text-slate-300 shadow-sm">
                                                                 {topic}
                                                             </span>
                                                         ))
                                                     ) : (
-                                                        <p className="text-[10px] text-slate-300 italic">No topics...</p>
+                                                        <p className="text-[10px] text-muted-foreground/60 italic">No topics...</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -202,8 +202,8 @@ const ExamCarouselCard = ({
 
                         {/* NAV CONTROLS (z-30 to ensure they are clickable over everything) */}
                         <div className="flex justify-center gap-3 mt-4 relative z-30">
-                            <CarouselPrevious className="static translate-y-0 h-8 w-8 border-slate-200 dark:border-slate-700 shadow-none hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" />
-                            <CarouselNext className="static translate-y-0 h-8 w-8 border-slate-200 dark:border-slate-700 shadow-none hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" />
+                            <CarouselPrevious className="static translate-y-0 h-8 w-8 border-border dark:border-slate-700 shadow-none hover:bg-muted dark:hover:bg-slate-800 transition-colors" />
+                            <CarouselNext className="static translate-y-0 h-8 w-8 border-border dark:border-slate-700 shadow-none hover:bg-muted dark:hover:bg-slate-800 transition-colors" />
                         </div>
                     </Carousel>
                 </div>

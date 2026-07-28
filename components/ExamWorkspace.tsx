@@ -106,14 +106,14 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
     return (
         <div className="flex flex-col lg:flex-row gap-6 xl:gap-8 items-start w-full">
             {/* LEFT SIDEBAR: FILTERS */}
-            <aside className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 lg:sticky lg:top-8">
+            <aside className="w-full lg:w-[320px] shrink-0 bg-card rounded-[2rem] border border-border shadow-sm p-6 lg:sticky lg:top-8">
                 <div className="mb-8">
-                    <h3 className="font-black text-slate-900 mb-4 text-sm uppercase tracking-widest">Search</h3>
+                    <h3 className="font-black text-foreground mb-4 text-sm uppercase tracking-widest">Search</h3>
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Find a paper..."
-                            className="pl-10 h-11 bg-slate-50 border-slate-200 rounded-xl focus-visible:ring-slate-900 transition-all"
+                            className="pl-10 h-11 bg-background border-border rounded-xl focus-visible:ring-ring transition-all"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -121,9 +121,9 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                 </div>
 
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
                         <div className="flex items-center gap-2">
-                            <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest">Filters</h3>
+                            <h3 className="font-black text-foreground text-sm uppercase tracking-widest">Filters</h3>
                             {activeCount > 0 && (
                                 <Badge className="bg-slate-900 text-[10px] h-5 px-1.5 rounded-md">
                                     {activeCount}
@@ -141,7 +141,7 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                         <Accordion type="multiple" defaultValue={["years", "subjects"]} className="w-full">
                             {(Object.keys(filterOptions) as Array<keyof typeof filterOptions>).map((category) => (
                                 <AccordionItem key={category} value={category} className="border-b-0">
-                                    <AccordionTrigger className="hover:no-underline py-3 text-[11px] font-black uppercase text-slate-500 tracking-wider">
+                                    <AccordionTrigger className="hover:no-underline py-3 text-[11px] font-black uppercase text-muted-foreground tracking-wider">
                                         {category}
                                     </AccordionTrigger>
                                     <AccordionContent className="pb-4">
@@ -153,7 +153,7 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                                                         onCheckedChange={() => toggleFilter(category, option)}
                                                         className="border-slate-300 data-[state=checked]:bg-slate-900 rounded-md"
                                                     />
-                                                    <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">
+                                                    <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors">
                                                         {option}
                                                     </span>
                                                 </label>
@@ -171,7 +171,7 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
             <section className="flex-1 min-w-0 w-full">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     {/* sticky sub-nav */}
-                    <div className="sticky top-0 z-20 mb-8 bg-slate-50/80 backdrop-blur-md py-4">
+                    <div className="sticky top-0 z-20 mb-8 bg-background/80 backdrop-blur-md py-4">
                         <MiniNavbar tabs={tabs} activeTab={activeTab} />
                     </div>
 
@@ -187,10 +187,10 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                                 />
                             ))
                         ) : (
-                            <div className="col-span-full py-20 bg-white border border-slate-200 border-dashed rounded-[2rem] flex flex-col items-center text-center">
+                            <div className="col-span-full py-20 bg-card border border-border border-dashed rounded-[2rem] flex flex-col items-center text-center">
                                 <FilterX className="w-12 h-12 text-slate-200 mb-4" />
-                                <h3 className="text-lg font-black text-slate-900">No match found</h3>
-                                <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">
+                                <h3 className="text-lg font-black text-foreground">No match found</h3>
+                                <p className="text-xs text-muted-foreground mt-1 uppercase font-bold tracking-widest">
                                     Try adjusting your search or filters
                                 </p>
                             </div>

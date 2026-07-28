@@ -27,7 +27,7 @@ const SyllabusDropdown = ({ data }: SyllabusDropdownProps) => {
     }
 
     return (
-        <div className="w-full border border-gray-200 rounded-lg bg-white px-6 py-2 mt-4">
+        <div className="w-full border border-border rounded-lg bg-card px-6 py-2 mt-4">
             <Accordion type="single" collapsible>
                 <AccordionItem value="syllabus" className="border-none">
 
@@ -48,7 +48,7 @@ const SyllabusDropdown = ({ data }: SyllabusDropdownProps) => {
 
                                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
                                         {section.topics.map((topic, tIndex) => (
-                                            <li key={tIndex} className="flex items-start gap-3 text-gray-700 text-base">
+                                            <li key={tIndex} className="flex items-start gap-3 text-muted-foreground text-base">
                                                 <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5 stroke-[2.5]" />
                                                 <span className="leading-snug">{topic}</span>
                                             </li>

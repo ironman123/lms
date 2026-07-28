@@ -2,9 +2,9 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 export default function ScoreTrendChart({ data }: { data: { date: string; score: number; accuracy: number }[] }) {
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <h3 className="font-black text-slate-900 mb-1">Performance Trend</h3>
-            <p className="text-xs text-slate-400 mb-6">Your score progression over time</p>
+        <div className="bg-card border border-border rounded-2xl p-6">
+            <h3 className="font-black text-foreground mb-1">Performance Trend</h3>
+            <p className="text-xs text-muted-foreground mb-6">Your score progression over time</p>
             <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={data} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -32,9 +32,9 @@ export default function ScoreTrendChart({ data }: { data: { date: string; score:
 
 // export default function ScoreTrendChart({ data }) {
 //     return (
-//         <div className="bg-white border border-slate-200 rounded-2xl p-6">
-//             <h3 className="font-black text-slate-900 mb-1">Performance Trend</h3>
-//             <p className="text-xs text-slate-400 mb-6">Your score progression over time</p>
+//         <div className="bg-card border border-border rounded-2xl p-6">
+//             <h3 className="font-black text-foreground mb-1">Performance Trend</h3>
+//             <p className="text-xs text-muted-foreground mb-6">Your score progression over time</p>
 //             <ChartContainer config={chartConfig} className="h-[240px] w-full">
 //                 <LineChart data={data}>
 //                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />

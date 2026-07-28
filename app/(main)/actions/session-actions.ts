@@ -8,26 +8,45 @@ import { revalidatePath } from "next/cache";
 import { InteractionMetrics } from "../hooks/useExamTelemetry";
 import { updateUserStats } from "@/lib/stats";
 import { qstash } from "@/lib/qstash";
-import type { InteractionPayload } from "@/app/api/queues/interactions/route";
+import {
+    submittedInteractionMetricsSchema,
+    type InteractionPayload,
+} from "@/lib/session-interactions";
 import { sessionRatelimit, actionRatelimit } from "@/lib/ratelimit";
-import { checkPaperAccess } from "./purchase-actions";
+import { getSessionLaunchAccess } from "@/lib/entitlements";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
     const user = await requireAuth();
 
-    const paperWithBundle = await prisma.productBundle.findFirst({
-        where: { paperIds: { has: paperId }, isActive: true },
-    });
-    if (paperWithBundle)
+    if (mode !== SessionMode.PRACTICE && mode !== SessionMode.MOCK)
     {
-        const hasAccess = await checkPaperAccess(user.id, paperId);
-        if (!hasAccess)
-        {
-            return { success: false, error: "PAYMENT_REQUIRED", bundleId: paperWithBundle.id };
-        }
+        return { success: false, error: "Unsupported session mode." };
     }
 
-    const { success } = await sessionRatelimit.limit(user.id);
+    // These checks are independent once the user is known, so do them together.
+    const [launchAccess, rateLimit] = await Promise.all([
+        getSessionLaunchAccess(user.id, paperId),
+        sessionRatelimit.limit(user.id),
+    ]);
+
+    if (!launchAccess.exists)
+    {
+        return { success: false, error: "Question paper not found." };
+    }
+    if (!launchAccess.allowed)
+    {
+        return {
+            success: false,
+            error: "PAYMENT_REQUIRED",
+            bundleId: launchAccess.bundleId,
+        };
+    }
+    if (launchAccess.questionCount === 0)
+    {
+        return { success: false, error: "This paper has no questions." };
+    }
+
+    const { success } = rateLimit;
     if (!success)
     {
         return {
@@ -38,42 +57,16 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
 
     try
     {
-        const paper = await prisma.questionPaper.findUnique({
-            where: { id: paperId },
-            select: { questions: { select: { id: true } } },
-        });
-
-        if (!paper) throw new Error("Question paper not found.");
-        if (paper.questions.length === 0)
-        {
-            return { success: false, error: "This paper has no questions." };
-        }
-
-        const session = await prisma.$transaction(async (tx) => {
-            const newSession = await tx.testSession.create({
-                data: {
-                    userId: user.id,
-                    paperId,
-                    mode,
-                    totalQuestions: paper.questions.length,
-                },
-            });
-
-            await tx.questionInteraction.createMany({
-                data: paper.questions.map((q) => ({
-                    userId: user.id,
-                    sessionId: newSession.id,
-                    questionId: q.id,
-                    isCorrect: false,
-                    visitCount: 0,
-                    totalDwellTime: 0,
-                    hesitationCount: 0,
-                    isFlagged: false,
-                    wasHinted: false,
-                })),
-            });
-
-            return newSession;
+        // Only the lightweight session row blocks navigation. Interaction rows
+        // are bulk-upserted after submission.
+        const session = await prisma.testSession.create({
+            data: {
+                userId: user.id,
+                paperId,
+                mode,
+                totalQuestions: launchAccess.questionCount,
+            },
+            select: { id: true },
         });
 
         return { success: true, sessionId: session.id };
@@ -94,6 +87,12 @@ export async function completeExamSession(
 
     try
     {
+        const parsedMetrics = submittedInteractionMetricsSchema.safeParse(metrics);
+        if (!parsedMetrics.success)
+        {
+            return { success: false, error: "Invalid session metrics." };
+        }
+
         const session = await prisma.testSession.findUnique({
             where: { id: sessionId, userId: user.id },
             include: {
@@ -132,6 +131,11 @@ export async function completeExamSession(
         const questionMap = new Map(
             session.paper.questions.map((q) => [q.id, q])
         );
+        const submittedByQuestion = new Map(
+            parsedMetrics.data
+                .filter((metric) => questionMap.has(metric.questionId))
+                .map((metric) => [metric.questionId, metric])
+        );
 
         let earnedMarks = 0;
         const totalMarks = session.paper.questions.reduce(
@@ -139,9 +143,20 @@ export async function completeExamSession(
             0
         );
 
-        const verifiedMetrics = metrics.map((m) => {
-            const q = questionMap.get(m.questionId);
-            if (!q) return { ...m, isCorrect: false };
+        // Iterate over authoritative paper questions so forged IDs and
+        // duplicate metrics cannot affect scoring.
+        const verifiedMetrics = session.paper.questions.map((q) => {
+            const m = submittedByQuestion.get(q.id) ?? {
+                questionId: q.id,
+                selectedAnswer: null,
+                visitCount: 0,
+                dwellTimeSeconds: 0,
+                hesitationCount: 0,
+                isFlagged: false,
+                isCorrect: null,
+                wasHinted: false,
+                confidenceLevel: null,
+            };
 
             let isCorrect = false;
             const answer = m.selectedAnswer?.trim();
@@ -181,7 +196,7 @@ export async function completeExamSession(
                 earnedMarks -= q.negativeMarks;
             }
 
-            return { ...m, isCorrect };
+            return { ...m, questionId: q.id, isCorrect };
         });
 
         // ── Aggregate stats ───────────────────────────────────────────────────
@@ -233,6 +248,7 @@ export async function completeExamSession(
                 hesitationCount: m.hesitationCount,
                 isFlagged: m.isFlagged ?? false,
                 wasHinted: m.wasHinted ?? false,
+                confidenceLevel: m.confidenceLevel ?? null,
             })),
         };
 

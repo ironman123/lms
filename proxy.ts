@@ -28,7 +28,10 @@ export async function proxy(request: NextRequest) {
     {
 
 
-        const { data: { user } } = await supabase.auth.getUser()
+        // Modern asymmetric JWTs are verified locally after the signing key
+        // is cached, avoiding an Auth API round trip on every navigation.
+        const { data } = await supabase.auth.getClaims()
+        const isAuthenticated = typeof data?.claims?.sub === 'string'
 
         // Protected routes — redirect to login if not authenticated
         const protectedPaths = ['/dashboard', '/session']
@@ -36,7 +39,7 @@ export async function proxy(request: NextRequest) {
             request.nextUrl.pathname.startsWith(p)
         )
 
-        if (!user && isProtected)
+        if (!isAuthenticated && isProtected)
         {
             const url = request.nextUrl.clone()
             url.pathname = '/login'
@@ -44,7 +47,7 @@ export async function proxy(request: NextRequest) {
         }
 
         // Redirect logged-in users away from login
-        if (user && request.nextUrl.pathname === '/login')
+        if (isAuthenticated && request.nextUrl.pathname === '/login')
         {
             const url = request.nextUrl.clone()
             url.pathname = '/dashboard'

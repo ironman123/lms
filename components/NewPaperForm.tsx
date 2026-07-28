@@ -123,7 +123,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
 
                 {/* Basic Details */}
                 <div className="space-y-6">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                         <Info size={14} /> Paper Details
                     </h3>
 
@@ -188,7 +188,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
                             : <Sparkles className="w-4 h-4 mr-2" />}
                         Magic Import
                     </Button>
-                    <p className="text-xs text-slate-400">Upload the paper PDF to auto-fill title & year.</p>
+                    <p className="text-xs text-muted-foreground">Upload the paper PDF to auto-fill title & year.</p>
                 </div>
 
                 {/* Actions */}

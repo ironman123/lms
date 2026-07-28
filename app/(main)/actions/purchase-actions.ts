@@ -140,27 +140,6 @@ export async function verifyPayment(
     return { success: true };
 }
 
-// ── Internal: check if user has access to a paper ────────────────────────────
-export async function checkPaperAccess(
-    userId: string,
-    paperId: string
-): Promise<boolean> {
-    const access = await prisma.userPurchase.findFirst({
-        where: {
-            userId,
-            status: "PAID",
-            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-            bundle: {
-                OR: [
-                    { paperIds: { has: paperId } },
-                    { bundleType: "FULL_ACCESS" },
-                ],
-            },
-        },
-    });
-    return !!access;
-}
-
 // ── Read: get all bundles for subscription page ───────────────────────────────
 export async function getBundlesForSubscriptionPage() {
     return prisma.productBundle.findMany({

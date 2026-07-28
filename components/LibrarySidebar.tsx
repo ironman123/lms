@@ -55,19 +55,19 @@ export default function LibrarySidebar() {
                 onMouseLeave={() => setIsExpanded(false)}
                 className={cn(
                     "hidden md:flex fixed left-4 top-50 z-40 flex-col overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
-                    "bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-slate-800/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]",
+                    "bg-card/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-slate-800/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]",
                     "rounded-[2rem]",
                     isExpanded ? "w-64 " : "w-[68px]"
                 )}
             >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-slate-200 dark:bg-slate-700 rounded-l-full opacity-50" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-muted dark:bg-slate-700 rounded-l-full opacity-50" />
 
                 <div className="flex flex-col h-full">
                     <div className="flex-1 py-8 space-y-8 overflow-y-auto no-scrollbar">
                         {NAV.map((group) => (
                             <div key={group.section} className="px-3">
                                 <p className={cn(
-                                    "text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] px-4 mb-4 transition-all duration-200",
+                                    "text-[10px] font-black text-muted-foreground dark:text-slate-400 uppercase tracking-[0.2em] px-4 mb-4 transition-all duration-200",
                                     isExpanded ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
                                 )}>
                                     {group.section}
@@ -87,7 +87,7 @@ export default function LibrarySidebar() {
                                                             "group flex items-center gap-4 px-3 py-3 rounded-2xl transition-all duration-300",
                                                             isActive
                                                                 ? "bg-slate-900 dark:bg-slate-800 text-white shadow-lg scale-[1.02]"
-                                                                : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100"
+                                                                : "text-muted-foreground dark:text-slate-400 hover:bg-card/50 dark:hover:bg-slate-800/50 hover:text-foreground dark:hover:text-slate-100"
                                                         )}
                                                     >
                                                         <Icon size={20} className="shrink-0" />
@@ -116,7 +116,7 @@ export default function LibrarySidebar() {
 
 
             {/* MOBILE NAVIGATION */}
-            <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border border-white/20 dark:border-slate-800/20 shadow-2xl rounded-[2rem] overflow-hidden">
+            <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm bg-card/80 dark:bg-slate-900/80 backdrop-blur-lg border border-white/20 dark:border-slate-800/20 shadow-2xl rounded-[2rem] overflow-hidden">
                 <div
                     className="flex items-center justify-start h-16 px-4 gap-2 overflow-x-auto flex-nowrap no-scrollbar touch-pan-x"
                     style={{
@@ -143,7 +143,7 @@ export default function LibrarySidebar() {
                                     "flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-2xl transition-all duration-300",
                                     isActive
                                         ? "bg-slate-900 dark:bg-slate-800 text-white shadow-md"
-                                        : "text-slate-400 dark:text-slate-500 hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
+                                        : "text-muted-foreground dark:text-slate-500 hover:bg-muted/50 dark:hover:bg-slate-800/50"
                                 )}
                             >
                                 <Icon size={20} className="shrink-0" />

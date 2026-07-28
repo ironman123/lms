@@ -20,7 +20,7 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
         <div className="relative">
             <button
                 onClick={() => setOpen(!open)}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-muted dark:hover:bg-slate-800 transition-colors"
             >
                 {avatarUrl ? (
                     <img
@@ -34,10 +34,10 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                     </div>
                 )}
                 <div className="hidden md:block text-left">
-                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-none">{name ?? "User"}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{role}</p>
+                    <p className="text-xs font-bold text-foreground dark:text-slate-100 leading-none">{name ?? "User"}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{role}</p>
                 </div>
-                <ChevronDown size={14} className="text-slate-400 hidden md:block" />
+                <ChevronDown size={14} className="text-muted-foreground hidden md:block" />
             </button>
 
             {open && (
@@ -49,40 +49,40 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                     />
 
                     {/* Dropdown */}
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-20 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{name}</p>
-                            <p className="text-xs text-slate-400 truncate">{email}</p>
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-card dark:bg-slate-900 rounded-2xl border border-border dark:border-slate-800 shadow-xl z-20 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-border/60 dark:border-slate-800">
+                            <p className="text-sm font-bold text-foreground dark:text-slate-100 truncate">{name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{email}</p>
                         </div>
 
                         <div className="p-1.5">
 
                             <a href="/dashboard"
-                                className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"                             >
-                                <User size={15} className="text-slate-400" />
+                                className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"                             >
+                                <User size={15} className="text-muted-foreground" />
                                 Dashboard
                             </a>
 
                             <a
                                 href="/settings"
-                                className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+                                className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
                             >
-                                <SlidersHorizontal size={15} className="text-slate-400" />
+                                <SlidersHorizontal size={15} className="text-muted-foreground" />
                                 Settings
                             </a>
 
                             {role === "ADMIN" && (
 
                                 <a href="/library"
-                                    className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+                                    className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
                                 >
-                                    <Settings size={15} className="text-slate-400" />
+                                    <Settings size={15} className="text-muted-foreground" />
                                     Admin Library
                                 </a>
                             )}
                         </div>
 
-                        <div className="p-1.5 border-t border-slate-100 dark:border-slate-800">
+                        <div className="p-1.5 border-t border-border/60 dark:border-slate-800">
                             <form action={signOut}>
                                 <button
                                     type="submit"

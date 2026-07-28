@@ -99,20 +99,20 @@ export default async function ExamPage({ params }: PageProps) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
 
                 <div className="mb-8 md:mb-10">
                     <Link
                         href={`/library/category/${currentExam.examCategory?.slug}`}
-                        className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mb-6 group"
+                        className="inline-flex items-center text-sm font-bold text-muted-foreground hover:text-foreground transition-colors mb-6 group"
                     >
                         <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
                         Back to {currentExam.examCategory?.name}
                     </Link>
 
-                    <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight italic block">
-                        {currentExam.name} <span className="text-slate-400 font-light not-italic">Workspace</span>
+                    <h1 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight italic block">
+                        {currentExam.name} <span className="text-muted-foreground font-light not-italic">Workspace</span>
                     </h1>
                     {isAdmin && (
                         <Link
@@ -124,21 +124,21 @@ export default async function ExamPage({ params }: PageProps) {
                         </Link>
                     )}
 
-                    <p className="mt-2 text-slate-500 max-w-2xl leading-relaxed text-sm sm:text-base">
+                    <p className="mt-2 text-muted-foreground max-w-2xl leading-relaxed text-sm sm:text-base">
                         {currentExam.description}
                     </p>
                 </div>
 
                 <div className="flex flex-col w-full gap-6 xl:gap-8 items-start">
                     <section className="w-full shrink-0">
-                        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 overflow-hidden relative">
+                        <div className="bg-card rounded-[2rem] border border-border shadow-sm p-6 overflow-hidden relative">
                             <div
                                 className="absolute top-0 right-0 w-32 h-32 blur-[80px] opacity-10 rounded-full"
                                 style={{ backgroundColor: currentExam.color }}
                             />
-                            <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center justify-between relative z-10">
+                            <h2 className="text-lg font-black text-foreground mb-6 flex items-center justify-between relative z-10">
                                 Detailed Syllabus
-                                <span className="text-[10px] uppercase tracking-widest font-black px-3 py-1 bg-slate-100 text-slate-500 rounded-lg">
+                                <span className="text-[10px] uppercase tracking-widest font-black px-3 py-1 bg-muted text-muted-foreground rounded-lg">
                                     {formattedSyllabus.length} Modules
                                 </span>
                             </h2>

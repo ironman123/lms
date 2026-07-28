@@ -1,8 +1,8 @@
 import { X } from "lucide-react";
 import Link from "next/link";
-import SessionTimer from "@/components/SessionTimer";
-import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { getSessionPaper } from "@/lib/session-paper";
+import { Button } from "@/components/ui/button";
 
 export default async function PaperSessionLayout({
     children,
@@ -13,39 +13,38 @@ export default async function PaperSessionLayout({
 }) {
     const { paperId } = await params;
 
-    const paper = await prisma.questionPaper.findUnique({
-        where: { id: paperId },
-        include: {
-            examQuestionPaperLinks: {
-                include: { exam: { select: { slug: true, name: true, duration: true } } },
-                take: 1,
-            },
-        },
-    });
+    // Shared with the page through React cache, so this does not issue a
+    // second paper/cache lookup during the same navigation.
+    const paper = await getSessionPaper(paperId);
 
     if (!paper) notFound();
 
-    const exam = paper.examQuestionPaperLinks[0]?.exam;
-    const durationSeconds = (exam?.duration ?? 60) * 60;
-
     return (
-        <div className="flex flex-col h-screen bg-white">
-            <header className="h-16 border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 bg-white/80 backdrop-blur-md z-50 shrink-0">
+        <div className="flex h-dvh flex-col bg-background">
+            <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur-md md:px-6">
                 <div className="flex items-center gap-4">
-                    <Link
-                        href={exam ? `/exam/${paperId}/lobby` : "/library/paper"}
-                        className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                    <Button
+                        asChild
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-xl bg-card shadow-sm"
                     >
-                        <X size={20} className="text-slate-400" />
-                    </Link>
-                    <div className="h-6 w-px bg-slate-200" />
-                    <h2 className="font-black text-slate-900 tracking-tight text-sm uppercase">
+                        <Link
+                            href="/library/paper"
+                            aria-label="Exit session"
+                            title="Back to papers"
+                        >
+                            <X aria-hidden="true" />
+                        </Link>
+                    </Button>
+                    <div className="h-6 w-px bg-border" />
+                    <h2 className="max-w-[60vw] truncate text-sm font-bold tracking-tight text-foreground md:max-w-[70vw]">
                         {paper.title}
                     </h2>
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto justify-center">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 {children}
             </div>
         </div>

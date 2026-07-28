@@ -218,6 +218,7 @@ model QuestionInteraction {
   isFlagged       Boolean     @default(false)
   wasHinted       Boolean     @default(false)
   confidenceLevel Int?
+  checkpointRevision BigInt      @default(0)
   masteryDelta    Float?
   forgottenAt     DateTime?
   startedAt       DateTime    @default(now())

@@ -20,15 +20,15 @@ export default async function ExamDashboardPage({
     if (!data.exam) notFound();
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8">
 
                 <div>
-                    <Link href="/dashboard" className="inline-flex items-center text-sm text-slate-400 hover:text-slate-900 mb-4 transition-colors">
+                    <Link href="/dashboard" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
                         <ChevronLeft size={14} className="mr-1" /> Back to Overview
                     </Link>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">{data.exam.name}</h1>
-                    <p className="text-slate-500 mt-1 text-sm">Detailed performance analysis across {data.testHistory.length} tests</p>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">{data.exam.name}</h1>
+                    <p className="text-muted-foreground mt-1 text-sm">Detailed performance analysis across {data.testHistory.length} tests</p>
                 </div>
 
                 {/* Score trend */}
@@ -36,22 +36,22 @@ export default async function ExamDashboardPage({
                 {/* 🔥 NEW: Diagnostic Cards */}
                 <div className="grid md:grid-cols-2 gap-6">
                     {/* Time Management Card */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-center">
+                    <div className="bg-card border border-border rounded-3xl p-6 flex flex-col justify-center">
                         <div className="flex items-center gap-2 mb-6">
                             <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center"><Clock size={16} /></div>
-                            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Pacing Analysis</h2>
+                            <h2 className="text-sm font-black text-foreground uppercase tracking-widest">Pacing Analysis</h2>
                         </div>
                         <div className="grid grid-cols-2 gap-6">
                             <div>
-                                <p className="text-xs text-slate-400 font-bold mb-1">Time per Correct</p>
+                                <p className="text-xs text-muted-foreground font-bold mb-1">Time per Correct</p>
                                 <p className="text-2xl font-black text-green-600">{data.diagnostics.avgCorrectTimeSec}s</p>
                             </div>
                             <div>
-                                <p className="text-xs text-slate-400 font-bold mb-1">Time per Incorrect</p>
+                                <p className="text-xs text-muted-foreground font-bold mb-1">Time per Incorrect</p>
                                 <p className="text-2xl font-black text-red-500">{data.diagnostics.avgIncorrectTimeSec}s</p>
                             </div>
                         </div>
-                        <p className="text-xs text-slate-500 mt-6 italic">
+                        <p className="text-xs text-muted-foreground mt-6 italic">
                             {data.diagnostics.avgIncorrectTimeSec > data.diagnostics.avgCorrectTimeSec
                                 ? "You are spending too much time overthinking incorrect answers. Trust your gut!"
                                 : "You are rushing through incorrect answers. Slow down and read carefully."}
@@ -59,22 +59,22 @@ export default async function ExamDashboardPage({
                     </div>
 
                     {/* Behavioral Card ("The Second Guesser") */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-center">
+                    <div className="bg-card border border-border rounded-3xl p-6 flex flex-col justify-center">
                         <div className="flex items-center gap-2 mb-6">
                             <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-500 flex items-center justify-center"><RefreshCcw size={16} /></div>
-                            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">The Second-Guesser</h2>
+                            <h2 className="text-sm font-black text-foreground uppercase tracking-widest">The Second-Guesser</h2>
                         </div>
                         <div className="flex items-end justify-between">
                             <div>
-                                <p className="text-xs text-slate-400 font-bold mb-1">Hesitation Win Rate</p>
-                                <p className="text-3xl font-black text-slate-900">{data.diagnostics.hesitationWinRate}%</p>
+                                <p className="text-xs text-muted-foreground font-bold mb-1">Hesitation Win Rate</p>
+                                <p className="text-3xl font-black text-foreground">{data.diagnostics.hesitationWinRate}%</p>
                             </div>
                             <div className="text-right">
-                                <p className="text-xs text-slate-400 font-bold mb-1">Total Changes</p>
-                                <p className="text-lg font-bold text-slate-700">{data.diagnostics.totalHesitations}</p>
+                                <p className="text-xs text-muted-foreground font-bold mb-1">Total Changes</p>
+                                <p className="text-lg font-bold text-foreground/80">{data.diagnostics.totalHesitations}</p>
                             </div>
                         </div>
-                        <p className="text-xs text-slate-500 mt-6 italic">
+                        <p className="text-xs text-muted-foreground mt-6 italic">
                             {data.diagnostics.hesitationWinRate > 50
                                 ? "When you change your answer, you usually get it right. Good critical thinking!"
                                 : "When you change your answer, you usually get it wrong. Stick to your first instinct!"}

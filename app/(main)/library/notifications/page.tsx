@@ -9,7 +9,7 @@ const TYPE_COLORS: Record<string, string> = {
     EXAM_DATE: "bg-blue-100 text-blue-700",
     NEW_MOCK: "bg-green-100 text-green-700",
     RESULT: "bg-purple-100 text-purple-700",
-    GENERAL: "bg-slate-100 text-slate-600",
+    GENERAL: "bg-muted text-muted-foreground",
 };
 
 function timeAgo(date: Date): string {
@@ -37,14 +37,14 @@ export default async function NotificationsPage() {
     });
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-3xl mx-auto px-4 py-12">
                 <div className="flex items-start justify-between mb-10">
                     <div>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+                        <h1 className="text-4xl font-black text-foreground tracking-tight">
                             Notifications
                         </h1>
-                        <p className="text-slate-500 mt-1">
+                        <p className="text-muted-foreground mt-1">
                             {isAdmin ? "All sent notifications." : "Recent platform updates."}
                         </p>
                     </div>
@@ -59,31 +59,31 @@ export default async function NotificationsPage() {
                 </div>
 
                 {notifications.length === 0 ? (
-                    <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-white">
+                    <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl bg-card">
                         <Bell size={36} className="mx-auto text-slate-200 mb-3" />
-                        <p className="font-bold text-slate-400">No notifications sent yet.</p>
+                        <p className="font-bold text-muted-foreground">No notifications sent yet.</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
                         {notifications.map((n) => (
                             <div
                                 key={n.id}
-                                className="bg-white rounded-2xl border border-slate-200 px-5 py-4 flex items-start gap-4"
+                                className="bg-card rounded-2xl border border-border px-5 py-4 flex items-start gap-4"
                             >
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                                        <p className="text-sm font-bold text-slate-900">{n.title}</p>
+                                        <p className="text-sm font-bold text-foreground">{n.title}</p>
                                         <span className={cn("text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md", TYPE_COLORS[n.type] ?? TYPE_COLORS.GENERAL)}>
                                             {n.type.replace("_", " ")}
                                         </span>
                                         {n.exam && (
-                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500">
+                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
                                                 {n.exam.name}
                                             </span>
                                         )}
                                     </div>
-                                    <p className="text-xs text-slate-500 leading-relaxed">{n.body}</p>
-                                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400">
+                                    <p className="text-xs text-muted-foreground leading-relaxed">{n.body}</p>
+                                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
                                         <span>{timeAgo(n.createdAt)}</span>
                                         {isAdmin && <span>{n._count.logs} delivered</span>}
                                         {n.url && (

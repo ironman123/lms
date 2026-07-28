@@ -37,7 +37,7 @@ const Navbar = async () => {
                 </Show>
                 <Show when="signed-out" >
                     <SignInButton mode="modal">
-                        <button className='button-signin cursor-pointer text-gray-700 hover:text-black hover:scale-105 transition-transform duration-100'>
+                        <button className='button-signin cursor-pointer text-muted-foreground hover:text-foreground hover:scale-105 transition-transform duration-100'>
                             Sign In
                         </button>
                     </SignInButton>
@@ -60,7 +60,7 @@ const Navbar = async () => {
                 ) : (
                     <Link
                         href='/login'
-                        className='button-signin cursor-pointer text-gray-700 hover:text-black hover:scale-105 transition-transform duration-100'
+                        className='button-signin cursor-pointer text-muted-foreground hover:text-foreground hover:scale-105 transition-transform duration-100'
                     >
                         Sign In
                     </Link>

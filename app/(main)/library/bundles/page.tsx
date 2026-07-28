@@ -43,14 +43,14 @@ export default async function BundlesPage() {
     const isAdmin = user?.role === "ADMIN";
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-5xl mx-auto px-4 py-12">
                 <div className="flex items-start justify-between mb-10">
                     <div>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-                            Mock Test <span className="text-slate-400 font-light">Packs</span>
+                        <h1 className="text-4xl font-black text-foreground tracking-tight">
+                            Mock Test <span className="text-muted-foreground font-light">Packs</span>
                         </h1>
-                        <p className="text-slate-500 mt-1">One-time purchase. Lifetime access.</p>
+                        <p className="text-muted-foreground mt-1">One-time purchase. Lifetime access.</p>
                     </div>
                     {isAdmin && (
                         <Link
@@ -63,9 +63,9 @@ export default async function BundlesPage() {
                 </div>
 
                 {bundles.length === 0 ? (
-                    <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-white">
+                    <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl bg-card">
                         <Package size={36} className="mx-auto text-slate-200 mb-3" />
-                        <p className="font-bold text-slate-400">No bundles available yet.</p>
+                        <p className="font-bold text-muted-foreground">No bundles available yet.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -75,8 +75,8 @@ export default async function BundlesPage() {
                                 <div
                                     key={bundle.id}
                                     className={cn(
-                                        "bg-white rounded-3xl border p-6 flex flex-col gap-4 shadow-sm",
-                                        owned ? "border-green-200" : "border-slate-200"
+                                        "bg-card rounded-3xl border p-6 flex flex-col gap-4 shadow-sm",
+                                        owned ? "border-green-200" : "border-border"
                                     )}
                                 >
                                     {/* Exam tag */}
@@ -96,14 +96,14 @@ export default async function BundlesPage() {
 
                                     {/* Name + desc */}
                                     <div className="flex-1">
-                                        <h2 className="text-lg font-black text-slate-900 leading-tight">{bundle.name}</h2>
+                                        <h2 className="text-lg font-black text-foreground leading-tight">{bundle.name}</h2>
                                         {bundle.description && (
-                                            <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">{bundle.description}</p>
+                                            <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{bundle.description}</p>
                                         )}
                                     </div>
 
                                     {/* Meta */}
-                                    <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
+                                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
                                         <span>{bundle.bundleType === "FULL_ACCESS" ? "Full Access" : `${bundle.paperIds.length} Mocks`}</span>
                                         <span>{bundle.validDays ? `${bundle.validDays} days` : "Lifetime"}</span>
                                         <span>{bundle._count.purchases} students</span>
@@ -132,7 +132,7 @@ export default async function BundlesPage() {
                                         </Link>
                                     )}
 
-                                    <p className="text-center text-xl font-black text-slate-900">
+                                    <p className="text-center text-xl font-black text-foreground">
                                         ₹{bundle.price / 100}
                                     </p>
                                 </div>

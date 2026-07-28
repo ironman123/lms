@@ -72,13 +72,13 @@ export default async function PaperLibraryPage({
     const mock = papers.filter((p) => p.year === null);
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
                 <div className="text-center max-w-2xl mx-auto mb-10">
-                    <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4">
-                        Question <span className="text-slate-400 font-light">Papers</span>
+                    <h1 className="text-4xl md:text-5xl font-black text-foreground tracking-tight mb-4">
+                        Question <span className="text-muted-foreground font-light">Papers</span>
                     </h1>
-                    <p className="text-lg text-slate-500 leading-relaxed">
+                    <p className="text-lg text-muted-foreground leading-relaxed">
                         {total} papers total
                     </p>
                 </div>
@@ -101,7 +101,7 @@ export default async function PaperLibraryPage({
 
                 {pyq.length > 0 && (
                     <section className="mb-12">
-                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">
+                        <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-6">
                             Previous Year Papers · {pyq.length}
                         </h2>
                         <div className="flex flex-wrap gap-6">
@@ -133,7 +133,7 @@ export default async function PaperLibraryPage({
 
                 {mock.length > 0 && (
                     <section>
-                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">
+                        <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-6">
                             Mock / Practice Papers · {mock.length}
                         </h2>
                         <div className="flex flex-wrap gap-6">
@@ -163,13 +163,13 @@ export default async function PaperLibraryPage({
                 )}
 
                 {papers.length === 0 && (
-                    <div className="p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center bg-white max-w-2xl mx-auto">
-                        <Search className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
-                        <h3 className="text-lg font-bold text-slate-900">No papers found</h3>
+                    <div className="p-12 border-2 border-dashed border-border rounded-3xl text-center bg-card max-w-2xl mx-auto">
+                        <Search className="w-10 h-10 text-muted-foreground/60 mb-4 mx-auto" />
+                        <h3 className="text-lg font-bold text-foreground">No papers found</h3>
                         {q && (
                             <Link
                                 href="/library/paper"
-                                className="mt-4 inline-block text-sm text-slate-500 hover:text-slate-900"
+                                className="mt-4 inline-block text-sm text-muted-foreground hover:text-foreground"
                             >
                                 Clear search
                             </Link>
@@ -182,18 +182,18 @@ export default async function PaperLibraryPage({
                         {currentPage > 0 && (
                             <Link
                                 href={`?q=${q}&page=${currentPage - 1}`}
-                                className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors"
+                                className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                             >
                                 Previous
                             </Link>
                         )}
-                        <span className="text-sm text-slate-500 font-medium">
+                        <span className="text-sm text-muted-foreground font-medium">
                             {currentPage + 1} / {totalPages}
                         </span>
                         {currentPage < totalPages - 1 && (
                             <Link
                                 href={`?q=${q}&page=${currentPage + 1}`}
-                                className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors"
+                                className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                             >
                                 Next
                             </Link>

@@ -126,7 +126,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                     <FormField control={form.control} name="type" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="font-bold text-xs">Type</FormLabel>
-                            <select {...field} className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900">
+                            <select {...field} className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm outline-none focus:ring-2 focus:ring-ring">
                                 {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </FormItem>
@@ -135,7 +135,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                     <FormField control={form.control} name="difficulty" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="font-bold text-xs">Difficulty</FormLabel>
-                            <select {...field} className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900">
+                            <select {...field} className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm outline-none focus:ring-2 focus:ring-ring">
                                 {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </FormItem>
@@ -200,7 +200,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                 {showOptions && (
                     <div className="space-y-3">
                         <p className="font-bold text-sm">Options
-                            <span className="text-slate-400 font-normal ml-2 text-xs">
+                            <span className="text-muted-foreground font-normal ml-2 text-xs">
                                 {watchedType === 'MSQ' ? '(select all correct)' : '(select one correct)'}
                             </span>
                         </p>
@@ -209,16 +209,16 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                             const isCorrect = correctOptions.includes(idx);
 
                             return (
-                                <div key={field.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${isCorrect ? 'border-green-300 bg-green-50' : 'border-slate-200 bg-white'}`}>
+                                <div key={field.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${isCorrect ? 'border-green-300 bg-green-50' : 'border-border bg-card'}`}>
                                     {/* Correct toggle */}
                                     <button type="button" onClick={() => handleToggleCorrect(idx)}>
                                         {isCorrect
                                             ? <CheckCircle2 size={20} className="text-green-500" />
-                                            : <Circle size={20} className="text-slate-300" />
+                                            : <Circle size={20} className="text-muted-foreground/60" />
                                         }
                                     </button>
 
-                                    <span className="font-mono text-sm text-slate-400 w-5">{String.fromCharCode(65 + idx)}</span>
+                                    <span className="font-mono text-sm text-muted-foreground w-5">{String.fromCharCode(65 + idx)}</span>
 
                                     <FormField control={form.control} name={`options.${idx}.text`} render={({ field: inputField }) => (
                                         <FormItem className="flex-1 space-y-0">
@@ -233,7 +233,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                                         <button
                                             type="button"
                                             onClick={() => remove(idx)}
-                                            className="text-slate-400 hover:text-red-500 transition-colors ml-2 p-1"
+                                            className="text-muted-foreground hover:text-red-500 transition-colors ml-2 p-1"
                                             title="Remove Option"
                                         >
                                             <Trash2 size={16} />
@@ -254,7 +254,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                                 variant="outline"
                                 size="sm"
                                 onClick={() => append({ index: fields.length, text: '' })}
-                                className="mt-2 text-xs border-dashed text-slate-500 hover:text-slate-900"
+                                className="mt-2 text-xs border-dashed text-muted-foreground hover:text-foreground"
                             >
                                 <Plus size={14} className="mr-1" /> Add Option
                             </Button>
@@ -264,9 +264,9 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
 
                 {/* NUMERICAL Fields */}
                 {watchedType === 'NUMERICAL' && (
-                    <div className="space-y-4 p-4 border border-slate-200 rounded-xl bg-slate-50">
+                    <div className="space-y-4 p-4 border border-border rounded-xl bg-background">
                         <p className="font-bold text-sm">Numerical Answer Range</p>
-                        <p className="text-xs text-slate-500 pb-2">Provide an exact answer, OR a valid range.</p>
+                        <p className="text-xs text-muted-foreground pb-2">Provide an exact answer, OR a valid range.</p>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <FormField control={form.control} name="exactAnswer" render={({ field }) => (
@@ -333,7 +333,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
                 )} />
 
                 {/* Action Buttons */}
-                <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                <div className="flex justify-end gap-3 pt-6 border-t border-border/60">
                     <Button
                         type="button"
                         variant="ghost"

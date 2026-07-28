@@ -169,7 +169,7 @@ function ExamPicker({
 
     return (
         <div className="relative space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
                 Assign to Exams <span className="font-normal normal-case">— optional</span>
             </label>
 
@@ -190,29 +190,29 @@ function ExamPicker({
                 </div>
             )}
 
-            <div className="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
-                    <Search size={12} className="text-slate-400 shrink-0" />
+            <div className="border border-border rounded-lg bg-card overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60">
+                    <Search size={12} className="text-muted-foreground shrink-0" />
                     <input
                         type="text"
                         value={query}
                         onChange={e => setQuery(e.target.value)}
                         placeholder="Search exams to add..."
-                        className="flex-1 text-sm outline-none text-slate-700 placeholder:text-slate-300"
+                        className="flex-1 text-sm outline-none text-foreground/80 placeholder:text-muted-foreground/60"
                     />
                 </div>
-                <div className="max-h-32 overflow-y-auto divide-y divide-slate-50">
+                <div className="max-h-32 overflow-y-auto divide-y divide-border/60">
                     {availableExams.length === 0 ? (
-                        <p className="text-xs text-slate-400 px-3 py-3 text-center">No more exams found</p>
+                        <p className="text-xs text-muted-foreground px-3 py-3 text-center">No more exams found</p>
                     ) : (
                         availableExams.map(e => (
                             <button
                                 key={e.id}
                                 type="button"
                                 onClick={() => toggleExam(e.id)}
-                                className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors"
+                                className="w-full text-left px-3 py-2 hover:bg-background transition-colors"
                             >
-                                <p className="text-xs font-medium text-slate-700">{e.name}</p>
+                                <p className="text-xs font-medium text-foreground/80">{e.name}</p>
                             </button>
                         ))
                     )}
@@ -237,9 +237,9 @@ function QuestionGrid({
     const unsavedCount = questions.length - savedCount;
 
     return (
-        <div className="sticky top-0 z-10 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <div className="sticky top-0 z-10 bg-card border border-border rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
                     Questions · {questions.length}
                 </span>
                 {unsavedCount > 0 && (
@@ -273,14 +273,14 @@ function QuestionGrid({
             {questions.length > 0 && (
                 <>
                     <div className="flex gap-4 mt-3">
-                        <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-sm bg-green-400 inline-block" /> Saved
                         </span>
-                        <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-sm bg-red-400 inline-block" /> Unsaved
                         </span>
                     </div>
-                    <div className="mt-2.5 h-1 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="mt-2.5 h-1 bg-muted rounded-full overflow-hidden">
                         <div
                             className="h-full bg-green-400 rounded-full transition-all duration-500"
                             style={{ width: `${questions.length ? (savedCount / questions.length) * 100 : 0}%` }}
@@ -492,14 +492,14 @@ export default function PaperBuilder({
     });
 
     return (
-        <div className="min-h-screen bg-[#F8F7F4]">
+        <div className="min-h-screen bg-background">
             <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
 
                 {/* ── Header bar ── */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Paper Builder</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">
+                        <h1 className="text-2xl font-black text-foreground tracking-tight">Paper Builder</h1>
+                        <p className="text-sm text-muted-foreground mt-0.5">
                             {paperSaved ? `${savedCount}/${totalCount} questions saved` : "Create paper, then save questions"}
                         </p>
                     </div>
@@ -526,31 +526,31 @@ export default function PaperBuilder({
                 </div>
 
                 {/* ── Paper metadata card ── */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
-                    <div className="flex items-center gap-2 text-slate-800 font-black text-sm uppercase tracking-widest">
-                        <FileText size={14} className="text-slate-400" />
+                <div className="bg-card rounded-2xl border border-border shadow-sm p-6 space-y-5">
+                    <div className="flex items-center gap-2 text-foreground font-black text-sm uppercase tracking-widest">
+                        <FileText size={14} className="text-muted-foreground" />
                         Paper Details
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-4">
                         <div>
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Title</label>
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1.5 block">Title</label>
                                 <input
                                     type="text"
                                     value={title}
                                     onChange={e => setTitle(e.target.value)}
                                     //disabled={paperSaved}
                                     placeholder="e.g. KPSC Assistant Grade II - 2023"
-                                    className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
+                                    className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring disabled:bg-background disabled:text-muted-foreground"
                                 />
                             </div>
                             <div>
-                                <label className="mt-3 text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Type</label>
+                                <label className="mt-3 text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1.5 block">Type</label>
                                 <select
                                     value={type}
                                     onChange={e => setType(e.target.value as QuestionPaperType)}
-                                    className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
+                                    className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-1 focus:ring-ring cursor-pointer"
                                 >
                                     {Object.values(QuestionPaperType).map((paperType) => (
                                         <option key={paperType} value={paperType}>
@@ -561,14 +561,14 @@ export default function PaperBuilder({
                             </div>
                         </div>
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Year</label>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1.5 block">Year</label>
                             <input
                                 type="number"
                                 value={year}
                                 onChange={e => setYear(e.target.value ? parseInt(e.target.value) : "")}
                                 //disabled={paperSaved}
                                 placeholder="2023"
-                                className="w-full h-10 px-3 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
+                                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring disabled:bg-background disabled:text-muted-foreground"
                             />
                         </div>
 
@@ -619,7 +619,7 @@ export default function PaperBuilder({
                 {questions.length > 0 && (
                     <div className="space-y-3">
                         <div className="flex items-center justify-between px-1">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                                 Questions · {totalCount}
                             </span>
                             {paperSaved && (
@@ -654,17 +654,17 @@ export default function PaperBuilder({
 
                 {/* ── Empty state ── */}
                 {questions.length === 0 && (
-                    <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl bg-white">
+                    <div className="text-center py-20 border-2 border-dashed border-border rounded-2xl bg-card">
                         <BookOpen className="mx-auto mb-3 text-slate-200" size={36} />
-                        <p className="font-bold text-slate-400">No questions yet</p>
-                        <p className="text-sm text-slate-300 mt-1">Use Magic Import or add manually</p>
+                        <p className="font-bold text-muted-foreground">No questions yet</p>
+                        <p className="text-sm text-muted-foreground/60 mt-1">Use Magic Import or add manually</p>
                     </div>
                 )}
 
                 <button
                     type="button"
                     onClick={addQuestion}
-                    className="w-full h-14 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-slate-400 hover:text-slate-600 transition-colors font-bold text-sm flex items-center justify-center gap-2 bg-white"
+                    className="w-full h-14 border-2 border-dashed border-border rounded-2xl text-muted-foreground hover:border-slate-400 hover:text-muted-foreground transition-colors font-bold text-sm flex items-center justify-center gap-2 bg-card"
                 >
                     <Plus size={16} /> Add Question
                 </button>

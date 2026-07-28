@@ -77,7 +77,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
             <div className="flex-1">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8 bg-card p-8 rounded-2xl border border-border shadow-sm">
 
                         <FormField
                             control={form.control}
@@ -182,7 +182,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
                                                 <Button
                                                     type="button"
                                                     variant="outline"
-                                                    className="w-full h-32 border-dashed border-2 flex-col gap-2 hover:bg-slate-50 transition-all"
+                                                    className="w-full h-32 border-dashed border-2 flex-col gap-2 hover:bg-background transition-all"
                                                     onClick={() => open()}
                                                 >
                                                     {field.value && field.value !== "adnan-saifee-zmr9TeA7WjU-unsplash_jpxf7l.jpg" ? (
@@ -190,16 +190,16 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
                                                             <span className="text-emerald-600 font-bold flex items-center gap-2">
                                                                 <CheckCircle2 size={18} /> Custom Image Linked
                                                             </span>
-                                                            <span className="text-xs text-slate-400 font-mono truncate max-w-[200px]">
+                                                            <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">
                                                                 {field.value}
                                                             </span>
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <ImageIcon className="text-slate-400" />
+                                                            <ImageIcon className="text-muted-foreground" />
                                                             <div className="text-center">
                                                                 <p className="text-sm font-medium">Upload Banner Image</p>
-                                                                <p className="text-xs text-slate-400 mt-1">Leave empty to use default banner</p>
+                                                                <p className="text-xs text-muted-foreground mt-1">Leave empty to use default banner</p>
                                                             </div>
                                                         </>
                                                     )}
@@ -242,7 +242,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
 
             {/* Preview */}
             <div className="w-full lg:w-[380px] lg:sticky lg:top-8">
-                <p className="text-[13px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6">
+                <p className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-6">
                     Card Preview
                 </p>
                 <div className="pointer-events-none opacity-90 scale-95 origin-top">

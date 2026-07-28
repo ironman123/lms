@@ -27,8 +27,8 @@ const Page = () => {
         <section>
           {/* 🔥 FIX: Grouped the heading properly above the grid */}
           <div className="mb-8 flex items-center justify-between">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Exam Categories</h1>
-            <Link href="/library/category" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors group">
+            <h1 className="text-3xl font-black text-foreground tracking-tight">Exam Categories</h1>
+            <Link href="/library/category" className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors group">
               Explore all categories <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
@@ -53,8 +53,8 @@ const Page = () => {
         <section>
           <div className="mb-8 flex items-center justify-between">
             {/* 🔥 FIX: Changed title to Popular Papers */}
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Popular Papers</h1>
-            <Link href="/library/paper" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors group">
+            <h1 className="text-3xl font-black text-foreground tracking-tight">Popular Papers</h1>
+            <Link href="/library/paper" className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors group">
               Browse all papers <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
             </Link>
           </div>

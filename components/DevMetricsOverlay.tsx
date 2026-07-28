@@ -75,7 +75,7 @@ export default function DevMetricsOverlay({ sessionMode, sessionId, userId, metr
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
             >
-                <div className="flex items-center gap-2 text-slate-400">
+                <div className="flex items-center gap-2 text-slate-500">
                     <GripHorizontal size={14} />
                     <span className="font-bold tracking-wider text-green-400">DEV_METRICS</span>
                 </div>
@@ -98,11 +98,11 @@ export default function DevMetricsOverlay({ sessionMode, sessionId, userId, metr
                     </div>
                     <div className="flex justify-between items-center text-[10px]">
                         <span className="flex items-center gap-1 text-slate-500"><Fingerprint size={10} /> User</span>
-                        <span className="text-slate-400">{truncate(userId)}</span>
+                        <span className="text-slate-500">{truncate(userId)}</span>
                     </div>
                     <div className="flex justify-between items-center text-[10px]">
                         <span className="flex items-center gap-1 text-slate-500"><Activity size={10} /> Session</span>
-                        <span className="text-slate-400">{truncate(sessionId)}</span>
+                        <span className="text-slate-500">{truncate(sessionId)}</span>
                     </div>
                 </div>
 
@@ -110,7 +110,7 @@ export default function DevMetricsOverlay({ sessionMode, sessionId, userId, metr
                 <div className="space-y-2">
                     <div className="text-slate-500 font-bold border-b border-slate-700 pb-1 mb-2 flex justify-between">
                         <span>Current Interaction</span>
-                        <span className="text-slate-600">QID: {truncate(metrics.questionId)}</span>
+                        <span className="text-slate-500">QID: {truncate(metrics.questionId)}</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -124,13 +124,13 @@ export default function DevMetricsOverlay({ sessionMode, sessionId, userId, metr
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="flex items-center gap-1 text-slate-500"><AlertTriangle size={10} /> Hesitate</span>
-                            <span className={metrics.hesitationCount > 0 ? "text-red-400" : "text-slate-400"}>
+                            <span className={metrics.hesitationCount > 0 ? "text-red-400" : "text-slate-500"}>
                                 {metrics.hesitationCount}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-slate-500">Flagged</span>
-                            <span className={metrics.isFlagged ? "text-orange-400" : "text-slate-600"}>
+                            <span className={metrics.isFlagged ? "text-orange-400" : "text-slate-500"}>
                                 {metrics.isFlagged ? "True" : "False"}
                             </span>
                         </div>
@@ -140,19 +140,19 @@ export default function DevMetricsOverlay({ sessionMode, sessionId, userId, metr
                     <div className="mt-2 pt-2 border-t border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">
                             <span className="flex items-center gap-1 text-slate-500"><CheckCircle2 size={10} /> Answer</span>
-                            <span className={metrics.selectedAnswer ? "text-emerald-400" : "text-slate-600"}>
+                            <span className={metrics.selectedAnswer ? "text-emerald-400" : "text-slate-500"}>
                                 {metrics.selectedAnswer ? truncate(metrics.selectedAnswer) : "NULL"}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-slate-500">Is Correct</span>
-                            <span className={metrics.isCorrect === true ? "text-emerald-400" : metrics.isCorrect === false ? "text-red-400" : "text-slate-600"}>
+                            <span className={metrics.isCorrect === true ? "text-emerald-400" : metrics.isCorrect === false ? "text-red-400" : "text-slate-500"}>
                                 {metrics.isCorrect === null ? "NULL" : String(metrics.isCorrect)}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="flex items-center gap-1 text-slate-500"><HelpCircle size={10} /> Hinted</span>
-                            <span className={metrics.wasHinted ? "text-cyan-400" : "text-slate-600"}>
+                            <span className={metrics.wasHinted ? "text-cyan-400" : "text-slate-500"}>
                                 {metrics.wasHinted ? "True" : "False"}
                             </span>
                         </div>
@@ -171,7 +171,7 @@ export default function DevMetricsOverlay({ sessionMode, sessionId, userId, metr
                                 <span className="text-slate-500 text-[9px] shrink-0">{act.time}</span>
                             </li>
                         )) : (
-                            <li className="text-slate-600 italic text-center py-1">No recent activity</li>
+                            <li className="text-slate-500 italic text-center py-1">No recent activity</li>
                         )}
                     </ul>
                 </div>

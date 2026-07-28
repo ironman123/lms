@@ -54,31 +54,31 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
 
             {/* Existing Questions */}
             {initialQuestions.map((q, i) => (
-                <div key={q.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div key={q.id} className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
 
                     {/* Question Header Row */}
                     <div className="flex items-start gap-4 p-5">
-                        <span className="text-slate-300 font-black text-lg w-6 shrink-0">{i + 1}</span>
+                        <span className="text-muted-foreground/60 font-black text-lg w-6 shrink-0">{i + 1}</span>
 
                         <div className="flex-1 min-w-0">
-                            <p className="text-slate-800 font-medium leading-snug line-clamp-2">{q.content}</p>
+                            <p className="text-foreground font-medium leading-snug line-clamp-2">{q.content}</p>
                             <div className="flex flex-wrap gap-2 mt-2">
                                 <Badge variant="outline" className="text-xs">{q.type}</Badge>
                                 <Badge className={`text-xs ${DIFFICULTY_COLOR[q.difficulty]}`}>{q.difficulty}</Badge>
-                                <span className="text-xs text-slate-400">{q.marks}M / -{q.negativeMarks}M</span>
+                                <span className="text-xs text-muted-foreground">{q.marks}M / -{q.negativeMarks}M</span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-700"
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground/80"
                                 onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}>
                                 {expandedId === q.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-600"
                                 onClick={() => { setEditingId(q.id); setShowForm(false); }}>
                                 <Pencil size={15} />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500"
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500"
                                 onClick={() => handleDelete(q.id)}>
                                 <Trash2 size={15} />
                             </Button>
@@ -87,25 +87,25 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
 
                     {/* Expanded: options / answer */}
                     {expandedId === q.id && (
-                        <div className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-2">
+                        <div className="px-5 pb-5 border-t border-border/60 pt-4 space-y-2">
                             {q.options.map((o, oi) => (
-                                <div key={o.id} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${o.isCorrect ? 'bg-green-50 text-green-800 font-medium' : 'text-slate-600'}`}>
+                                <div key={o.id} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${o.isCorrect ? 'bg-green-50 text-green-800 font-medium' : 'text-muted-foreground'}`}>
                                     <span className="font-mono text-xs w-5">{String.fromCharCode(65 + oi)}.</span>
                                     {o.text}
                                 </div>
                             ))}
                             {q.correctAnswer && (
-                                <p className="text-sm text-slate-600">Answer: <span className="font-bold">{q.correctAnswer}</span></p>
+                                <p className="text-sm text-muted-foreground">Answer: <span className="font-bold">{q.correctAnswer}</span></p>
                             )}
                             {q.explanation && (
-                                <p className="text-xs text-slate-400 italic mt-2">{q.explanation}</p>
+                                <p className="text-xs text-muted-foreground italic mt-2">{q.explanation}</p>
                             )}
                         </div>
                     )}
 
                     {/* Inline Edit Form */}
                     {editingId === q.id && (
-                        <div className="border-t border-slate-100 p-5">
+                        <div className="border-t border-border/60 p-5">
                             <QuestionForm
                                 paperId={paperId}
                                 examSlug={examSlug}
@@ -120,7 +120,7 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
 
             {/* Empty State */}
             {initialQuestions.length === 0 && !showForm && (
-                <div className="text-center py-16 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-2xl">
                     <BookOpen className="mx-auto mb-3 opacity-30" size={32} />
                     <p className="font-medium">No questions yet</p>
                     <p className="text-sm mt-1">Click "Add Question" to get started</p>
@@ -129,8 +129,8 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
 
             {/* Add New Question Form */}
             {showForm && (
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6">
+                <div className="bg-card border border-border rounded-2xl shadow-sm p-6">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground mb-6">
                         New Question
                     </h3>
                     <QuestionForm
@@ -147,7 +147,7 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
                 <Button
                     type="button"
                     variant="outline"
-                    className="w-full h-14 border-dashed border-slate-300 text-slate-500 hover:border-slate-900 hover:text-slate-900 rounded-2xl font-bold"
+                    className="w-full h-14 border-dashed border-slate-300 text-muted-foreground hover:border-foreground hover:text-foreground rounded-2xl font-bold"
                     onClick={() => { setShowForm(true); setEditingId(null); }}
                 >
                     <Plus className="w-4 h-4 mr-2" /> Add Question

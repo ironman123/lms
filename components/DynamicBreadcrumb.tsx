@@ -46,7 +46,7 @@ const DynamicBreadcrumb = () => {
                                 {/* Every mapped item gets a separator before it */}
                                 <BreadcrumbSeparator />
 
-                                <BreadcrumbItem className={"text-gray-700 hover:text-black transition"}>
+                                <BreadcrumbItem className={"text-muted-foreground hover:text-foreground transition"}>
                                     {isLast ? (
                                         // If it's the last item, it's the current page (not a link)
                                         <BreadcrumbPage className="text-primary font-bold">{displayText}</BreadcrumbPage>

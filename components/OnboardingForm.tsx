@@ -64,7 +64,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
             <div className="w-full max-w-lg">
                 {/* Progress */}
                 <div className="flex items-center gap-2 mb-8">
@@ -75,7 +75,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                                     "w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-colors",
                                     step >= s
                                         ? "bg-slate-900 text-white"
-                                        : "bg-slate-200 text-slate-400"
+                                        : "bg-muted text-muted-foreground"
                                 )}
                             >
                                 {s}
@@ -84,7 +84,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                                 <div
                                     className={cn(
                                         "h-0.5 flex-1 transition-colors",
-                                        step > s ? "bg-slate-900" : "bg-slate-200"
+                                        step > s ? "bg-slate-900" : "bg-muted"
                                     )}
                                 />
                             )}
@@ -92,15 +92,15 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                     ))}
                 </div>
 
-                <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                <div className="bg-card rounded-3xl border border-border p-8 shadow-sm">
 
                     {/* ── Step 1: Name ── */}
                     {step === 1 && (
                         <div className="space-y-6">
                             <div>
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Step 1 of 3</p>
-                                <h1 className="text-2xl font-black text-slate-900">What should we call you?</h1>
-                                <p className="text-sm text-slate-500 mt-1">This is how your name appears across the platform.</p>
+                                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">Step 1 of 3</p>
+                                <h1 className="text-2xl font-black text-foreground">What should we call you?</h1>
+                                <p className="text-sm text-muted-foreground mt-1">This is how your name appears across the platform.</p>
                             </div>
                             <div>
                                 <input
@@ -108,7 +108,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     placeholder="Your full name"
-                                    className="w-full h-12 px-4 rounded-2xl border-2 border-slate-200 text-sm font-bold outline-none focus:border-slate-900 transition-colors"
+                                    className="w-full h-12 px-4 rounded-2xl border-2 border-border text-sm font-bold outline-none focus:border-foreground transition-colors"
                                     autoFocus
                                 />
                                 {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
@@ -130,25 +130,25 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                     {step === 2 && (
                         <div className="space-y-5">
                             <div>
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Step 2 of 3</p>
-                                <h1 className="text-2xl font-black text-slate-900">Which exams are you preparing for?</h1>
-                                <p className="text-sm text-slate-500 mt-1">Select all that apply. You can change this later.</p>
+                                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">Step 2 of 3</p>
+                                <h1 className="text-2xl font-black text-foreground">Which exams are you preparing for?</h1>
+                                <p className="text-sm text-muted-foreground mt-1">Select all that apply. You can change this later.</p>
                             </div>
 
                             <div className="relative">
-                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <input
                                     type="text"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     placeholder="Search exams..."
-                                    className="w-full h-10 pl-9 pr-4 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 transition-colors bg-slate-50"
+                                    className="w-full h-10 pl-9 pr-4 rounded-xl border border-border text-sm outline-none focus:border-slate-400 transition-colors bg-background"
                                 />
                             </div>
 
                             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                                 {filteredExams.length === 0 && (
-                                    <p className="text-sm text-slate-400 text-center py-6">No exams found.</p>
+                                    <p className="text-sm text-muted-foreground text-center py-6">No exams found.</p>
                                 )}
                                 {filteredExams.map((exam) => {
                                     const selected = selectedExams.includes(exam.id);
@@ -159,19 +159,19 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                                             className={cn(
                                                 "w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all",
                                                 selected
-                                                    ? "border-slate-900 bg-slate-50"
-                                                    : "border-slate-100 hover:border-slate-200"
+                                                    ? "border-foreground bg-background"
+                                                    : "border-border/60 hover:border-border"
                                             )}
                                         >
                                             {selected ? (
-                                                <CheckCircle2 size={18} className="text-slate-900 shrink-0" />
+                                                <CheckCircle2 size={18} className="text-foreground shrink-0" />
                                             ) : (
-                                                <Circle size={18} className="text-slate-300 shrink-0" />
+                                                <Circle size={18} className="text-muted-foreground/60 shrink-0" />
                                             )}
                                             <div className="min-w-0">
-                                                <p className="text-sm font-bold text-slate-900 truncate">{exam.name}</p>
+                                                <p className="text-sm font-bold text-foreground truncate">{exam.name}</p>
                                                 {exam.examCategory && (
-                                                    <p className="text-[10px] text-slate-400 font-medium">{exam.examCategory.name}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-medium">{exam.examCategory.name}</p>
                                                 )}
                                             </div>
                                         </button>
@@ -180,7 +180,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                             </div>
 
                             {selectedExams.length > 0 && (
-                                <p className="text-xs font-bold text-slate-500">
+                                <p className="text-xs font-bold text-muted-foreground">
                                     {selectedExams.length} exam{selectedExams.length > 1 ? "s" : ""} selected
                                 </p>
                             )}
@@ -188,7 +188,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setStep(1)}
-                                    className="flex-1 h-12 border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:border-slate-400 transition-colors"
+                                    className="flex-1 h-12 border border-border text-muted-foreground rounded-2xl font-bold text-sm hover:border-slate-400 transition-colors"
                                 >
                                     Back
                                 </button>
@@ -206,28 +206,28 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                     {step === 3 && (
                         <div className="space-y-5">
                             <div>
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Step 3 of 3 · Optional</p>
-                                <h1 className="text-2xl font-black text-slate-900">A little more about you</h1>
-                                <p className="text-sm text-slate-500 mt-1">Helps us personalise your experience. Skip if you prefer.</p>
+                                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">Step 3 of 3 · Optional</p>
+                                <h1 className="text-2xl font-black text-foreground">A little more about you</h1>
+                                <p className="text-sm text-muted-foreground mt-1">Helps us personalise your experience. Skip if you prefer.</p>
                             </div>
 
                             <div className="space-y-3">
                                 <div>
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-1.5">College / Institution</label>
+                                    <label className="text-xs font-black text-muted-foreground uppercase tracking-wider block mb-1.5">College / Institution</label>
                                     <input
                                         type="text"
                                         value={college}
                                         onChange={(e) => setCollege(e.target.value)}
                                         placeholder="e.g. University of Mysore"
-                                        className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 transition-colors"
+                                        className="w-full h-11 px-4 rounded-xl border border-border text-sm outline-none focus:border-slate-400 transition-colors"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-1.5">State</label>
+                                    <label className="text-xs font-black text-muted-foreground uppercase tracking-wider block mb-1.5">State</label>
                                     <select
                                         value={region}
                                         onChange={(e) => setRegion(e.target.value)}
-                                        className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 transition-colors bg-white"
+                                        className="w-full h-11 px-4 rounded-xl border border-border text-sm outline-none focus:border-slate-400 transition-colors bg-card"
                                     >
                                         <option value="">Select your state</option>
                                         {REGIONS.map((r) => (
@@ -240,7 +240,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setStep(2)}
-                                    className="flex-1 h-12 border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:border-slate-400 transition-colors"
+                                    className="flex-1 h-12 border border-border text-muted-foreground rounded-2xl font-bold text-sm hover:border-slate-400 transition-colors"
                                 >
                                     Back
                                 </button>
@@ -260,7 +260,7 @@ export default function OnboardingForm({ exams, defaultName }: Props) {
                             <button
                                 onClick={handleSubmit}
                                 disabled={isPending}
-                                className="w-full text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                                className="w-full text-xs text-muted-foreground hover:text-muted-foreground transition-colors"
                             >
                                 Skip for now
                             </button>

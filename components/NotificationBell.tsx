@@ -36,7 +36,7 @@ const TYPE_COLORS: Record<string, string> = {
     EXAM_DATE: "bg-blue-100 text-blue-700",
     NEW_MOCK: "bg-green-100 text-green-700",
     RESULT: "bg-purple-100 text-purple-700",
-    GENERAL: "bg-slate-100 text-slate-600",
+    GENERAL: "bg-muted text-muted-foreground",
 };
 
 export default function NotificationBell({ notifications, seenAt }: Props) {
@@ -65,10 +65,10 @@ export default function NotificationBell({ notifications, seenAt }: Props) {
         <div className="relative">
             <button
                 onClick={handleOpen}
-                className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-colors"
+                className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-muted transition-colors"
                 aria-label="Notifications"
             >
-                <Bell size={18} className="text-slate-600" />
+                <Bell size={18} className="text-muted-foreground" />
                 {hasUnread && (
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
                 )}
@@ -77,10 +77,10 @@ export default function NotificationBell({ notifications, seenAt }: Props) {
             {open && (
                 <>
                     <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl z-20 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="text-sm font-black text-slate-900">Notifications</h3>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-card rounded-2xl border border-border shadow-xl z-20 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
+                            <h3 className="text-sm font-black text-foreground">Notifications</h3>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                 {notifications.length} recent
                             </span>
                         </div>
@@ -88,7 +88,7 @@ export default function NotificationBell({ notifications, seenAt }: Props) {
                         <div className="max-h-96 overflow-y-auto">
                             {notifications.length === 0 ? (
                                 <div className="p-6 text-center">
-                                    <p className="text-sm text-slate-400">No notifications yet.</p>
+                                    <p className="text-sm text-muted-foreground">No notifications yet.</p>
                                 </div>
                             ) : (
                                 notifications.map((n) => {
@@ -98,7 +98,7 @@ export default function NotificationBell({ notifications, seenAt }: Props) {
                                     const content = (
                                         <div
                                             className={cn(
-                                                "px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors",
+                                                "px-4 py-3 border-b border-slate-50 hover:bg-background transition-colors",
                                                 isNew && "bg-blue-50/40"
                                             )}
                                         >
@@ -108,7 +108,7 @@ export default function NotificationBell({ notifications, seenAt }: Props) {
                                                 )}
                                                 <div className={cn("flex-1 min-w-0", !isNew && "pl-4")}>
                                                     <div className="flex items-center gap-2 mb-0.5">
-                                                        <p className="text-sm font-bold text-slate-900 truncate">
+                                                        <p className="text-sm font-bold text-foreground truncate">
                                                             {n.title}
                                                         </p>
                                                         <span
@@ -120,10 +120,10 @@ export default function NotificationBell({ notifications, seenAt }: Props) {
                                                             {n.type.replace("_", " ")}
                                                         </span>
                                                     </div>
-                                                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                                                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                                                         {n.body}
                                                     </p>
-                                                    <p className="text-[10px] text-slate-400 mt-1">
+                                                    <p className="text-[10px] text-muted-foreground mt-1">
                                                         {timeAgo(n.createdAt)}
                                                     </p>
                                                 </div>

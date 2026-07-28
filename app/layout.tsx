@@ -5,7 +5,7 @@ import "./(main)/globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 const bricolage = Bricolage_Grotesque({
-    variable: "--font-bricolage",
+    variable: "--font-app",
     subsets: ["latin"],
 });
 
@@ -21,7 +21,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className={`${bricolage.variable} antialiased transition-colors duration-300 ease-in-out`}>
+            <body className={`${bricolage.variable} min-h-dvh bg-background text-foreground antialiased`}>
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="system"

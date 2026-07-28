@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createExamSession } from "@/app/(main)/actions/session-actions"; // The action we created earlier
@@ -9,47 +9,61 @@ import { cn } from "@/lib/utils";
 import { SessionMode } from "@prisma/client";
 
 interface StartButtonProps {
-    examId: string;
     paperId: string;
     mode: SessionMode
     label: string;
     variant?: "default" | "outline";
 }
 
-export default function StartExamButton({ examId, paperId, mode, label, variant = "default" }: StartButtonProps) {
+export default function StartExamButton({ paperId, mode, label, variant = "default" }: StartButtonProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+    const [error, setError] = useState<string | null>(null);
 
     const handleStart = async () => {
+        setError(null);
         startTransition(async () => {
             const result = await createExamSession(paperId, mode);
             if (result.success)
             {
                 router.push(`/exam/${paperId}/${mode.toLowerCase()}?sessionId=${result.sessionId}`);
+            } else if (result.error === "PAYMENT_REQUIRED")
+            {
+                router.push(`/subscription?bundleId=${result.bundleId}`);
+            } else
+            {
+                setError(result.error ?? "Unable to start this session.");
             }
         });
     };
 
     return (
-        <Button
-            onClick={handleStart}
-            disabled={isPending}
-            variant={variant}
-            className={cn(
-                "flex-1 h-16 rounded-2xl font-black text-lg transition-all hover:scale-[1.02] active:scale-95",
-                variant === "default" && "bg-slate-900 text-white hover:bg-slate-800 shadow-2xl",
-                variant === "outline" && "border-2 border-slate-200 hover:bg-slate-50 text-slate-900"
+        <div className="flex flex-1 flex-col gap-2">
+            <Button
+                onClick={handleStart}
+                disabled={isPending}
+                variant={variant}
+                className={cn(
+                    "h-16 w-full rounded-2xl font-black text-lg transition-all hover:scale-[1.02] active:scale-95",
+                    variant === "default" && "shadow-sm",
+                    variant === "outline" && "border-2 border-border bg-background text-foreground hover:bg-accent"
+                )}
+            >
+                {isPending ? (
+                    <>
+                        <Loader2 className="animate-spin h-6 w-6 mr-2" />
+                        Starting {mode.toLowerCase()}...
+                    </>
+                ) : (
+                    label
+                )}
+            </Button>
+            {error && (
+                <p role="alert" className="text-center text-xs font-semibold text-destructive">
+                    {error}
+                </p>
             )}
-        >
-            {isPending ? (
-                <>
-                    <Loader2 className="animate-spin h-6 w-6 mr-2" />
-                    Starting {mode.toLowerCase()}...
-                </>
-            ) : (
-                label
-            )}
-        </ Button >
+        </div>
     );
 };
 

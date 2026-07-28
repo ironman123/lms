@@ -4,7 +4,7 @@ import { TrendingUp, TrendingDown, Minus, ChevronRight } from "lucide-react";
 const TREND_CONFIG = {
     improving: { icon: TrendingUp, label: "Improving", class: "text-green-600 bg-green-50 border-green-200" },
     declining: { icon: TrendingDown, label: "Declining", class: "text-red-600 bg-red-50 border-red-200" },
-    neutral: { icon: Minus, label: "Stable", class: "text-slate-500 bg-slate-50 border-slate-200" },
+    neutral: { icon: Minus, label: "Stable", class: "text-muted-foreground bg-background border-border" },
 };
 
 export default function ExamPerformanceCard({
@@ -19,20 +19,20 @@ export default function ExamPerformanceCard({
     const improvementScope = 100 - bestScore;
 
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-slate-300 transition-colors">
+        <div className="bg-card border border-border rounded-2xl p-6 hover:border-slate-300 transition-colors">
             <div className="flex items-start justify-between mb-4">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-black text-slate-900">{examName}</h3>
+                        <h3 className="font-black text-foreground">{examName}</h3>
                         <span className={`flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${t.class}`}>
                             <TrendIcon size={11} /> {t.label}
                         </span>
                     </div>
-                    <p className="text-xs text-slate-400">{testsAttempted} test{testsAttempted !== 1 ? "s" : ""} attempted</p>
+                    <p className="text-xs text-muted-foreground">{testsAttempted} test{testsAttempted !== 1 ? "s" : ""} attempted</p>
                 </div>
                 <Link
                     href={`/dashboard/exam/${examId}`}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors"
+                    className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
                 >
                     View details <ChevronRight size={13} />
                 </Link>

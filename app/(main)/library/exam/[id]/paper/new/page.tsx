@@ -51,11 +51,11 @@ export default async function NewPaperPage({ params, searchParams }: PageProps) 
     if (!exam) notFound();
 
     return (
-        <div className="min-h-screen w-full bg-[#F8F7F4]" >
+        <div className="min-h-screen w-full bg-background" >
             <div className="max-w-3xl mx-auto px-4 pt-8">
                 <Link
                     href={`/library/exam/${exam.slug}`}
-                    className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mb-6 group"
+                    className="inline-flex items-center text-sm font-bold text-muted-foreground hover:text-foreground transition-colors mb-6 group"
                 >
                     <ChevronLeft size={16} className="mr-1 transition-transform group-hover:-translate-x-1" />
                     Back to {exam.name}
