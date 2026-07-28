@@ -126,7 +126,7 @@ export default async function PaperLobbyPage({
                                 <div className="p-3 bg-card rounded-2xl shadow-sm text-blue-600"><Timer size={20} /></div>
                                 <div>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Time</p>
-                                    <p className="font-black text-foreground">{examDuration}m</p>
+                                    <p className="font-black text-foreground">{examDuration}min</p>
                                 </div>
                             </div>
                             <div className="bg-background p-4 rounded-3xl border border-border/60 flex items-center gap-4">
