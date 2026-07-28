@@ -1,9 +1,14 @@
 import "server-only";
 
-import { SessionMode } from "@prisma/client";
+import { SessionMode, SessionStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireAuthSubject } from "@/lib/auth";
 import { getSessionPaper } from "@/lib/session-paper";
+import {
+    isPastSessionExpiry,
+    isResumableSessionStatus,
+    RESUMABLE_SESSION_STATUSES,
+} from "@/lib/session-policy";
 
 export async function loadActiveSession(
     sessionId: string,
@@ -21,8 +26,10 @@ export async function loadActiveSession(
                 userId: true,
                 paperId: true,
                 mode: true,
+                status: true,
                 startTime: true,
                 endTime: true,
+                expiresAt: true,
                 user: { select: { supabaseId: true } },
                 interactions: {
                     select: {
@@ -49,9 +56,37 @@ export async function loadActiveSession(
         session.user.supabaseId !== supabaseId ||
         session.paperId !== paperId ||
         session.mode !== expectedMode ||
-        session.endTime !== null
+        session.endTime !== null ||
+        !isResumableSessionStatus(session.status)
     ) {
         return null;
+    }
+
+    if (isPastSessionExpiry(session.expiresAt)) {
+        await prisma.testSession.updateMany({
+            where: {
+                id: session.id,
+                status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            },
+            data: { status: SessionStatus.EXPIRED },
+        });
+        return null;
+    }
+
+    if (session.status === SessionStatus.PAUSED) {
+        const resumed = await prisma.testSession.updateMany({
+            where: {
+                id: session.id,
+                status: SessionStatus.PAUSED,
+                expiresAt: { gt: new Date() },
+            },
+            data: {
+                status: SessionStatus.ACTIVE,
+                pausedAt: null,
+            },
+        });
+        if (resumed.count === 0) return null;
+        session.status = SessionStatus.ACTIVE;
     }
 
     const { interactions, ...sessionMetadata } = session;

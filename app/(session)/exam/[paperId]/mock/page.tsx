@@ -1,6 +1,6 @@
 // app/(session)/exam/[paperId]/mock/page.tsx
 import ActiveSessionClient from "@/components/ActiveSessionClient";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { SessionMode } from "@prisma/client";
 import { loadActiveSession } from "@/lib/session-loader";
 
@@ -22,7 +22,9 @@ export default async function MockSessionPage({
         SessionMode.MOCK
     );
 
-    if (!data) notFound();
+    if (!data) {
+        redirect(`/exam/${paperId}/lobby?sessionUnavailable=1`);
+    }
 
     // Strip every answer-revealing field before sending to the client.
     // `options` (Json) intentionally keeps its display text but we null out

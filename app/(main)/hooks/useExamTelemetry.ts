@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { completeExamSession } from "../actions/session-actions";
 import type { RestoredInteraction } from "@/lib/session-interactions";
+import {
+    SESSION_CHECKPOINT_REQUEST_EVENT,
+    type SessionCheckpointRequestDetail,
+} from "@/lib/session-checkpoint-client";
 
 export interface InteractionMetrics {
     questionId: string;
@@ -47,7 +51,7 @@ export function useExamTelemetry(
     const isSubmittedRef = useRef(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const checkpointTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const checkpointInFlightRef = useRef<Promise<void> | null>(null);
+    const checkpointInFlightRef = useRef<Promise<boolean> | null>(null);
     const revisionRef = useRef(
         restoredInteractions.reduce(
             (max, interaction) => Math.max(max, interaction.checkpointRevision),
@@ -106,11 +110,16 @@ export function useExamTelemetry(
     }, []);
 
     const sendCheckpoint = useCallback(
-        (useBeacon = false) => {
-            if (!sessionId || isSubmittedRef.current) return;
+        async (useBeacon = false, waitForInFlight = false) => {
+            if (!sessionId || isSubmittedRef.current) return true;
+
+            if (checkpointInFlightRef.current) {
+                if (!waitForInFlight) return true;
+                await checkpointInFlightRef.current;
+            }
 
             const metrics = snapshotMetrics();
-            if (metrics.length === 0) return;
+            if (metrics.length === 0) return true;
 
             const revision = Math.max(
                 Date.now(),
@@ -129,12 +138,11 @@ export function useExamTelemetry(
                     url,
                     new Blob([body], { type: "application/json" })
                 );
-                if (accepted) return;
+                if (accepted) return true;
             }
 
-            if (checkpointInFlightRef.current) return;
-
-            const request = fetch(url, {
+            let request: Promise<boolean>;
+            request = fetch(url, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body,
@@ -142,20 +150,25 @@ export function useExamTelemetry(
                 keepalive: true,
             })
                 .then((response) => {
-                    if (!response.ok && response.status !== 409) {
+                    if (!response.ok) {
                         throw new Error(
                             `Checkpoint failed with ${response.status}`
                         );
                     }
+                    return true;
                 })
                 .catch((error) => {
                     console.error("Session checkpoint error:", error);
+                    return false;
                 })
                 .finally(() => {
-                    checkpointInFlightRef.current = null;
+                    if (checkpointInFlightRef.current === request) {
+                        checkpointInFlightRef.current = null;
+                    }
                 });
 
             checkpointInFlightRef.current = request;
+            return request;
         },
         [sessionId, snapshotMetrics]
     );
@@ -311,19 +324,30 @@ export function useExamTelemetry(
         }, 1_000);
 
         checkpointTimerRef.current = setInterval(
-            () => sendCheckpoint(false),
+            () => void sendCheckpoint(false),
             CHECKPOINT_INTERVAL_MS
         );
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === "hidden") {
-                sendCheckpoint(true);
+                void sendCheckpoint(true);
             }
         };
-        const handlePageHide = () => sendCheckpoint(true);
+        const handlePageHide = () => void sendCheckpoint(true);
+        const handleCheckpointRequest = (event: Event) => {
+            const detail = (
+                event as CustomEvent<SessionCheckpointRequestDetail>
+            ).detail;
+            if (!detail?.complete) return;
+            void sendCheckpoint(false, true).then(detail.complete);
+        };
 
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("pagehide", handlePageHide);
+        window.addEventListener(
+            SESSION_CHECKPOINT_REQUEST_EVENT,
+            handleCheckpointRequest
+        );
 
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
@@ -335,7 +359,11 @@ export function useExamTelemetry(
                 handleVisibilityChange
             );
             window.removeEventListener("pagehide", handlePageHide);
-            sendCheckpoint(true);
+            window.removeEventListener(
+                SESSION_CHECKPOINT_REQUEST_EVENT,
+                handleCheckpointRequest
+            );
+            void sendCheckpoint(true);
         };
     }, [getOrInitMetrics, sendCheckpoint, sessionId]);
 

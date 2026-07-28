@@ -3,7 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { createExamSession } from "@/app/(main)/actions/session-actions"; // The action we created earlier
+import {
+    createExamSession,
+    resumeExamSession,
+} from "@/app/(main)/actions/session-actions";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SessionMode } from "@prisma/client";
@@ -13,9 +16,16 @@ interface StartButtonProps {
     mode: SessionMode
     label: string;
     variant?: "default" | "outline";
+    resumeSessionId?: string;
 }
 
-export default function StartExamButton({ paperId, mode, label, variant = "default" }: StartButtonProps) {
+export default function StartExamButton({
+    paperId,
+    mode,
+    label,
+    variant = "default",
+    resumeSessionId,
+}: StartButtonProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
@@ -23,15 +33,37 @@ export default function StartExamButton({ paperId, mode, label, variant = "defau
     const handleStart = async () => {
         setError(null);
         startTransition(async () => {
+            if (resumeSessionId) {
+                const result = await resumeExamSession(resumeSessionId);
+                if (
+                    result.success &&
+                    result.paperId &&
+                    result.mode &&
+                    result.sessionId
+                ) {
+                    router.push(
+                        `/exam/${result.paperId}/${result.mode.toLowerCase()}?sessionId=${result.sessionId}`
+                    );
+                } else {
+                    setError(
+                        result.error ?? "Unable to resume this session."
+                    );
+                }
+                return;
+            }
+
             const result = await createExamSession(paperId, mode);
-            if (result.success)
-            {
-                router.push(`/exam/${paperId}/${mode.toLowerCase()}?sessionId=${result.sessionId}`);
-            } else if (result.error === "PAYMENT_REQUIRED")
-            {
+            if (result.success) {
+                router.push(
+                    `/exam/${paperId}/${mode.toLowerCase()}?sessionId=${result.sessionId}`
+                );
+            } else if (
+                result.error === "PAYMENT_REQUIRED" &&
+                "bundleId" in result &&
+                result.bundleId
+            ) {
                 router.push(`/subscription?bundleId=${result.bundleId}`);
-            } else
-            {
+            } else {
                 setError(result.error ?? "Unable to start this session.");
             }
         });
@@ -52,7 +84,8 @@ export default function StartExamButton({ paperId, mode, label, variant = "defau
                 {isPending ? (
                     <>
                         <Loader2 className="animate-spin h-6 w-6 mr-2" />
-                        Starting {mode.toLowerCase()}...
+                        {resumeSessionId ? "Resuming" : "Starting"}{" "}
+                        {mode.toLowerCase()}...
                     </>
                 ) : (
                     label

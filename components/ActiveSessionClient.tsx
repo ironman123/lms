@@ -259,7 +259,7 @@ export default function ActiveSessionClient({
                 recentActivities={recentActivities}
             />
 
-            {durationInMinutes && (
+            {mode === SessionMode.MOCK && durationInMinutes && (
                 <div className="fixed right-4 top-3 z-50 md:right-6">
                     <SessionTimer
                         durationSeconds={durationInMinutes * 60}

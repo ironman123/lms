@@ -1,7 +1,7 @@
 // components/WorkspacePaperCard.tsx
 "use client";
 import Link from "next/link";
-import { Clock, Bookmark, Pencil, Trash2 } from "lucide-react";
+import { Clock, Bookmark, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
@@ -19,12 +19,16 @@ interface WorkspacePaperCardProps {
     color?: string;
     isAdmin?: boolean;
     onDelete?: () => Promise<any>;
+    resumableSession?: {
+        id: string;
+        mode: "PRACTICE" | "MOCK";
+    };
 }
 
 const WorkspacePaperCard = ({
     id, title, type, year, examSlug, pricing, examId,
     subject, duration, shift, color = "#0F172A",
-    isAdmin, onDelete,
+    isAdmin, onDelete, resumableSession,
 }: WorkspacePaperCardProps) => {
 
     const [isPending, startTransition] = useTransition();
@@ -107,11 +111,22 @@ const WorkspacePaperCard = ({
             </div>
 
             <Link
-                href={`/exam/${id}/lobby`}
-                className="mt-4 flex w-full items-center justify-center rounded-xl py-2.5 text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+                href={
+                    resumableSession
+                        ? `/exam/${id}/${resumableSession.mode.toLowerCase()}?sessionId=${resumableSession.id}`
+                        : `/exam/${id}/lobby`
+                }
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-90"
                 style={{ backgroundColor: color }}
             >
-                Start Paper
+                {resumableSession && <RotateCcw size={14} aria-hidden="true" />}
+                {resumableSession
+                    ? `Resume ${
+                        resumableSession.mode === "PRACTICE"
+                            ? "Practice"
+                            : "Mock"
+                    }`
+                    : "Start Paper"}
             </Link>
         </article>
     );

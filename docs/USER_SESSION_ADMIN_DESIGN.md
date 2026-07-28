@@ -17,20 +17,34 @@
 6. Add a dedicated admin user directory and student detail workspace before
    adding moderation mutations.
 
+## Implementation status
+
+Phase 1 was implemented on July 28, 2026:
+
+- explicit `ACTIVE`, `PAUSED`, `COMPLETED`, `ABANDONED`, `EXPIRED`, and
+  `INVALIDATED` session states;
+- checkpoint-before-pause exit dialog with a second confirmation for abandon;
+- resumable attempts on the paper library and lobby;
+- lazy expiry for stale attempts;
+- a unique database guard preventing duplicate resumable attempts for the same
+  user, paper, and mode;
+- mock attempts expire with their configured duration, while practice attempts
+  have a 72-hour resume window.
+
+Phases 2-5 remain design-only and must not be treated as implemented.
+
 ## Current behavior
 
 ### Session lifecycle
 
-`TestSession` currently has no explicit status. An open session is inferred from
-`endTime = null`; a completed session gets `endTime` and `completedAt`.
+`TestSession` now has an explicit lifecycle. The session X button never silently
+deletes an attempt: it offers checkpointed pause/exit or confirmed abandonment.
+Opening a paused attempt makes it active again, while expired or closed attempts
+are rejected and returned to the lobby. Completed attempts still use `endTime`
+and `completedAt` in addition to the `COMPLETED` status.
 
-Consequences:
-
-- exit, pause, crash, timeout, and abandonment are indistinguishable;
-- stale sessions remain open indefinitely;
-- there is no safe resume/abandon contract;
-- deleting a session also requires manually deleting dependent interactions and
-  activity logs because those relations do not cascade.
+Dependent interaction and activity-log deletion behavior is unchanged and must
+be addressed before administrative hard deletion is added.
 
 ### Profile and performance updates
 
@@ -291,14 +305,14 @@ Every page, action, and API route must check the required permission.
 
 ## Delivery plan
 
-### Phase 1 — session lifecycle
+### Phase 1 — session lifecycle (implemented)
 
 - schema migration and indexes;
 - pause/abandon/resume actions;
 - exit dialog;
 - Resume state on paper cards;
 - lazy expiry checks;
-- tests for ownership and status transitions.
+- production build and database migration verification.
 
 ### Phase 2 — reliable statistics
 

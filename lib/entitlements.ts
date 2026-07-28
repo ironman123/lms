@@ -7,11 +7,13 @@ export type SessionLaunchAccess =
     | {
         exists: true;
         questionCount: number;
+        durationMinutes: number;
         allowed: true;
       }
     | {
         exists: true;
         questionCount: number;
+        durationMinutes: number;
         allowed: false;
         bundleId: string;
       };
@@ -36,6 +38,7 @@ export async function getSessionLaunchAccess(
                 select: {
                     exam: {
                         select: {
+                            duration: true,
                             bundles: {
                                 where: {
                                     isActive: true,
@@ -76,12 +79,15 @@ export async function getSessionLaunchAccess(
     const bundles = paper.examQuestionPaperLinks.flatMap(
         (link) => link.exam.bundles
     );
+    const durationMinutes =
+        paper.examQuestionPaperLinks[0]?.exam.duration ?? 60;
     const uniqueBundles = [...new Map(bundles.map((bundle) => [bundle.id, bundle])).values()];
 
     if (uniqueBundles.length === 0 || uniqueBundles.some((bundle) => bundle.purchases.length > 0)) {
         return {
             exists: true,
             questionCount: paper._count.questions,
+            durationMinutes,
             allowed: true,
         };
     }
@@ -89,6 +95,7 @@ export async function getSessionLaunchAccess(
     return {
         exists: true,
         questionCount: paper._count.questions,
+        durationMinutes,
         allowed: false,
         bundleId: uniqueBundles[0].id,
     };

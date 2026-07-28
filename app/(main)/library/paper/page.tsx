@@ -5,8 +5,10 @@ import Link from "next/link";
 import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
 import { deleteQuestionPaper } from "../../actions/paper-actions";
-import { getIsAdmin } from "@/lib/auth";
+import { getOptionalUser } from "@/lib/auth";
 import { withCache } from "@/lib/cache";
+import { SessionMode, SessionStatus } from "@prisma/client";
+import { RESUMABLE_SESSION_STATUSES } from "@/lib/session-policy";
 
 const BATCH_SIZE = 30;
 
@@ -63,10 +65,56 @@ export default async function PaperLibraryPage({
 }) {
     const { q = "", page = "0" } = await searchParams;
     const currentPage = parseInt(page) || 0;
-    const [{ papers, total, totalPages }, isAdmin] = await Promise.all([
+    const [{ papers, total, totalPages }, user] = await Promise.all([
         getPapersData(q, currentPage),
-        getIsAdmin(),
+        getOptionalUser(),
     ]);
+    const isAdmin = user?.role === "ADMIN";
+    const resumableByPaper = new Map<
+        string,
+        { id: string; mode: "PRACTICE" | "MOCK" }
+    >();
+
+    if (user && papers.length > 0) {
+        const now = new Date();
+        const paperIds = papers.map((paper) => paper.id);
+
+        await prisma.testSession.updateMany({
+            where: {
+                userId: user.id,
+                paperId: { in: paperIds },
+                status: { in: [...RESUMABLE_SESSION_STATUSES] },
+                expiresAt: { lte: now },
+            },
+            data: { status: SessionStatus.EXPIRED },
+        });
+
+        const resumableSessions = await prisma.testSession.findMany({
+            where: {
+                userId: user.id,
+                paperId: { in: paperIds },
+                status: { in: [...RESUMABLE_SESSION_STATUSES] },
+                expiresAt: { gt: now },
+            },
+            select: { id: true, paperId: true, mode: true },
+            orderBy: { updatedAt: "desc" },
+        });
+
+        for (const session of resumableSessions) {
+            if (
+                session.mode !== SessionMode.PRACTICE &&
+                session.mode !== SessionMode.MOCK
+            ) {
+                continue;
+            }
+            if (!resumableByPaper.has(session.paperId)) {
+                resumableByPaper.set(session.paperId, {
+                    id: session.id,
+                    mode: session.mode,
+                });
+            }
+        }
+    }
 
     const pyq = papers.filter((p) => p.year !== null);
     const mock = papers.filter((p) => p.year === null);
@@ -124,6 +172,9 @@ export default async function PaperLibraryPage({
                                         duration={exam?.duration ?? 60}
                                         shift="General"
                                         color={exam?.color ?? "#0F172A"}
+                                        resumableSession={resumableByPaper.get(
+                                            p.id
+                                        )}
                                     />
                                 );
                             })}
@@ -155,6 +206,9 @@ export default async function PaperLibraryPage({
                                         duration={exam?.duration ?? 60}
                                         shift="General"
                                         color={exam?.color ?? "#0F172A"}
+                                        resumableSession={resumableByPaper.get(
+                                            p.id
+                                        )}
                                     />
                                 );
                             })}

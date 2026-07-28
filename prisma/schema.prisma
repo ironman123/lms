@@ -270,8 +270,15 @@ model User {
 model TestSession {
   id             String                @id @default(uuid())
   mode           SessionMode           @default(PRACTICE)
+  status         SessionStatus         @default(ACTIVE)
   startTime      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
   endTime        DateTime?
+  lastCheckpointAt DateTime?
+  pausedAt       DateTime?
+  abandonedAt    DateTime?
+  abandonReason  String?
+  expiresAt      DateTime?
   totalScore     Float?
   totalQuestions Int                   @default(0)
   correctCount   Int                   @default(0)
@@ -286,6 +293,11 @@ model TestSession {
   interactions   QuestionInteraction[]
   paper          QuestionPaper         @relation(fields: [paperId], references: [id])
   user           User                  @relation(fields: [userId], references: [id])
+
+  @@index([userId, status, startTime])
+  @@index([status, expiresAt])
+  @@index([paperId, status])
+  @@index([userId, completedAt])
 }
 
 model ActivityLog {
@@ -500,6 +512,15 @@ enum SessionMode {
   PRACTICE
   MOCK
   DIAGNOSTIC
+}
+
+enum SessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ABANDONED
+  EXPIRED
+  INVALIDATED
 }
 
 enum QuestionPaperType {

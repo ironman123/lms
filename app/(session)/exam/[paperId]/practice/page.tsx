@@ -1,5 +1,5 @@
 // app/(session)/exam/[paperId]/practice/page.tsx
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import ActiveSessionClient from "@/components/ActiveSessionClient";
 import { SessionMode } from "@prisma/client";
 import { loadActiveSession } from "@/lib/session-loader";
@@ -22,7 +22,9 @@ export default async function PracticeSessionPage({
         SessionMode.PRACTICE
     );
 
-    if (!data) notFound();
+    if (!data) {
+        redirect(`/exam/${paperId}/lobby?sessionUnavailable=1`);
+    }
 
     return (
         <ActiveSessionClient

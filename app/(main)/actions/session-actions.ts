@@ -2,7 +2,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { SessionMode } from "@prisma/client";
+import { Prisma, SessionMode, SessionStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { InteractionMetrics } from "../hooks/useExamTelemetry";
@@ -14,6 +14,11 @@ import {
 } from "@/lib/session-interactions";
 import { sessionRatelimit, actionRatelimit } from "@/lib/ratelimit";
 import { getSessionLaunchAccess } from "@/lib/entitlements";
+import {
+    getSessionExpiry,
+    isPastSessionExpiry,
+    RESUMABLE_SESSION_STATUSES,
+} from "@/lib/session-policy";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
     const user = await requireAuth();
@@ -23,10 +28,35 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
         return { success: false, error: "Unsupported session mode." };
     }
 
-    // These checks are independent once the user is known, so do them together.
-    const [launchAccess, rateLimit] = await Promise.all([
-        getSessionLaunchAccess(user.id, paperId),
-        sessionRatelimit.limit(user.id),
+    const now = new Date();
+    const launchAccessPromise = getSessionLaunchAccess(user.id, paperId);
+
+    // Clear expired attempts first so the partial unique index can safely
+    // permit a new resumable session for this user/paper/mode.
+    await prisma.testSession.updateMany({
+        where: {
+            userId: user.id,
+            paperId,
+            mode,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            expiresAt: { lte: now },
+        },
+        data: { status: SessionStatus.EXPIRED },
+    });
+
+    const [launchAccess, resumableSession] = await Promise.all([
+        launchAccessPromise,
+        prisma.testSession.findFirst({
+            where: {
+                userId: user.id,
+                paperId,
+                mode,
+                status: { in: [...RESUMABLE_SESSION_STATUSES] },
+                expiresAt: { gt: now },
+            },
+            select: { id: true },
+            orderBy: { startTime: "desc" },
+        }),
     ]);
 
     if (!launchAccess.exists)
@@ -46,7 +76,16 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
         return { success: false, error: "This paper has no questions." };
     }
 
-    const { success } = rateLimit;
+    if (resumableSession)
+    {
+        return {
+            success: true,
+            sessionId: resumableSession.id,
+            resumed: true,
+        };
+    }
+
+    const { success } = await sessionRatelimit.limit(user.id);
     if (!success)
     {
         return {
@@ -64,17 +103,182 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
                 userId: user.id,
                 paperId,
                 mode,
+                status: SessionStatus.ACTIVE,
+                expiresAt: getSessionExpiry(
+                    mode,
+                    launchAccess.durationMinutes,
+                    now
+                ),
                 totalQuestions: launchAccess.questionCount,
             },
             select: { id: true },
         });
 
-        return { success: true, sessionId: session.id };
+        return { success: true, sessionId: session.id, resumed: false };
     } catch (error)
     {
+        // Concurrent double-clicks are collapsed by the partial unique index.
+        if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+        ) {
+            const existing = await prisma.testSession.findFirst({
+                where: {
+                    userId: user.id,
+                    paperId,
+                    mode,
+                    status: { in: [...RESUMABLE_SESSION_STATUSES] },
+                    expiresAt: { gt: new Date() },
+                },
+                select: { id: true },
+                orderBy: { startTime: "desc" },
+            });
+            if (existing) {
+                return {
+                    success: true,
+                    sessionId: existing.id,
+                    resumed: true,
+                };
+            }
+        }
+
         console.error("Failed to create session:", error);
         return { success: false, error: "Failed to initialize exam environment." };
     }
+}
+
+export async function pauseExamSession(sessionId: string) {
+    const user = await requireAuth();
+    const { success } = await actionRatelimit.limit(`pause_${user.id}`);
+    if (!success) return { success: false, error: "Too many requests." };
+
+    const now = new Date();
+    const result = await prisma.testSession.updateMany({
+        where: {
+            id: sessionId,
+            userId: user.id,
+            status: SessionStatus.ACTIVE,
+            expiresAt: { gt: now },
+        },
+        data: {
+            status: SessionStatus.PAUSED,
+            pausedAt: now,
+            lastCheckpointAt: now,
+        },
+    });
+
+    if (result.count === 0) {
+        await prisma.testSession.updateMany({
+            where: {
+                id: sessionId,
+                userId: user.id,
+                status: { in: [...RESUMABLE_SESSION_STATUSES] },
+                expiresAt: { lte: now },
+            },
+            data: { status: SessionStatus.EXPIRED },
+        });
+        return {
+            success: false,
+            error: "This session can no longer be paused.",
+        };
+    }
+
+    revalidatePath("/library/paper");
+    return { success: true };
+}
+
+export async function abandonExamSession(
+    sessionId: string,
+    reason = "Student abandoned the attempt"
+) {
+    const user = await requireAuth();
+    const { success } = await actionRatelimit.limit(`abandon_${user.id}`);
+    if (!success) return { success: false, error: "Too many requests." };
+
+    const now = new Date();
+    const cleanReason = reason.trim().slice(0, 500) || "Student abandoned the attempt";
+    const result = await prisma.testSession.updateMany({
+        where: {
+            id: sessionId,
+            userId: user.id,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+        },
+        data: {
+            status: SessionStatus.ABANDONED,
+            abandonedAt: now,
+            abandonReason: cleanReason,
+            expiresAt: now,
+        },
+    });
+
+    if (result.count === 0) {
+        return {
+            success: false,
+            error: "This session can no longer be abandoned.",
+        };
+    }
+
+    revalidatePath("/library/paper");
+    return { success: true };
+}
+
+export async function resumeExamSession(sessionId: string) {
+    const user = await requireAuth();
+    const now = new Date();
+
+    await prisma.testSession.updateMany({
+        where: {
+            id: sessionId,
+            userId: user.id,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            expiresAt: { lte: now },
+        },
+        data: { status: SessionStatus.EXPIRED },
+    });
+
+    const session = await prisma.testSession.findFirst({
+        where: {
+            id: sessionId,
+            userId: user.id,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            expiresAt: { gt: now },
+        },
+        select: { id: true, paperId: true, mode: true },
+    });
+
+    if (!session) {
+        return {
+            success: false,
+            error: "This session has expired or is no longer resumable.",
+        };
+    }
+
+    const resumed = await prisma.testSession.updateMany({
+        where: {
+            id: session.id,
+            userId: user.id,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            expiresAt: { gt: now },
+        },
+        data: {
+            status: SessionStatus.ACTIVE,
+            pausedAt: null,
+        },
+    });
+
+    if (resumed.count === 0) {
+        return {
+            success: false,
+            error: "This session changed state and can no longer be resumed.",
+        };
+    }
+
+    return {
+        success: true,
+        sessionId: session.id,
+        paperId: session.paperId,
+        mode: session.mode,
+    };
 }
 
 export async function completeExamSession(
@@ -123,9 +327,28 @@ export async function completeExamSession(
         });
 
         if (!session?.paper) throw new Error("Session or paper not found.");
-        if (session.endTime !== null)
+        if (session.endTime !== null || session.status === SessionStatus.COMPLETED)
         {
             return { success: false, error: "Session already submitted." };
+        }
+        if (
+            session.status !== SessionStatus.ACTIVE ||
+            isPastSessionExpiry(session.expiresAt)
+        ) {
+            if (isPastSessionExpiry(session.expiresAt)) {
+                await prisma.testSession.updateMany({
+                    where: {
+                        id: sessionId,
+                        userId: user.id,
+                        status: { in: [...RESUMABLE_SESSION_STATUSES] },
+                    },
+                    data: { status: SessionStatus.EXPIRED },
+                });
+            }
+            return {
+                success: false,
+                error: "This session is not active.",
+            };
         }
 
         const questionMap = new Map(
@@ -218,11 +441,18 @@ export async function completeExamSession(
 
         // ── Persist session ───────────────────────────────────────────────────
         // We handle the session update directly first.
-        await prisma.testSession.update({
-            where: { id: sessionId, userId: user.id },
+        const completed = await prisma.testSession.updateMany({
+            where: {
+                id: sessionId,
+                userId: user.id,
+                status: SessionStatus.ACTIVE,
+                endTime: null,
+                expiresAt: { gt: new Date() },
+            },
             data: {
                 endTime: new Date(),
                 completedAt: new Date(),
+                status: SessionStatus.COMPLETED,
                 totalScore,
                 correctCount,
                 attemptedCount,
@@ -234,6 +464,12 @@ export async function completeExamSession(
                         : 0,
             },
         });
+        if (completed.count === 0) {
+            return {
+                success: false,
+                error: "This session changed state before it could be submitted.",
+            };
+        }
 
         // ── Queue Interactions (Non-blocking) ─────────────────────────────────
         const qPayload: InteractionPayload = {

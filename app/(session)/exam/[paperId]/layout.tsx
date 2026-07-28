@@ -1,8 +1,6 @@
-import { X } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSessionPaper } from "@/lib/session-paper";
-import { Button } from "@/components/ui/button";
+import SessionExitButton from "@/components/SessionExitButton";
 
 export default async function PaperSessionLayout({
     children,
@@ -23,20 +21,7 @@ export default async function PaperSessionLayout({
         <div className="flex h-dvh flex-col bg-background">
             <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur-md md:px-6">
                 <div className="flex items-center gap-4">
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 rounded-xl bg-card shadow-sm"
-                    >
-                        <Link
-                            href="/library/paper"
-                            aria-label="Exit session"
-                            title="Back to papers"
-                        >
-                            <X aria-hidden="true" />
-                        </Link>
-                    </Button>
+                    <SessionExitButton />
                     <div className="h-6 w-px bg-border" />
                     <h2 className="max-w-[60vw] truncate text-sm font-bold tracking-tight text-foreground md:max-w-[70vw]">
                         {paper.title}

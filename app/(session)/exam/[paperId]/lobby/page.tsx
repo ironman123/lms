@@ -4,35 +4,71 @@ import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import StartExamButton from "@/components/StartExamButton";
 import { Timer, ClipboardCheck, AlertCircle, BookOpen, Layers, Trophy } from "lucide-react";
-import { SessionMode } from "@prisma/client";
+import { SessionMode, SessionStatus } from "@prisma/client";
+import { requireAuth } from "@/lib/auth";
+import { RESUMABLE_SESSION_STATUSES } from "@/lib/session-policy";
 
-export default async function PaperLobbyPage({ params }: { params: Promise<{ paperId: string }> }) {
+export default async function PaperLobbyPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ paperId: string }>;
+    searchParams: Promise<{ sessionUnavailable?: string }>;
+}) {
     const { paperId } = await params;
+    const { sessionUnavailable } = await searchParams;
 
-    const paper = await prisma.questionPaper.findUnique({
-        where: { id: paperId },
-        include: {
-            examQuestionPaperLinks: {
-                include: {
-                    exam: true
-                }
-            },
-            questions: {
-                select: {
-                    type: true,
-                    marks: true, // Fetch marks for summation
-                    topic: {
-                        select: {
-                            category: { select: { name: true } }
+    const [user, paper] = await Promise.all([
+        requireAuth(),
+        prisma.questionPaper.findUnique({
+            where: { id: paperId },
+            include: {
+                examQuestionPaperLinks: {
+                    include: {
+                        exam: true
+                    }
+                },
+                questions: {
+                    select: {
+                        type: true,
+                        marks: true, // Fetch marks for summation
+                        topic: {
+                            select: {
+                                category: { select: { name: true } }
+                            }
                         }
                     }
-                }
-            },
-            _count: { select: { questions: true } }
-        }
-    });
+                },
+                _count: { select: { questions: true } }
+            }
+        }),
+    ]);
 
     if (!paper) notFound();
+    const now = new Date();
+
+    await prisma.testSession.updateMany({
+        where: {
+            userId: user.id,
+            paperId,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            expiresAt: { lte: now },
+        },
+        data: { status: SessionStatus.EXPIRED },
+    });
+
+    const resumableSessions = await prisma.testSession.findMany({
+        where: {
+            userId: user.id,
+            paperId,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            expiresAt: { gt: now },
+        },
+        select: { id: true, mode: true },
+    });
+    const resumeByMode = new Map(
+        resumableSessions.map((session) => [session.mode, session.id])
+    );
     const currentExam = paper.examQuestionPaperLinks[0]?.exam;
 
     const examDuration = currentExam?.duration || 0;
@@ -58,6 +94,20 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ pap
     return (
         <div className="min-h-full w-full bg-background py-6 md:py-12">
             <div className="mx-auto max-w-4xl px-4">
+                {sessionUnavailable === "1" && (
+                    <div
+                        role="status"
+                        className="mb-4 flex items-center gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-5 py-4 text-sm text-foreground"
+                    >
+                        <AlertCircle
+                            className="shrink-0 text-warning"
+                            size={18}
+                            aria-hidden="true"
+                        />
+                        That attempt expired or is no longer available. You can
+                        start a new session below.
+                    </div>
+                )}
                 <Card className="rounded-[2.5rem] border-border shadow-2xl p-8 md:p-12 bg-card relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-background rounded-full -mr-32 -mt-32 z-0" />
 
@@ -167,14 +217,28 @@ export default async function PaperLobbyPage({ params }: { params: Promise<{ pap
                             <StartExamButton
                                 paperId={paperId}
                                 mode={SessionMode.PRACTICE}
-                                label="Practice"
+                                label={
+                                    resumeByMode.has(SessionMode.PRACTICE)
+                                        ? "Resume Practice"
+                                        : "Practice"
+                                }
                                 variant="outline"
+                                resumeSessionId={resumeByMode.get(
+                                    SessionMode.PRACTICE
+                                )}
                             />
                             <StartExamButton
                                 paperId={paperId}
                                 mode={SessionMode.MOCK}
-                                label="Start Exam"
+                                label={
+                                    resumeByMode.has(SessionMode.MOCK)
+                                        ? "Resume Mock"
+                                        : "Start Exam"
+                                }
                                 variant="default"
+                                resumeSessionId={resumeByMode.get(
+                                    SessionMode.MOCK
+                                )}
                             />
                         </div>
                     </div>

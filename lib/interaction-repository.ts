@@ -1,16 +1,21 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma, SessionStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { SubmittedInteractionMetric } from "@/lib/session-interactions";
+import {
+    isPastSessionExpiry,
+    isResumableSessionStatus,
+    RESUMABLE_SESSION_STATUSES,
+} from "@/lib/session-policy";
 
 export const FINAL_INTERACTION_REVISION = Number.MAX_SAFE_INTEGER;
 
 type PersistInteractionsResult =
     | { status: "ok"; upserted: number }
     | { status: "not_found"; upserted: 0 }
-    | { status: "completed"; upserted: 0 };
+    | { status: "inactive"; upserted: 0 };
 
 export async function persistSessionInteractions({
     sessionId,
@@ -27,14 +32,39 @@ export async function persistSessionInteractions({
 }): Promise<PersistInteractionsResult> {
     const session = await prisma.testSession.findUnique({
         where: { id: sessionId },
-        select: { userId: true, paperId: true, endTime: true },
+        select: {
+            userId: true,
+            paperId: true,
+            endTime: true,
+            status: true,
+            expiresAt: true,
+        },
     });
 
     if (!session || session.userId !== userId) {
         return { status: "not_found", upserted: 0 };
     }
-    if (requireActive && session.endTime !== null) {
-        return { status: "completed", upserted: 0 };
+    if (
+        requireActive &&
+        (
+            session.endTime !== null ||
+            !isResumableSessionStatus(session.status) ||
+            isPastSessionExpiry(session.expiresAt)
+        )
+    ) {
+        if (
+            isPastSessionExpiry(session.expiresAt) &&
+            isResumableSessionStatus(session.status)
+        ) {
+            await prisma.testSession.updateMany({
+                where: {
+                    id: sessionId,
+                    status: { in: [...RESUMABLE_SESSION_STATUSES] },
+                },
+                data: { status: SessionStatus.EXPIRED },
+            });
+        }
+        return { status: "inactive", upserted: 0 };
     }
 
     const validQuestions = await prisma.question.findMany({

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOptionalUser } from "@/lib/auth";
 import { persistSessionInteractions } from "@/lib/interaction-repository";
 import { checkpointPayloadSchema } from "@/lib/session-interactions";
+import prisma from "@/lib/prisma";
+import { RESUMABLE_SESSION_STATUSES } from "@/lib/session-policy";
 
 export async function POST(
     req: NextRequest,
@@ -41,12 +43,21 @@ export async function POST(
     if (result.status === "not_found") {
         return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
-    if (result.status === "completed") {
+    if (result.status === "inactive") {
         return NextResponse.json(
-            { error: "Session already submitted" },
+            { error: "Session is no longer active" },
             { status: 409 }
         );
     }
+
+    await prisma.testSession.updateMany({
+        where: {
+            id: sessionId,
+            userId: user.id,
+            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+        },
+        data: { lastCheckpointAt: new Date() },
+    });
 
     return NextResponse.json({
         ok: true,
