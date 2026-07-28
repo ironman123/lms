@@ -20,7 +20,7 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
         <div className="relative">
             <button
                 onClick={() => setOpen(!open)}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
                 {avatarUrl ? (
                     <img
@@ -34,7 +34,7 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                     </div>
                 )}
                 <div className="hidden md:block text-left">
-                    <p className="text-xs font-bold text-slate-900 leading-none">{name ?? "User"}</p>
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-none">{name ?? "User"}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">{role}</p>
                 </div>
                 <ChevronDown size={14} className="text-slate-400 hidden md:block" />
@@ -49,23 +49,23 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                     />
 
                     {/* Dropdown */}
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl z-20 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-100">
-                            <p className="text-sm font-bold text-slate-900 truncate">{name}</p>
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-20 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{name}</p>
                             <p className="text-xs text-slate-400 truncate">{email}</p>
                         </div>
 
                         <div className="p-1.5">
 
                             <a href="/dashboard"
-                                className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-xl transition-colors font-medium"                             >
+                                className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"                             >
                                 <User size={15} className="text-slate-400" />
                                 Dashboard
                             </a>
 
                             <a
                                 href="/settings"
-                                className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-xl transition-colors font-medium"
+                                className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
                             >
                                 <SlidersHorizontal size={15} className="text-slate-400" />
                                 Settings
@@ -74,7 +74,7 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                             {role === "ADMIN" && (
 
                                 <a href="/library"
-                                    className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-xl transition-colors font-medium"
+                                    className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
                                 >
                                     <Settings size={15} className="text-slate-400" />
                                     Admin Library
@@ -82,11 +82,11 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                             )}
                         </div>
 
-                        <div className="p-1.5 border-t border-slate-100">
+                        <div className="p-1.5 border-t border-slate-100 dark:border-slate-800">
                             <form action={signOut}>
                                 <button
                                     type="submit"
-                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors font-bold"
+                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl transition-colors font-bold"
                                 >
                                     <LogOut size={15} />
                                     Sign out

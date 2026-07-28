@@ -48,11 +48,11 @@ export default function ExamCategoryCard({
     return (
         <div className="group relative block">
             <Link href={`/library/category/${slug}`}>
-                <article className={`group relative h-64 flex flex-col justify-end p-6 bg-white border border-slate-300 rounded-xl transition-all duration-500 hover:shadow-2xl hover:border-slate-300 overflow-hidden cursor-pointer ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
+                <article className={`group relative h-64 flex flex-col justify-end p-6 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl transition-all duration-500 hover:shadow-2xl hover:border-slate-300 dark:hover:border-slate-600 overflow-hidden cursor-pointer ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
 
                     {/* Background Image */}
                     <div className="absolute inset-0 z-0">
-                        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/75 to-transparent z-10 transition-opacity duration-500 group-hover:opacity-90" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-transparent dark:from-slate-900 dark:via-slate-900/75 z-10 transition-opacity duration-500 group-hover:opacity-90" />
                         {image && (
                             <CldImage
                                 src={image}
@@ -73,13 +73,13 @@ export default function ExamCategoryCard({
                         <div className="mb-4 transform transition-transform duration-500 group-hover:-translate-y-1">
                             <DynamicIcon name={icon} color={color} />
                         </div>
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight group-hover:text-black transition-colors">
+                        <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight group-hover:text-black dark:group-hover:text-white transition-colors">
                             {name}
                         </h3>
-                        <p className="text-sm text-slate-500 mt-2 mb-2 line-clamp-3 max-w-[260px] leading-relaxed group-hover:text-slate-700 transition-colors">
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 mb-2 line-clamp-3 max-w-[260px] leading-relaxed group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
                             {description}
                         </p>
-                        <div className="h-1 w-0 bg-slate-700 transition-all duration-600 group-hover:w-full mt-2 rounded-full" />
+                        <div className="h-1 w-0 bg-slate-700 dark:bg-slate-300 transition-all duration-600 group-hover:w-full mt-2 rounded-full" />
                     </div>
                 </article>
             </Link>
@@ -90,7 +90,7 @@ export default function ExamCategoryCard({
                     <Link
                         href={`/library/category/${slug}/edit`}
                         onClick={e => e.stopPropagation()}
-                        className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
+                        className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800 transition-colors shadow-sm"
                     >
                         <Edit size={13} />
                     </Link>
@@ -98,7 +98,7 @@ export default function ExamCategoryCard({
                         type="button"
                         onClick={handleDelete}
                         disabled={isPending}
-                        className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-red-500 hover:border-red-200 transition-colors shadow-sm"
+                        className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-800 transition-colors shadow-sm"
                     >
                         <Trash2 size={13} />
                     </button>

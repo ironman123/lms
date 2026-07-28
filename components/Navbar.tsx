@@ -8,6 +8,7 @@ import {
     getRecentNotifications,
     getNotificationSeenAt,
 } from "@/app/(main)/actions/notification-actions";
+import { ThemeToggle } from "./ThemeToggle";
 
 //import { Show, SignInButton, UserButton } from '@clerk/nextjs'
 
@@ -41,6 +42,7 @@ const Navbar = async () => {
                         </button>
                     </SignInButton>
                 </Show> */}
+                <ThemeToggle />
                 {user ? (
                     <>
                         <NotificationBell
