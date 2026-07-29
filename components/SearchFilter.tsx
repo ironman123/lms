@@ -39,7 +39,7 @@ export default function SearchFilter({ value }: { value: string }) {
                 params.delete("page");
                 router.replace(`${pathname}?${params.toString()}`, { scroll: false });
             });
-        }, 200);
+        }, 300);
 
         return () => clearTimeout(timer);
     }, [localValue, value, pathname, router]);

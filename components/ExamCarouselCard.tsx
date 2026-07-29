@@ -42,6 +42,7 @@ interface ExamCarouselCardProps {
     totalMarks: number;
     duration: number;
     syllabus: SyllabusItem[];
+    syllabusTopicCount?: number;
     isAdmin?: boolean;
     onDelete?: () => void;
 }
@@ -58,6 +59,7 @@ const ExamCarouselCard = ({
     totalMarks,
     duration,
     syllabus,
+    syllabusTopicCount,
     isAdmin = false,
     onDelete,
 }: ExamCarouselCardProps) => {
@@ -146,7 +148,7 @@ const ExamCarouselCard = ({
                                 <Clock size={12} /> {duration || 0}m
                             </div>
                             <div className="flex items-center gap-1">
-                                <LayoutGrid size={12} /> {syllabus.length}s
+                                <LayoutGrid size={12} /> {syllabusTopicCount ?? syllabus.length} topics
                             </div>
                         </div>
 
@@ -163,9 +165,10 @@ const ExamCarouselCard = ({
                 {/* 4. SYLLABUS AREA (z-20 keeps it scrollable/interactive above ghost link) */}
                 <div className="p-6 relative z-20">
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.25em] mb-4">
-                        Syllabus Explorer
+                        Syllabus Preview
                     </h4>
 
+                    {syllabus.length > 0 ? (
                     <Carousel className="w-full">
                         <CarouselContent>
                             {syllabus.map((section, i) => (
@@ -206,6 +209,11 @@ const ExamCarouselCard = ({
                             <CarouselNext className="static translate-y-0 h-8 w-8 border-border dark:border-slate-700 shadow-none hover:bg-muted dark:hover:bg-slate-800 transition-colors" />
                         </div>
                     </Carousel>
+                    ) : (
+                        <div className="h-[190px] flex items-center justify-center border border-dashed border-border rounded-xl">
+                            <p className="text-xs text-muted-foreground">No syllabus preview available.</p>
+                        </div>
+                    )}
                 </div>
             </Card>
 
