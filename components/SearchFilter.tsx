@@ -36,6 +36,7 @@ export default function SearchFilter({ value }: { value: string }) {
                 {
                     params.delete("q");
                 }
+                params.delete("page");
                 router.replace(`${pathname}?${params.toString()}`, { scroll: false });
             });
         }, 200);

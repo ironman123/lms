@@ -8,29 +8,23 @@ import { deleteExam } from "@/app/(main)/actions/exam-actions";
 import { getIsAdmin } from "@/lib/auth";
 import { withCache } from "@/lib/cache";
 
-const BATCH_SIZE = 30;
+const BATCH_SIZE = 12;
 
 async function getExamsData(query: string, page: number) {
-    const cacheKey = `exams:q:${query}:p:${page}`;
+    const normalizedQuery = query.trim();
+    const cacheKey = `exams:q:${normalizedQuery.toLowerCase()}:p:${page}`;
     return withCache(
         cacheKey,
         3600,
         async () => {
-            const where = query
+            const where = normalizedQuery
                 ? {
                     OR: [
-                        // { name: { contains: query, mode: "insensitive" as const } },
-                        // { description: { contains: query, mode: "insensitive" as const } },
-                        // { categoryNumber: { contains: query, mode: "insensitive" as const } },
-                        // { tags: { some: { tag: { name: { contains: query, mode: "insensitive" as const } } } } },
-                        // { syllabusEntries: { some: { topicPath: { contains: query, mode: "insensitive" as const } } } },
-                        // { syllabusEntries: { some: { category: { name: { contains: query, mode: "insensitive" as const } } } } },
-
-                        // Full-text on name/description — uses GIN index
-                        { name: { search: query.split(" ").join(" & "), mode: "insensitive" as const } },
-                        { description: { search: query.split(" ").join(" & "), mode: "insensitive" as const } },
-                        // Keep tag/syllabus LIKE — these are smaller tables, acceptable
-                        { tags: { some: { tag: { name: { contains: query, mode: "insensitive" as const } } } } },
+                        // Partial, case-insensitive matching works for names,
+                        // descriptions, and tags without Prisma full-text search.
+                        { name: { contains: normalizedQuery, mode: "insensitive" as const } },
+                        { description: { contains: normalizedQuery, mode: "insensitive" as const } },
+                        { tags: { some: { tag: { name: { contains: normalizedQuery, mode: "insensitive" as const } } } } },
                     ],
                 }
                 : {};
@@ -66,7 +60,7 @@ export default async function ExamIndexPage({
     searchParams: Promise<{ q?: string; page?: string }>;
 }) {
     const { q = "", page = "0" } = await searchParams;
-    const currentPage = parseInt(page) || 0;
+    const currentPage = Math.max(0, parseInt(page, 10) || 0);
     const [{ exams, total, totalPages }, isAdmin] = await Promise.all([
         getExamsData(q, currentPage),
         getIsAdmin(),
@@ -141,7 +135,7 @@ export default async function ExamIndexPage({
                             <div className="flex items-center justify-center gap-3 mt-16">
                                 {currentPage > 0 && (
                                     <Link
-                                        href={`?q=${q}&page=${currentPage - 1}`}
+                                        href={`?q=${encodeURIComponent(q)}&page=${currentPage - 1}`}
                                         className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                                     >
                                         Previous
@@ -152,7 +146,7 @@ export default async function ExamIndexPage({
                                 </span>
                                 {currentPage < totalPages - 1 && (
                                     <Link
-                                        href={`?q=${q}&page=${currentPage + 1}`}
+                                        href={`?q=${encodeURIComponent(q)}&page=${currentPage + 1}`}
                                         className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                                     >
                                         Next
