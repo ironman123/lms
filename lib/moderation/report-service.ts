@@ -206,13 +206,14 @@ async function resolvePaperTarget(
             type: true,
             year: true,
             contentRevision: true,
+            isArchived: true,
             _count: { select: { questions: true } },
             examQuestionPaperLinks: {
                 select: { exam: { select: { id: true, name: true } } },
             },
         },
     });
-    if (!paper) {
+    if (!paper || paper.isArchived) {
         throw new ModerationReportError(
             "NOT_FOUND",
             "The reported paper no longer exists."
@@ -277,6 +278,15 @@ async function persistReport(
                     update: {},
                 });
 
+                const existingReport = await tx.contentReport.findUnique({
+                    where: {
+                        caseId_reporterId: {
+                            caseId: moderationCase.id,
+                            reporterId,
+                        },
+                    },
+                    select: { withdrawnAt: true },
+                });
                 const report = await tx.contentReport.upsert({
                     where: {
                         caseId_reporterId: {
@@ -292,6 +302,7 @@ async function persistReport(
                         source: input.source,
                         comment: input.comment || null,
                         context: target.context,
+                        withdrawnAt: null,
                     },
                     update: {
                         sessionId: target.sessionId,
@@ -299,12 +310,16 @@ async function persistReport(
                         source: input.source,
                         comment: input.comment || null,
                         context: target.context,
+                        withdrawnAt: null,
                     },
                     select: { id: true },
                 });
 
                 const uniqueReporterCount = await tx.contentReport.count({
-                    where: { caseId: moderationCase.id },
+                    where: {
+                        caseId: moderationCase.id,
+                        withdrawnAt: null,
+                    },
                 });
                 const escalated = shouldEscalate(
                     uniqueReporterCount,
@@ -336,6 +351,15 @@ async function persistReport(
                                 threshold: target.threshold,
                                 uniqueReporterCount,
                             },
+                        },
+                    });
+                }
+                if (existingReport?.withdrawnAt) {
+                    await tx.moderationAction.create({
+                        data: {
+                            caseId: moderationCase.id,
+                            actorId: reporterId,
+                            action: ModerationActionType.REPORT_RESTORED,
                         },
                     });
                 }
@@ -397,7 +421,7 @@ export async function createOrUpdateContentReport(
         select: {
             reports: {
                 where: { reporterId },
-                select: { id: true },
+                select: { id: true, withdrawnAt: true },
                 take: 1,
             },
         },
@@ -407,4 +431,94 @@ export async function createOrUpdateContentReport(
     }
 
     return persistReport(reporterId, input, target);
+}
+
+export async function withdrawContentReport(
+    reporterId: string,
+    reportId: string
+) {
+    return prisma.$transaction(
+        async (tx) => {
+            const report = await tx.contentReport.findFirst({
+                where: { id: reportId, reporterId },
+                include: { moderationCase: true },
+            });
+            if (!report) {
+                throw new ModerationReportError(
+                    "NOT_FOUND",
+                    "Report not found."
+                );
+            }
+            if (report.withdrawnAt) {
+                return {
+                    reportId: report.id,
+                    caseId: report.caseId,
+                    withdrawn: true,
+                };
+            }
+
+            const config = await tx.moderationConfig.upsert({
+                where: { id: "global" },
+                create: { id: "global", ...DEFAULT_CONFIG },
+                update: {},
+            });
+            await tx.contentReport.update({
+                where: { id: report.id },
+                data: { withdrawnAt: new Date() },
+            });
+            const uniqueReporterCount = await tx.contentReport.count({
+                where: {
+                    caseId: report.caseId,
+                    withdrawnAt: null,
+                },
+            });
+            const threshold =
+                report.moderationCase.targetType === "QUESTION"
+                    ? config.questionReportThreshold
+                    : config.paperReportThreshold;
+            await tx.moderationCase.update({
+                where: { id: report.caseId },
+                data: {
+                    uniqueReporterCount,
+                    isEscalated: shouldEscalate(
+                        uniqueReporterCount,
+                        threshold
+                    ),
+                    actions: {
+                        create: {
+                            actorId: reporterId,
+                            action: ModerationActionType.REPORT_WITHDRAWN,
+                        },
+                    },
+                },
+            });
+
+            return {
+                reportId: report.id,
+                caseId: report.caseId,
+                withdrawn: true,
+            };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+}
+
+export async function getUserContentReports(userId: string) {
+    return prisma.contentReport.findMany({
+        where: { reporterId: userId },
+        orderBy: { updatedAt: "desc" },
+        include: {
+            moderationCase: {
+                include: {
+                    question: {
+                        select: {
+                            content: true,
+                            paper: { select: { title: true } },
+                        },
+                    },
+                    paper: { select: { title: true } },
+                },
+            },
+        },
+    });
 }

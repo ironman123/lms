@@ -40,6 +40,7 @@ export async function getSessionLaunchAccess(
     const paper = await prisma.questionPaper.findUnique({
         where: { id: paperId },
         select: {
+            isArchived: true,
             questions: {
                 where: { isArchived: false },
                 orderBy: { createdAt: "asc" },
@@ -101,7 +102,7 @@ export async function getSessionLaunchAccess(
         },
     });
 
-    if (!paper) return { exists: false };
+    if (!paper || paper.isArchived) return { exists: false };
 
     const bundles = paper.examQuestionPaperLinks.flatMap(
         (link) => link.exam.bundles

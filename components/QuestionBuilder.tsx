@@ -8,11 +8,28 @@ import QuestionForm from './QuestionForm';
 import { deleteQuestion } from '@/app/(main)/actions/question-actions';
 import { toast } from 'sonner';
 
-interface Option { id: string; text: string; isCorrect: boolean; }
+interface Option {
+    id?: string;
+    index: number;
+    text: string;
+    imageUrl?: string;
+    isCorrect?: boolean;
+}
 interface Question {
-    id: string; content: string; type: string; difficulty: string;
+    id: string;
+    content: string;
+    type: "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE";
+    difficulty: "EASY" | "MEDIUM" | "HARD";
     marks: number; negativeMarks: number; explanation: string | null;
-    correctAnswer: string | null; topicId: string; options: Option[];
+    correctAnswer: string | null;
+    topicId: string | null;
+    topicPath?: string | null;
+    options: Option[];
+    correctOptions: number[];
+    exactAnswer?: number | null;
+    answerMin?: number | null;
+    answerMax?: number | null;
+    modelAnswer?: string | null;
 }
 
 interface Props {
@@ -89,7 +106,7 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
                     {expandedId === q.id && (
                         <div className="px-5 pb-5 border-t border-border/60 pt-4 space-y-2">
                             {q.options.map((o, oi) => (
-                                <div key={o.id} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${o.isCorrect ? 'bg-green-50 text-green-800 font-medium' : 'text-muted-foreground'}`}>
+                                <div key={o.id ?? o.index} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${o.isCorrect ? 'bg-green-50 text-green-800 font-medium' : 'text-muted-foreground'}`}>
                                     <span className="font-mono text-xs w-5">{String.fromCharCode(65 + oi)}.</span>
                                     {o.text}
                                 </div>
@@ -123,7 +140,7 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
                 <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-2xl">
                     <BookOpen className="mx-auto mb-3 opacity-30" size={32} />
                     <p className="font-medium">No questions yet</p>
-                    <p className="text-sm mt-1">Click "Add Question" to get started</p>
+                    <p className="text-sm mt-1">Click &quot;Add Question&quot; to get started</p>
                 </div>
             )}
 

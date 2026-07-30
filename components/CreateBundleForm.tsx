@@ -31,15 +31,19 @@ export default function CreateBundleForm() {
             .catch(() => toast.error("Failed to load exams."));
     }, []);
 
-    useEffect(() => {
-        if (!examId) { setPapers([]); return; }
+    const selectExam = (nextExamId: string) => {
+        setExamId(nextExamId);
+        setSelectedPapers([]);
+        setPapers([]);
+        if (!nextExamId) return;
+
         setLoadingPapers(true);
-        fetch(`/api/admin/papers?examId=${examId}`)
+        fetch(`/api/admin/papers?examId=${nextExamId}`)
             .then((r) => r.json())
-            .then(setPapers)
+            .then((data: unknown) => setPapers(Array.isArray(data) ? data as Paper[] : []))
             .catch(() => toast.error("Failed to load papers."))
             .finally(() => setLoadingPapers(false));
-    }, [examId]);
+    };
 
     const togglePaper = (id: string) =>
         setSelectedPapers((prev) =>
@@ -79,7 +83,7 @@ export default function CreateBundleForm() {
                 <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Exam</h2>
                 <select
                     value={examId}
-                    onChange={(e) => { setExamId(e.target.value); setSelectedPapers([]); }}
+                    onChange={(e) => selectExam(e.target.value)}
                     className="w-full h-11 px-4 rounded-xl border border-border text-sm outline-none focus:border-foreground transition-colors bg-card"
                 >
                     <option value="">Select exam...</option>

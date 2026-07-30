@@ -1,8 +1,8 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Trash2, Plus, BookOpen, Clock, Trophy, Tag, LayoutList, Info, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Clock, LayoutList, Info, Sparkles, Loader2 } from 'lucide-react';
 import { useTransition, useState } from 'react';
 import { examSchema, ExamFormValues, ExamFormInput } from '@/types/exam';
 import { createExam, deleteExam, updateExam } from "@/app/(main)/actions/exam-actions";
@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import ExamCarouselCard from './ExamCarouselCard';
 import { parseSyllabusPDF } from "@/app/(main)/actions/ocr-syllabus";
 
@@ -30,7 +29,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
 
     const isEditing = !!initialData;
 
-    const form = useForm<ExamFormInput>({
+    const form = useForm<ExamFormInput, undefined, ExamFormValues>({
         resolver: zodResolver(examSchema),
         defaultValues: initialData ?? {
             name: '',
@@ -101,7 +100,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
         name: "syllabus",
     });
 
-    const watchedValues = form.watch();
+    const watchedValues = useWatch({ control: form.control });
     const selectedCategory = categories.find(c => c.id === watchedValues.examCategoryId);
 
     const onSubmit = (data: ExamFormValues) => {
@@ -118,7 +117,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
                     toast.success("Exam published successfully!");
                     form.reset();
                 }
-            } catch (error)
+            } catch
             {
                 toast.error("Failed to create exam.");
             }
@@ -144,7 +143,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
             {/* LEFT: THE FORM */}
             <div className="flex-1">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8 bg-card p-8 rounded-2xl border border-border shadow-sm">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 bg-card p-8 rounded-2xl border border-border shadow-sm">
 
                         <div className="space-y-6">
                             <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -405,7 +404,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
                 <p className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.3em]">Exam Preview</p>
 
                 <ExamCarouselCard
-                    name={watchedValues.name}
+                    name={watchedValues.name ?? ""}
                     description={watchedValues.description}
                     isPreview={true}
                     tags={watchedValues.tags}
@@ -413,7 +412,10 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
                     accentColor={selectedCategory?.color}
                     totalMarks={Number(watchedValues.totalMarks)}
                     duration={Number(watchedValues.duration)}
-                    syllabus={watchedValues.syllabus}
+                    syllabus={(watchedValues.syllabus ?? []).map((section) => ({
+                        category: section.category ?? "",
+                        topics: section.topics ?? [],
+                    }))}
                 />
 
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">

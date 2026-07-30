@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, RotateCcw, SearchCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { changeModerationCaseStatus } from "@/app/(main)/actions/moderation-actions";
+import {
+    changeModerationCaseAssignment,
+    mergeModerationCase,
+} from "@/app/(main)/actions/moderation-actions";
 import { cn } from "@/lib/utils";
 
 type CaseStatus = "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
@@ -12,12 +16,24 @@ type CaseStatus = "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
 export default function ModerationCaseActions({
     caseId,
     status,
+    admins,
+    assignedToId,
+    mergeCandidates,
 }: {
     caseId: string;
     status: CaseStatus;
+    admins: Array<{ id: string; name: string | null; email: string }>;
+    assignedToId: string | null;
+    mergeCandidates: Array<{
+        id: string;
+        status: CaseStatus;
+        uniqueReporterCount: number;
+    }>;
 }) {
     const router = useRouter();
     const [note, setNote] = useState("");
+    const [assigneeId, setAssigneeId] = useState(assignedToId ?? "");
+    const [mergeTargetId, setMergeTargetId] = useState("");
     const [pending, startTransition] = useTransition();
 
     const changeStatus = (nextStatus: CaseStatus) => {
@@ -45,6 +61,38 @@ export default function ModerationCaseActions({
     };
 
     const terminal = status === "RESOLVED" || status === "DISMISSED";
+
+    const saveAssignment = () => {
+        startTransition(async () => {
+            const result = await changeModerationCaseAssignment({
+                caseId,
+                assigneeId: assigneeId || null,
+            });
+            if (!result.success) {
+                toast.error(result.error);
+                return;
+            }
+            toast.success("Case assignment updated.");
+            router.refresh();
+        });
+    };
+
+    const merge = () => {
+        if (!mergeTargetId) return;
+        startTransition(async () => {
+            const result = await mergeModerationCase({
+                sourceCaseId: caseId,
+                targetCaseId: mergeTargetId,
+            });
+            if (!result.success) {
+                toast.error(result.error);
+                return;
+            }
+            toast.success("Cases merged.");
+            router.push(`/admin/moderation/${result.targetCaseId}`);
+            router.refresh();
+        });
+    };
 
     return (
         <section className="rounded-2xl border border-border bg-card p-5">
@@ -109,6 +157,68 @@ export default function ModerationCaseActions({
                     </>
                 )}
             </div>
+
+            <div className="mt-5 border-t border-border pt-5">
+                <label className="text-xs font-black uppercase tracking-wider">
+                    Assigned administrator
+                    <select
+                        value={assigneeId}
+                        onChange={(event) => setAssigneeId(event.target.value)}
+                        disabled={pending}
+                        className="mt-2 h-10 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground"
+                    >
+                        <option value="">Unassigned</option>
+                        {admins.map((admin) => (
+                            <option key={admin.id} value={admin.id}>
+                                {admin.name ?? admin.email}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <button
+                    type="button"
+                    onClick={saveAssignment}
+                    disabled={pending || assigneeId === (assignedToId ?? "")}
+                    className="mt-2 h-10 w-full rounded-xl border border-border text-xs font-black hover:bg-muted disabled:opacity-50"
+                >
+                    Save assignment
+                </button>
+            </div>
+
+            {mergeCandidates.length > 0 && (
+                <div className="mt-5 border-t border-border pt-5">
+                    <label className="text-xs font-black uppercase tracking-wider">
+                        Merge duplicate case
+                        <select
+                            value={mergeTargetId}
+                            onChange={(event) =>
+                                setMergeTargetId(event.target.value)
+                            }
+                            disabled={pending}
+                            className="mt-2 h-10 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground"
+                        >
+                            <option value="">Select destination…</option>
+                            {mergeCandidates.map((candidate) => (
+                                <option
+                                    key={candidate.id}
+                                    value={candidate.id}
+                                >
+                                    {candidate.status.replace("_", " ")} ·{" "}
+                                    {candidate.uniqueReporterCount} reporters
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <button
+                        type="button"
+                        onClick={merge}
+                        disabled={pending || !mergeTargetId}
+                        className="mt-2 h-10 w-full rounded-xl border border-warning/30 text-xs font-black text-warning hover:bg-warning/10 disabled:opacity-50"
+                    >
+                        Merge this case into selected case
+                    </button>
+                </div>
+            )}
         </section>
     );
 }

@@ -6,7 +6,33 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-declare global { interface Window { Razorpay: any } }
+interface RazorpayPaymentResponse {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+}
+
+interface RazorpayOptions {
+    key: string;
+    amount: number;
+    currency: string;
+    order_id: string;
+    name: string;
+    description: string;
+    handler: (response: RazorpayPaymentResponse) => Promise<void>;
+    theme: { color: string };
+    modal: { ondismiss: () => void };
+}
+
+interface RazorpayCheckout {
+    open: () => void;
+}
+
+declare global {
+    interface Window {
+        Razorpay: new (options: RazorpayOptions) => RazorpayCheckout;
+    }
+}
 
 export default function BuyButton({
     bundleId, bundleName, priceRupees, className,
@@ -41,6 +67,10 @@ export default function BuyButton({
                 });
             }
 
+            if (!order.keyId) {
+                throw new Error("Payment gateway is not configured.");
+            }
+
             new window.Razorpay({
                 key: order.keyId,
                 amount: order.amount,
@@ -48,7 +78,7 @@ export default function BuyButton({
                 order_id: order.orderId,
                 name: "Converso",
                 description: bundleName,
-                handler: async (res: any) => {
+                handler: async (res: RazorpayPaymentResponse) => {
                     try
                     {
                         await verifyPayment(res.razorpay_order_id, res.razorpay_payment_id, res.razorpay_signature);
@@ -64,9 +94,9 @@ export default function BuyButton({
                     ondismiss: () => setLoading(false),
                 },
             }).open();
-        } catch (err: any)
+        } catch (error: unknown)
         {
-            toast.error(err.message ?? "Something went wrong.");
+            toast.error(error instanceof Error ? error.message : "Something went wrong.");
             setLoading(false);
         }
     };

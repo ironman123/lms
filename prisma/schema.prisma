@@ -160,6 +160,9 @@ model QuestionPaper {
   year            Int?
   contentRevision Int               @default(1)
   createdAt       DateTime          @default(now())
+  isArchived      Boolean           @default(false)
+  archivedAt      DateTime?
+  archiveReason   String?
   questions       Question[]
   //exam      Exam?      @relation(fields: [examId], references: [id], onDelete: Cascade)
   //examId    String?
@@ -388,16 +391,17 @@ model ModerationCase {
 }
 
 model ContentReport {
-  id         String         @id @default(uuid())
-  caseId     String
-  reporterId String
-  sessionId  String?
-  category   ReportCategory
-  source     ReportSource
-  comment    String?
-  context    Json?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id          String         @id @default(uuid())
+  caseId      String
+  reporterId  String
+  sessionId   String?
+  category    ReportCategory
+  source      ReportSource
+  comment     String?
+  context     Json?
+  withdrawnAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   moderationCase ModerationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   reporter       User           @relation(fields: [reporterId], references: [id], onDelete: Restrict)
@@ -729,4 +733,7 @@ enum ModerationActionType {
   COMMENTED
   CONTENT_EDITED
   CONTENT_ARCHIVED
+  REPORT_WITHDRAWN
+  REPORT_RESTORED
+  MERGED
 }

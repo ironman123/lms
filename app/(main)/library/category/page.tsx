@@ -87,8 +87,8 @@ export default async function CategoryIndexPage({
                             No categories found
                         </h3>
                         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                            We couldn't find any categories matching{" "}
-                            <span className="font-bold text-foreground">"{query}"</span>.
+                            We couldn&apos;t find any categories matching{" "}
+                            <span className="font-bold text-foreground">&quot;{query}&quot;</span>.
                         </p>
                         <Link
                             href="/library/category"

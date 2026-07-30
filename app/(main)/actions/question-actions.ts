@@ -82,7 +82,8 @@ export async function updateQuestion(
     questionId: string,
     paperId: string,
     examSlug: string,
-    data: QuestionFormInput
+    data: QuestionFormInput,
+    moderationCaseId?: string
 ) {
     const admin = await requireAdmin();
     const validated = questionSchema.parse(data);
@@ -127,6 +128,43 @@ export async function updateQuestion(
                             questionRevision: question.contentRevision,
                         },
                     })),
+                });
+            }
+            if (moderationCaseId) {
+                const linkedCase = await tx.moderationCase.findFirst({
+                    where: {
+                        id: moderationCaseId,
+                        questionId,
+                        status: {
+                            in: [
+                                ModerationCaseStatus.OPEN,
+                                ModerationCaseStatus.IN_REVIEW,
+                            ],
+                        },
+                    },
+                    select: { id: true },
+                });
+                if (!linkedCase) {
+                    throw new Error(
+                        "The moderation case does not match this question or is already closed."
+                    );
+                }
+                await tx.moderationCase.update({
+                    where: { id: linkedCase.id },
+                    data: {
+                        status: ModerationCaseStatus.RESOLVED,
+                        activeKey: null,
+                        resolvedAt: new Date(),
+                        resolutionNote:
+                            "Question corrected through the moderation workflow.",
+                        actions: {
+                            create: {
+                                actorId: admin.id,
+                                action: ModerationActionType.RESOLVED,
+                                note: `Question corrected in revision ${question.contentRevision}.`,
+                            },
+                        },
+                    },
                 });
             }
         });

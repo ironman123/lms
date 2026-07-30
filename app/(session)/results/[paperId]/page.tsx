@@ -260,6 +260,7 @@ export default async function ResultsPage({
                     <ResultReview
                         items={result.review}
                         sessionId={result.sessionId}
+                        reportIdsByQuestion={result.reportIdsByQuestion}
                     />
                 </div>
 

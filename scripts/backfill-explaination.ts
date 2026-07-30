@@ -10,7 +10,26 @@ const GEMINI_DELAY_MS = 4000;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function backfillExplanationsForPaper(questions: any[]): Promise<Record<number, string>> {
+interface SourceOption {
+    label: string;
+    text: string;
+}
+
+interface SourceQuestion {
+    number: number;
+    content: string;
+    options: SourceOption[];
+    correctAnswer: string | null;
+    explanation?: string | null;
+}
+
+interface SourcePaper {
+    status: string;
+    scrapedTitle: string;
+    questions: SourceQuestion[];
+}
+
+async function backfillExplanationsForPaper(questions: SourceQuestion[]): Promise<Record<number, string>> {
     const needsExplanation = questions.filter(q =>
         q.correctAnswer && !q.explanation && q.content?.trim()
     );
@@ -33,15 +52,22 @@ OUTPUT — JSON only:
 QUESTIONS:
 ${needsExplanation.map(q => `
 Q${q.number}: ${q.content}
-Options: ${q.options.map((o: any) => `${o.label}) ${o.text}`).join(" | ")}
+Options: ${q.options.map((option) => `${option.label}) ${option.text}`).join(" | ")}
 Correct Answer: ${q.correctAnswer}
 `).join("\n---\n")}`;
 
     try
     {
         const result = await model.generateContent(prompt);
-        const parsed = JSON.parse(result.response.text());
-        return parsed.explanations ?? {};
+        const parsed = JSON.parse(result.response.text()) as unknown;
+        if (typeof parsed !== "object" || parsed === null) return {};
+        const explanations = (parsed as Record<string, unknown>).explanations;
+        if (typeof explanations !== "object" || explanations === null) return {};
+        return Object.fromEntries(
+            Object.entries(explanations).filter(
+                (entry): entry is [string, string] => typeof entry[1] === "string",
+            ),
+        );
     } catch
     {
         return {};
@@ -49,11 +75,13 @@ Correct Answer: ${q.correctAnswer}
 }
 
 async function main() {
-    const papers = JSON.parse(fs.readFileSync(INPUT_FILE, "utf-8"));
+    const parsedPapers = JSON.parse(fs.readFileSync(INPUT_FILE, "utf-8")) as unknown;
+    if (!Array.isArray(parsedPapers)) throw new Error("Expected paper input to be an array.");
+    const papers = parsedPapers as SourcePaper[];
 
-    const papersNeedingWork = papers.filter((p: any) =>
-        p.status === "success" &&
-        p.questions?.some((q: any) => q.correctAnswer && !q.explanation)
+    const papersNeedingWork = papers.filter((paper) =>
+        paper.status === "success" &&
+        paper.questions?.some((question) => question.correctAnswer && !question.explanation)
     );
 
     console.log(`Papers needing explanation backfill: ${papersNeedingWork.length}`);
@@ -66,7 +94,7 @@ async function main() {
 
         if (paper.status !== "success" || !paper.questions?.length) continue;
 
-        const needsWork = paper.questions.some((q: any) => q.correctAnswer && !q.explanation);
+        const needsWork = paper.questions.some((question) => question.correctAnswer && !question.explanation);
         if (!needsWork) continue;
 
         console.log(`[${updatedCount + 1}/${papersNeedingWork.length}] ${paper.scrapedTitle}`);
@@ -74,9 +102,9 @@ async function main() {
         const explanations = await backfillExplanationsForPaper(paper.questions);
 
         // Merge explanations back
-        papers[i].questions = paper.questions.map((q: any) => ({
-            ...q,
-            explanation: q.explanation ?? explanations[q.number] ?? null,
+        papers[i].questions = paper.questions.map((question) => ({
+            ...question,
+            explanation: question.explanation ?? explanations[question.number] ?? null,
         }));
 
         updatedCount++;

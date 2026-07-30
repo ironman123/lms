@@ -105,6 +105,20 @@ export async function updateQuestionPaper(
                 year: validated.year ?? null,
                 type: validated.type,
                 contentRevision: { increment: 1 },
+                isArchived: false,
+                archivedAt: null,
+                archiveReason: null,
+                questions: {
+                    updateMany: {
+                        where: { archiveReason: "PAPER_ARCHIVED" },
+                        data: {
+                            isArchived: false,
+                            archivedAt: null,
+                            archiveReason: null,
+                            contentRevision: { increment: 1 },
+                        },
+                    },
+                },
             },
         });
         await tx.examQuestionPaperLink.deleteMany({ where: { paperId } });
@@ -147,15 +161,127 @@ export async function updateQuestionPaper(
 }
 
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {
-    await requireAdmin();
+    const admin = await requireAdmin();
     if (!paperId) throw new Error("Paper ID is required");
-    await prisma.questionPaper.delete({ where: { id: paperId } });
+    await prisma.$transaction(async (tx) => {
+        const archivedAt = new Date();
+        const questions = await tx.question.findMany({
+            where: { paperId },
+            select: { id: true },
+        });
+        const questionIds = questions.map((question) => question.id);
+        const activeCases = await tx.moderationCase.findMany({
+            where: {
+                OR: [
+                    { paperId },
+                    ...(questionIds.length > 0
+                        ? [{ questionId: { in: questionIds } }]
+                        : []),
+                ],
+                status: {
+                    in: [
+                        ModerationCaseStatus.OPEN,
+                        ModerationCaseStatus.IN_REVIEW,
+                    ],
+                },
+            },
+            select: { id: true },
+        });
+
+        await tx.questionPaper.update({
+            where: { id: paperId },
+            data: {
+                isArchived: true,
+                archivedAt,
+                archiveReason: "ADMIN_DELETED",
+                contentRevision: { increment: 1 },
+                questions: {
+                    updateMany: {
+                        where: { isArchived: false },
+                        data: {
+                            isArchived: true,
+                            archivedAt,
+                            archiveReason: "PAPER_ARCHIVED",
+                            contentRevision: { increment: 1 },
+                        },
+                    },
+                },
+            },
+        });
+        if (activeCases.length > 0) {
+            const caseIds = activeCases.map(
+                (moderationCase) => moderationCase.id
+            );
+            await tx.moderationCase.updateMany({
+                where: { id: { in: caseIds } },
+                data: {
+                    status: ModerationCaseStatus.RESOLVED,
+                    activeKey: null,
+                    resolvedAt: archivedAt,
+                    resolutionNote: "Paper archived by an administrator.",
+                },
+            });
+            await tx.moderationAction.createMany({
+                data: activeCases.flatMap((moderationCase) => [
+                    {
+                        caseId: moderationCase.id,
+                        actorId: admin.id,
+                        action: ModerationActionType.CONTENT_ARCHIVED,
+                        note: "Paper archived from future sessions.",
+                    },
+                    {
+                        caseId: moderationCase.id,
+                        actorId: admin.id,
+                        action: ModerationActionType.RESOLVED,
+                        note: "Paper archived by an administrator.",
+                    },
+                ]),
+            });
+        }
+    });
     await invalidateTag("exams");
     await invalidateKey(`paper:${paperId}`);
 
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
     revalidatePath("/library/paper");
     return { success: true };
+}
+
+export async function restoreQuestionPaper(paperId: string) {
+    await requireAdmin();
+    if (!paperId) throw new Error("Paper ID is required");
+    await prisma.questionPaper.update({
+        where: { id: paperId },
+        data: {
+            isArchived: false,
+            archivedAt: null,
+            archiveReason: null,
+            contentRevision: { increment: 1 },
+            questions: {
+                updateMany: {
+                    where: { archiveReason: "PAPER_ARCHIVED" },
+                    data: {
+                        isArchived: false,
+                        archivedAt: null,
+                        archiveReason: null,
+                        contentRevision: { increment: 1 },
+                    },
+                },
+            },
+        },
+    });
+    await invalidateTag("exams");
+    await invalidateTag("papers");
+    await invalidateKey(`paper:${paperId}`);
+    revalidatePath("/admin/papers/archived");
+    revalidatePath("/library/paper");
+    return { success: true };
+}
+
+export async function restoreQuestionPaperFromForm(formData: FormData) {
+    const paperId = formData.get("paperId");
+    if (typeof paperId !== "string") throw new Error("Paper ID is required");
+    await restoreQuestionPaper(paperId);
 }
 
 export async function getExamSyllabusEntries(examId: string) {

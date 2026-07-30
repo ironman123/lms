@@ -1,6 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
-import { Clock, Star, Bookmark } from "lucide-react"; // Matching Lucide style
+import { Clock, Bookmark } from "lucide-react"; // Matching Lucide style
 
 interface ExamCardProps {
     id: string;
@@ -12,7 +11,7 @@ interface ExamCardProps {
     color: string; // hex code or color name (e.g., #1D3557)
 }
 
-const ExamCard = ({ id, name, description, tags, duration, totalMarks, color }: ExamCardProps) => {
+const ExamCard = ({ name, description, tags, duration, totalMarks, color }: ExamCardProps) => {
     return (
         <article
             className="group relative flex flex-col p-6 bg-card border border-border/60 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl hover:border-transparent"

@@ -35,6 +35,7 @@ async function getPapersData(query: string, page: number) {
         async () => {
             const where = normalizedQuery
                 ? {
+                    isArchived: false,
                     OR: [
                         { title: { contains: normalizedQuery, mode: "insensitive" as const } },
                         {
@@ -44,7 +45,7 @@ async function getPapersData(query: string, page: number) {
                         },
                     ],
                 }
-                : {};
+                : { isArchived: false };
 
             const [papers, total] = await Promise.all([
                 prisma.questionPaper.findMany({

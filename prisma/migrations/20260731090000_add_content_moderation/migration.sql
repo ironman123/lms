@@ -3,7 +3,10 @@ ALTER TABLE "Question"
 ADD COLUMN "contentRevision" INTEGER NOT NULL DEFAULT 1;
 
 ALTER TABLE "QuestionPaper"
-ADD COLUMN "contentRevision" INTEGER NOT NULL DEFAULT 1;
+ADD COLUMN "contentRevision" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN "isArchived" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "archivedAt" TIMESTAMP(3),
+ADD COLUMN "archiveReason" TEXT;
 
 CREATE TYPE "ModerationTargetType" AS ENUM ('QUESTION', 'PAPER');
 CREATE TYPE "ModerationCaseStatus" AS ENUM ('OPEN', 'IN_REVIEW', 'RESOLVED', 'DISMISSED');
@@ -32,7 +35,10 @@ CREATE TYPE "ModerationActionType" AS ENUM (
     'REOPENED',
     'COMMENTED',
     'CONTENT_EDITED',
-    'CONTENT_ARCHIVED'
+    'CONTENT_ARCHIVED',
+    'REPORT_WITHDRAWN',
+    'REPORT_RESTORED',
+    'MERGED'
 );
 
 CREATE TABLE "ModerationConfig" (
@@ -115,6 +121,7 @@ CREATE TABLE "ContentReport" (
     "source" "ReportSource" NOT NULL,
     "comment" TEXT,
     "context" JSONB,
+    "withdrawnAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "ContentReport_pkey" PRIMARY KEY ("id")

@@ -15,7 +15,12 @@ import * as fs from "fs";
 import * as path from "path";
 import * as https from "https";
 import * as http from "http";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+    GoogleGenerativeAI,
+    type GenerateContentResult,
+    type GenerativeModel,
+    type Part,
+} from "@google/generative-ai";
 import * as dotenv from "dotenv";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
@@ -221,66 +226,53 @@ function cleanExamName(raw: string): string {
 
 // ── Gemini setup ──────────────────────────────────────────────────────────────
 
-const genAI = new GoogleGenerativeAI("AIzaSyARCggoYFrYhU26WJ9Kv5aBW2zmNraVMeI");
+const geminiApiKey = process.env.GEMINI_API_KEY;
+if (!geminiApiKey)
+{
+    throw new Error("GEMINI_API_KEY is required to run the paper scraper.");
+}
+const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-async function generateWithRetry(model: any, prompt: string | any[], maxRetries = 3): Promise<any> {
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+    return typeof value === "object" && value !== null
+        ? value as Record<string, unknown>
+        : {};
+}
+
+async function generateWithRetry(
+    model: GenerativeModel,
+    prompt: string | Array<string | Part>,
+    maxRetries = 3,
+): Promise<GenerateContentResult> {
     for (let attempt = 0; attempt < maxRetries; attempt++)
     {
         try
         {
             return await model.generateContent(prompt);
-        } catch (err: any)
+        } catch (error: unknown)
         {
-            if (err.message?.includes("429") && attempt < maxRetries - 1)
+            const message = errorMessage(error);
+            if (message.includes("429") && attempt < maxRetries - 1)
             {
-                const match = err.message.match(/retry in (\d+)/i);
+                const match = message.match(/retry in (\d+)/i);
                 const wait = match ? parseInt(match[1]) + 5 : 60;
                 console.log(`    Rate limited — waiting ${wait}s...`);
                 await sleep(wait * 1000);
             } else
             {
-                throw err;
+                throw error;
             }
         }
     }
+
+    throw new Error("Gemini request exhausted all retry attempts.");
 }
 
 // ── Google Search fallback for category number ────────────────────────────────
-
-async function searchCategoryNumber(examName: string): Promise<string | null> {
-    if (!examName || examName.length < 5) return null;
-
-    try
-    {
-        const model = genAI.getGenerativeModel({
-            model: true ? "gemini-1.5-flash" : "gemini-2.5-flash", // vision only for scanned
-            tools: [{ googleSearch: {} } as any],
-        });
-
-        const result = await generateWithRetry(model,
-            `Search Google for Kerala PSC category number for: "${examName}"
-
-Search: "${examName} Kerala PSC category number site:keralapsc.gov.in"
-
-- Look for numbers in format NNN/YYYY (e.g. 277/2024)
-- If multiple found for different years, return ALL: "433/2023 ; 277/2024"
-- Only use keralapsc.gov.in or official notifications
-- If not found return exactly: null
-
-Reply with ONLY the category number(s) or null.`
-        );
-
-        const text = result.response.text().trim();
-        if (text.toLowerCase() === "null" || text === "") return null;
-        if (/\d{1,3}\/\d{4}/.test(text)) return text;
-        return null;
-
-    } catch (err: any)
-    {
-        console.log(`    Search failed: ${err.message}`);
-        return null;
-    }
-}
 
 // ── PDF Question Extraction ───────────────────────────────────────────────────
 
@@ -344,7 +336,7 @@ async function extractQuestionsFromPDF(
     });
 
     // Start with the base prompt
-    const promptParts: any[] = [QUESTION_EXTRACTION_PROMPT];
+    const promptParts: Array<string | Part> = [QUESTION_EXTRACTION_PROMPT];
 
     // Conditionally attach the text OR the PDF file
     if (rawText)
@@ -368,21 +360,44 @@ async function extractQuestionsFromPDF(
 
     // Because we set responseMimeType to JSON, we don't need regex replacement
     const raw = result.response.text();
-    const parsed = JSON.parse(raw);
+    const parsed = asRecord(JSON.parse(raw) as unknown);
 
     // Merge answer key into questions if answer key is separate
-    const answerKey: Record<string, string> = parsed.answerKey ?? {};
-    const questions: ExtractedQuestion[] = (parsed.questions ?? []).map((q: any) => ({
-        number: q.number,
-        content: q.content?.trim() ?? "",
-        options: (q.options ?? []).map((o: any) => ({
-            label: o.label?.trim().toUpperCase(),
-            text: o.text?.trim(),
-        })),
-        correctAnswer: q.correctAnswer ?? answerKey[String(q.number)] ?? null,
-        explanation: q.explanation ?? null,
-        type: q.type ?? "MCQ",
-    }));
+    const rawAnswerKey = asRecord(parsed.answerKey);
+    const answerKey = Object.fromEntries(
+        Object.entries(rawAnswerKey).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+    );
+    const rawQuestions = Array.isArray(parsed.questions) ? parsed.questions : [];
+    const questions: ExtractedQuestion[] = rawQuestions.map((value) => {
+        const question = asRecord(value);
+        const number = typeof question.number === "number"
+            ? question.number
+            : Number.parseInt(String(question.number ?? ""), 10) || 0;
+        const rawType = question.type;
+        const type: ExtractedQuestion["type"] =
+            rawType === "NUMERICAL" || rawType === "UNKNOWN" ? rawType : "MCQ";
+        return {
+            number,
+            content: typeof question.content === "string" ? question.content.trim() : "",
+            options: (Array.isArray(question.options) ? question.options : []).flatMap((optionValue) => {
+                const option = asRecord(optionValue);
+                const label = typeof option.label === "string"
+                    ? option.label.trim().toUpperCase()
+                    : "";
+                const text = typeof option.text === "string" ? option.text.trim() : "";
+                return label && text ? [{ label, text }] : [];
+            }),
+            correctAnswer: typeof question.correctAnswer === "string"
+                ? question.correctAnswer
+                : answerKey[String(number)] ?? null,
+            explanation: typeof question.explanation === "string"
+                ? question.explanation
+                : null,
+            type,
+        };
+    });
 
     const hasAnswers = questions.some(q => q.correctAnswer !== null) ||
         Object.keys(answerKey).length > 0;
@@ -390,7 +405,9 @@ async function extractQuestionsFromPDF(
     return {
         questions,
         hasAnswers,
-        isAnswerKeyOnly: parsed.isAnswerKeyOnly ?? false,
+        isAnswerKeyOnly: typeof parsed.isAnswerKeyOnly === "boolean"
+            ? parsed.isAnswerKeyOnly
+            : false,
     };
 }
 
@@ -522,9 +539,9 @@ async function scrapeAllPages(): Promise<PageRow[]> {
             page++;
             await sleep(SCRAPE_DELAY_MS);
 
-        } catch (err: any)
+        } catch (error: unknown)
         {
-            console.error(`  ❌ Page ${page}: ${err.message}`);
+            console.error(`  ❌ Page ${page}: ${errorMessage(error)}`);
             break;
         }
     }
@@ -561,9 +578,9 @@ async function processPaper(row: PageRow): Promise<ScrapedPaper> {
     {
         const parsed = await pdfParse(buffer);
         rawText = parsed.text ?? "";
-    } catch (err: any)
+    } catch (error: unknown)
     {
-        console.log(`  Local parsing failed: ${err.message}`);
+        console.log(`  Local parsing failed: ${errorMessage(error)}`);
     }
 
     let extractionData;
@@ -657,9 +674,10 @@ async function main() {
                 }
                 return paper;
 
-            } catch (err: any)
+            } catch (error: unknown)
             {
-                console.log(`${label} ✗ ${row.scrapedTitle}: ${err.message}`);
+                const message = errorMessage(error);
+                console.log(`${label} ✗ ${row.scrapedTitle}: ${message}`);
                 // Maintain the exact error structure from your original script
                 return {
                     ...row,
@@ -672,7 +690,7 @@ async function main() {
                     matchedExamName: null,
                     matchStatus: "pending",
                     status: "error",
-                    error: err.message,
+                    error: message,
                     scrapedAt: new Date().toISOString(),
                 } as ScrapedPaper;
             }

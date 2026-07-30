@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { useTransition } from 'react';
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 interface Props {
     paperId: string;
     examSlug: string;
-    initialData?: any;
+    initialData?: QuestionFormValues & { id: string };
     onSaved: () => void;
     onCancel: () => void;
 }
@@ -27,7 +27,7 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
     const [isPending, startTransition] = useTransition();
     const isEditing = !!initialData;
 
-    const form = useForm<QuestionFormInput, any, QuestionFormValues>({
+    const form = useForm<QuestionFormInput, undefined, QuestionFormValues>({
         resolver: zodResolver(questionSchema),
         defaultValues: initialData
             ? {
@@ -67,9 +67,9 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
             },
     });
 
-    const watchedType = form.watch('type');
+    const watchedType = useWatch({ control: form.control, name: 'type' });
     const showOptions = watchedType === 'MCQ' || watchedType === 'MSQ';
-    const correctOptions = form.watch('correctOptions') || [];
+    const correctOptions = useWatch({ control: form.control, name: 'correctOptions' }) || [];
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,

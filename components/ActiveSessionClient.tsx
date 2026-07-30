@@ -35,6 +35,7 @@ export default function ActiveSessionClient({
     userId,
     sessionExpiresAt,
     restoredInteractions,
+    reportIdsByQuestion,
 }: {
     paper: ActiveSessionPaper;
     mode: SessionMode;
@@ -42,6 +43,7 @@ export default function ActiveSessionClient({
     userId: string;
     sessionExpiresAt: string | null;
     restoredInteractions: RestoredInteraction[];
+    reportIdsByQuestion: Record<string, string>;
 }) {
     // ── UI State ──────────────────────────────────────────────────────────────
     const restoredAnswers = useMemo(() => {
@@ -346,6 +348,11 @@ export default function ActiveSessionClient({
                                             sessionId,
                                             source: "ACTIVE_SESSION",
                                         }}
+                                        existingReportId={
+                                            reportIdsByQuestion[
+                                                currentQuestion.id
+                                            ] ?? null
+                                        }
                                     />
                                     <Badge
                                         className={cn(

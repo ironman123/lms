@@ -5,13 +5,18 @@ import { contentReportRatelimit } from "@/lib/ratelimit";
 import {
     createOrUpdateContentReport,
     ModerationReportError,
+    withdrawContentReport,
 } from "@/lib/moderation/report-service";
 import {
     transitionModerationCase,
     updateModerationConfig,
+    assignModerationCase,
+    mergeModerationCases,
 } from "@/lib/moderation/admin-service";
 import type {
     ModerationCaseTransitionInput,
+    ModerationCaseAssignmentInput,
+    ModerationCaseMergeInput,
     ModerationConfigInput,
 } from "@/lib/moderation/schemas";
 import { revalidatePath } from "next/cache";
@@ -30,12 +35,18 @@ export async function submitContentReport(
     input: unknown
 ): Promise<SubmitContentReportResult> {
     const user = await requireAuth();
-    const burst = await contentReportRatelimit.limit(user.id);
-    if (!burst.success) {
-        return {
-            success: false,
-            error: "Too many report attempts. Please wait a minute and try again.",
-        };
+    try {
+        const burst = await contentReportRatelimit.limit(user.id);
+        if (!burst.success) {
+            return {
+                success: false,
+                error: "Too many report attempts. Please wait a minute and try again.",
+            };
+        }
+    } catch (error) {
+        // PostgreSQL still enforces the configurable hourly/daily limits.
+        // A Redis outage must not prevent students from reporting bad content.
+        console.warn("Content-report burst limiter unavailable", error);
     }
 
     try {
@@ -49,6 +60,63 @@ export async function submitContentReport(
         return {
             success: false,
             error: "The report could not be saved. Please try again.",
+        };
+    }
+}
+
+export async function changeModerationCaseAssignment(
+    input: ModerationCaseAssignmentInput
+) {
+    const admin = await requireAdmin();
+    try {
+        const moderationCase = await assignModerationCase(admin.id, input);
+        revalidatePath("/admin/moderation");
+        revalidatePath(`/admin/moderation/${input.caseId}`);
+        return { success: true as const, moderationCase };
+    } catch (error) {
+        return {
+            success: false as const,
+            error:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to assign this case.",
+        };
+    }
+}
+
+export async function mergeModerationCase(
+    input: ModerationCaseMergeInput
+) {
+    const admin = await requireAdmin();
+    try {
+        const result = await mergeModerationCases(admin.id, input);
+        revalidatePath("/admin/moderation");
+        revalidatePath(`/admin/moderation/${input.targetCaseId}`);
+        return { success: true as const, ...result };
+    } catch (error) {
+        return {
+            success: false as const,
+            error:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to merge these cases.",
+        };
+    }
+}
+
+export async function withdrawMyContentReport(reportId: string) {
+    const user = await requireAuth();
+    try {
+        const result = await withdrawContentReport(user.id, reportId);
+        revalidatePath("/settings/reports");
+        return { success: true as const, ...result };
+    } catch (error) {
+        if (error instanceof ModerationReportError) {
+            return { success: false as const, error: error.message };
+        }
+        return {
+            success: false as const,
+            error: "The report could not be withdrawn.",
         };
     }
 }

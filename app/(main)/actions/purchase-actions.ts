@@ -58,7 +58,7 @@ export async function toggleBundle(bundleId: string, isActive: boolean) {
 // ── Student: create Razorpay order ────────────────────────────────────────────
 export async function createOrder(bundleId: string) {
     const user = await requireAuth();
-    const { getRazorpay, verifyRazorpaySignature } = await import("@/lib/razorpay");
+    const { getRazorpay } = await import("@/lib/razorpay");
     const razorpay = getRazorpay();
 
     const bundle = await prisma.productBundle.findUnique({

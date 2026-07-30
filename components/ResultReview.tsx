@@ -87,9 +87,11 @@ function formatMarks(value: number) {
 function ReviewCard({
     item,
     sessionId,
+    existingReportId,
 }: {
     item: ResultReviewItem;
     sessionId: string;
+    existingReportId: string | null;
 }) {
     const config = gradeConfig[item.grade];
     const Icon = config.icon;
@@ -139,6 +141,7 @@ function ReviewCard({
                                 sessionId,
                                 source: "RESULT_REVIEW",
                             }}
+                            existingReportId={existingReportId}
                         />
                         <span
                             className={cn(
@@ -334,9 +337,11 @@ function ReviewCard({
 export default function ResultReview({
     items,
     sessionId,
+    reportIdsByQuestion,
 }: {
     items: ResultReviewItem[];
     sessionId: string;
+    reportIdsByQuestion: Record<string, string>;
 }) {
     const [filter, setFilter] = useState<Filter>("ALL");
     const [visibleCount, setVisibleCount] = useState(20);
@@ -428,6 +433,9 @@ export default function ResultReview({
                     key={item.id}
                     item={item}
                     sessionId={sessionId}
+                    existingReportId={
+                        reportIdsByQuestion[item.questionId] ?? null
+                    }
                 />
                     ))}
                 </div>

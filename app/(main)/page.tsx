@@ -1,11 +1,7 @@
-import Cta from '@/components/Cta'
-import List from '@/components/List'
 import ExamCard from '@/components/ExamCard'
-import { Button } from '@/components/ui/button'
 import React from 'react'
 import { exams } from '@/constants/index' // Assuming your papers are currently stored here
 import ExamCategoryCard from '@/components/ExamCategoryCard'
-import Exam from './library/exam/page'
 import { KPSC_CATEGORIES } from '@/constants/index'
 import HeroSection from '@/components/Hero'
 import Link from 'next/link'

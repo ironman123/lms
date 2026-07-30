@@ -70,6 +70,7 @@ export type ResultView = {
     reviewComplete: boolean;
     legacyUnavailableCount: number;
     missingAnswerKeyCount: number;
+    reportIdsByQuestion: Record<string, string>;
 };
 
 function isQuestionSnapshot(value: unknown): value is QuestionSnapshot {
@@ -132,6 +133,15 @@ export async function loadCompletedResult(
                 },
             },
             interactions: true,
+            contentReports: {
+                where: { withdrawnAt: null },
+                select: {
+                    id: true,
+                    moderationCase: {
+                        select: { questionId: true },
+                    },
+                },
+            },
         },
     });
 
@@ -269,5 +279,16 @@ export async function loadCompletedResult(
         reviewComplete: legacyUnavailableCount === 0,
         legacyUnavailableCount,
         missingAnswerKeyCount,
+        reportIdsByQuestion: Object.fromEntries(
+            session.contentReports
+                .filter(
+                    (report) =>
+                        typeof report.moderationCase.questionId === "string"
+                )
+                .map((report) => [
+                    report.moderationCase.questionId!,
+                    report.id,
+                ])
+        ),
     };
 }

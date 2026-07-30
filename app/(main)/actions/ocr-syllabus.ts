@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/auth";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -18,7 +18,7 @@ export interface ParsedSyllabus {
 
 // Pass 1 — understand the document structure before extracting
 async function detectDocumentStructure(
-  model: any,
+  model: GenerativeModel,
   base64Content: string,
   mimeType: string
 ): Promise<"structured" | "prose" | "tabular"> {
@@ -252,7 +252,7 @@ export async function parseSyllabusPDF(
   // Extraction model — with search
   const extractionModel = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
-    tools: [{ googleSearch: {} } as any],
+    tools: [{ googleSearchRetrieval: {} }],
   });
 
   try
@@ -274,44 +274,61 @@ export async function parseSyllabusPDF(
     ]);
 
     const raw = result.response.text().replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as unknown;
+    const parsedRecord =
+      typeof parsed === "object" && parsed !== null
+        ? parsed as Record<string, unknown>
+        : {};
 
-    if (!Array.isArray(parsed.syllabus) || parsed.syllabus.length === 0)
+    if (!Array.isArray(parsedRecord.syllabus) || parsedRecord.syllabus.length === 0)
     {
       return { success: false, error: "No syllabus content found in document" };
     }
 
     const data: ParsedSyllabus = {
-      examName: parsed.examName?.trim() ?? null,
-      categoryNumber: parsed.categoryNumber?.trim() ?? null,
-      description: parsed.description?.trim() ?? null,
+      examName: typeof parsedRecord.examName === "string" ? parsedRecord.examName.trim() || null : null,
+      categoryNumber: typeof parsedRecord.categoryNumber === "string" ? parsedRecord.categoryNumber.trim() || null : null,
+      description: typeof parsedRecord.description === "string" ? parsedRecord.description.trim() || null : null,
 
       // Coerce to number — Gemini sometimes returns "120" as a string
-      duration: parsed.duration != null
-        ? Number(String(parsed.duration).replace(/[^\d]/g, "")) || null
+      duration: parsedRecord.duration != null
+        ? Number(String(parsedRecord.duration).replace(/[^\d]/g, "")) || null
         : null,
-      totalMarks: parsed.totalMarks != null
-        ? Number(String(parsed.totalMarks).replace(/[^\d]/g, "")) || null
+      totalMarks: parsedRecord.totalMarks != null
+        ? Number(String(parsedRecord.totalMarks).replace(/[^\d]/g, "")) || null
         : null,
 
-      tags: Array.isArray(parsed.tags)
-        ? parsed.tags.map((t: string) => t?.toLowerCase().trim()).filter(Boolean)
+      tags: Array.isArray(parsedRecord.tags)
+        ? parsedRecord.tags.flatMap((tag) =>
+            typeof tag === "string" && tag.trim()
+              ? [tag.toLowerCase().trim()]
+              : [])
         : [],
 
-      syllabus: parsed.syllabus.map((item: any) => ({
-        category: item.category?.trim() ?? "Untitled",
-        topics: (item.topics ?? [])
-          .map((t: string) => t?.trim())
-          .filter(Boolean),
-      })),
+      syllabus: parsedRecord.syllabus.map((value) => {
+        const item =
+          typeof value === "object" && value !== null
+            ? value as Record<string, unknown>
+            : {};
+        return {
+          category: typeof item.category === "string"
+            ? item.category.trim() || "Untitled"
+            : "Untitled",
+          topics: Array.isArray(item.topics)
+            ? item.topics.flatMap((topic) =>
+                typeof topic === "string" && topic.trim() ? [topic.trim()] : [])
+            : [],
+        };
+      }),
     };
 
     console.log(`Exam: ${data.examName} | Cat#: ${data.categoryNumber} | Duration: ${data.duration}m | Marks: ${data.totalMarks} | Format: ${format} | Sections: ${data.syllabus.length}`);
     return { success: true, data };
 
-  } catch (error: any)
+  } catch (error: unknown)
   {
-    console.error("GEMINI_ERROR:", error.status, error.message);
-    return { success: false, error: error.message ?? "Failed to parse syllabus" };
+    const message = error instanceof Error ? error.message : "Failed to parse syllabus";
+    console.error("GEMINI_ERROR:", message);
+    return { success: false, error: message };
   }
 }

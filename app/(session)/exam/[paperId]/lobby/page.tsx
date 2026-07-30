@@ -67,6 +67,17 @@ export default async function PaperLobbyPage({
     ]);
 
     if (!paper) notFound();
+    const existingPaperReport = await prisma.contentReport.findFirst({
+        where: {
+            reporterId: user.id,
+            withdrawnAt: null,
+            moderationCase: {
+                paperId,
+                paperRevision: paper.contentRevision,
+            },
+        },
+        select: { id: true },
+    });
     const now = new Date();
 
     await prisma.testSession.updateMany({
@@ -113,7 +124,9 @@ export default async function PaperLobbyPage({
         sub: paper.questions.filter(q => q.type === "SUBJECTIVE").length
     };
     const readiness = getPaperReadiness(paper.questions);
-    const readinessMessage = paperReadinessMessage(readiness);
+    const readinessMessage = paper.isArchived
+        ? "This paper has been archived and cannot start new sessions."
+        : paperReadinessMessage(readiness);
 
     return (
         <div className="min-h-full w-full bg-background py-6 md:py-12">
@@ -293,6 +306,7 @@ export default async function PaperLobbyPage({
                                 }
                             />
                         </div>
+                        {!paper.isArchived && (
                         <div className="mt-5 flex justify-center">
                             <ReportIssueDialog
                                 target={{
@@ -300,8 +314,12 @@ export default async function PaperLobbyPage({
                                     paperId,
                                     source: "PAPER_PAGE",
                                 }}
+                                existingReportId={
+                                    existingPaperReport?.id ?? null
+                                }
                             />
                         </div>
+                        )}
                     </div>
                 </Card>
             </div>

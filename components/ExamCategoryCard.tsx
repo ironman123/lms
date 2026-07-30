@@ -14,10 +14,22 @@ interface DynamicIconProps {
 }
 
 const DynamicIcon = ({ name, color, size = 28 }: DynamicIconProps) => {
-    const LucideIcon = (Icons as any)[name];
+    const LucideIcon = Icons.icons[name as keyof typeof Icons.icons];
     if (!LucideIcon) return <Icons.HelpCircle size={size} color={color} />;
     return <LucideIcon color={color} size={size} strokeWidth={1.5} />;
 };
+
+interface ExamCategoryCardProps {
+    id?: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    icon: string | null;
+    image: string | null;
+    color: string | null;
+    isAdmin?: boolean;
+    onDelete?: () => Promise<unknown>;
+}
 
 export default function ExamCategoryCard({
     name,
@@ -28,7 +40,7 @@ export default function ExamCategoryCard({
     color,
     isAdmin,
     onDelete,
-}: any) {
+}: ExamCategoryCardProps) {
     const [isPending, startTransition] = useTransition();
 
     const handleDelete = () => {
@@ -36,7 +48,7 @@ export default function ExamCategoryCard({
         startTransition(async () => {
             try
             {
-                await onDelete();
+                await onDelete?.();
                 toast.success(`"${name}" deleted.`);
             } catch
             {
@@ -71,7 +83,7 @@ export default function ExamCategoryCard({
                     {/* Content */}
                     <div className="relative z-20">
                         <div className="mb-4 transform transition-transform duration-500 group-hover:-translate-y-1">
-                            <DynamicIcon name={icon} color={color} />
+                            <DynamicIcon name={icon ?? "HelpCircle"} color={color ?? undefined} />
                         </div>
                         <h3 className="text-xl font-black text-foreground dark:text-slate-100 tracking-tight group-hover:text-foreground dark:group-hover:text-white transition-colors">
                             {name}

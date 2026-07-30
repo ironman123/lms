@@ -24,8 +24,40 @@ function nameSimilarity(a: string, b: string): number {
     return intersection / union;
 }
 
+interface SyllabusSection {
+    category?: string | null;
+    topics?: string[] | null;
+}
+
+interface SyllabusRecord {
+    status: string;
+    pdfUrl?: string | null;
+    examName: string;
+    examCategory: string;
+    scrapedName: string;
+    categoryNumber?: string | null;
+    tags?: string[];
+    syllabus?: SyllabusSection[];
+}
+
+interface DedupReport {
+    exactUrlDuplicates: Array<{ kept: string; dropped: string; url: string }>;
+    exactSyllabusDuplicates: Array<{
+        kept: string;
+        dropped: string;
+        nameSimilarity: string;
+        categoryNumber: string | null;
+    }>;
+    subsetNamesDropped: Array<{
+        dropped: string;
+        keptInstead: string;
+        reason: string;
+    }>;
+    finalCount: number;
+}
+
 // Deep equality check for syllabuses
-function syllabusEqual(a: any[], b: any[]): boolean {
+function syllabusEqual(a: SyllabusSection[], b: SyllabusSection[]): boolean {
     if (!a || !b) return false;
     return JSON.stringify(
         a.map(s => ({ category: normalize(s.category ?? ""), topics: (s.topics ?? []).map(normalize).sort() }))
@@ -48,7 +80,10 @@ function isSubsetOf(a: string, b: string): boolean {
     return namesA.length < namesB.length && namesA.every(n => namesB.includes(n));
 }
 
-function mergeCategoryNumbers(a: string | null, b: string | null): string | null {
+function mergeCategoryNumbers(
+    a: string | null | undefined,
+    b: string | null | undefined,
+): string | null {
     const parts = new Set<string>();
     for (const s of [a, b])
     {
@@ -65,13 +100,15 @@ function mergeTags(a: string[], b: string[]): string[] {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-    const raw: any[] = JSON.parse(fs.readFileSync(INPUT, "utf-8"));
+    const parsed = JSON.parse(fs.readFileSync(INPUT, "utf-8")) as unknown;
+    if (!Array.isArray(parsed)) throw new Error("Expected syllabus input to be an array.");
+    const raw = parsed as SyllabusRecord[];
     const successful = raw.filter(r => r.status === "success");
     const failed = raw.filter(r => r.status !== "success");
 
     console.log(`Total: ${raw.length} | Success: ${successful.length} | Failed: ${failed.length}\n`);
 
-    const report: any = {
+    const report: DedupReport = {
         exactUrlDuplicates: [],
         exactSyllabusDuplicates: [],
         subsetNamesDropped: [],
@@ -79,15 +116,17 @@ async function main() {
     };
 
     // ── Step 1: Remove exact URL duplicates ───────────────────────────────────
-    const seenUrls = new Map<string, any>();
+    const seenUrls = new Map<string, SyllabusRecord>();
     for (const item of successful)
     {
         const url = item.pdfUrl?.trim();
         if (!url) continue;
         if (seenUrls.has(url))
         {
-            report.exactUrlDuplicates.push({ kept: seenUrls.get(url).examName, dropped: item.examName, url });
-            console.log(`🔁 URL dup — keeping "${seenUrls.get(url).examName}", dropping "${item.examName}"`);
+            const existing = seenUrls.get(url);
+            if (!existing) continue;
+            report.exactUrlDuplicates.push({ kept: existing.examName, dropped: item.examName, url });
+            console.log(`🔁 URL dup — keeping "${existing.examName}", dropping "${item.examName}"`);
         } else
         {
             seenUrls.set(url, item);
@@ -134,7 +173,7 @@ async function main() {
             const [keep, drop] = keepA ? [i, j] : [j, i];
 
             entries[keep].categoryNumber = mergeCategoryNumbers(a.categoryNumber, b.categoryNumber);
-            entries[keep].tags = mergeTags(a.tags, b.tags);
+            entries[keep].tags = mergeTags(a.tags ?? [], b.tags ?? []);
 
             toRemove.add(drop);
             report.exactSyllabusDuplicates.push({

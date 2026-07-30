@@ -8,7 +8,7 @@ const TREND_CONFIG = {
 };
 
 export default function ExamPerformanceCard({
-    examId, examName, examSlug, testsAttempted, avgScore, bestScore, trend
+    examId, examName, testsAttempted, avgScore, bestScore, trend
 }: {
     examId: string; examName: string; examSlug: string;
     testsAttempted: number; avgScore: number; bestScore: number;

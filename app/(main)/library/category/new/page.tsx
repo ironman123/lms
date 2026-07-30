@@ -24,7 +24,7 @@ export default async function NewCategoryPage() {
                         Create <span className="text-muted-foreground font-light">New Category</span>
                     </h1>
                     <p className="text-muted-foreground mt-2">
-                        Add a new exam classification like "Degree Level", "Technical", or "10th Level".
+                        Add a new exam classification like &quot;Degree Level&quot;, &quot;Technical&quot;, or &quot;10th Level&quot;.
                     </p>
                 </div>
 

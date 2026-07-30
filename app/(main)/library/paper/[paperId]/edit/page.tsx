@@ -9,11 +9,16 @@ import { OptionJSON } from "@/types/question";
 
 interface PageProps {
     params: Promise<{ id: string; paperId: string }>;
+    searchParams: Promise<{
+        moderationCaseId?: string;
+        reportedQuestionId?: string;
+    }>;
 }
 
-export default async function EditPaperPage({ params }: PageProps) {
+export default async function EditPaperPage({ params, searchParams }: PageProps) {
     await requireAdminPage(); // Ensure only admins can access this page
     const { id: examSlug, paperId } = await params;
+    const { moderationCaseId, reportedQuestionId } = await searchParams;
 
     const [paper, allExams] = await Promise.all([
         prisma.questionPaper.findUnique({
@@ -122,6 +127,8 @@ export default async function EditPaperPage({ params }: PageProps) {
                 initialPaper={{ id: paper.id, title: paper.title, year: paper.year, type: paper.type }}
                 initialQuestions={initialQuestions}
                 linkedExamIds={linkedExamIds}
+                moderationCaseId={moderationCaseId}
+                reportedQuestionId={reportedQuestionId}
             />
         </div>
     );

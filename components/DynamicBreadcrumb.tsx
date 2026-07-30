@@ -10,7 +10,7 @@ import {
 
 import React from "react";
 
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 
 // It just takes the name as a prop!

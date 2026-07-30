@@ -10,9 +10,6 @@
     "test": "node --import tsx --test tests/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
-  "prisma": {
-    "seed": "node -r dotenv/config prisma/seed.ts dotenv_config_path=.env.local"
-  },
   "dependencies": {
     "@clerk/nextjs": "^7.0.4",
     "@google-cloud/documentai": "^9.6.0",

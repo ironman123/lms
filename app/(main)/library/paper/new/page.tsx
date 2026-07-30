@@ -4,14 +4,8 @@ import { requireAdminPage } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
-interface PageProps {
-    params: Promise<{ id: string }>;
-    searchParams: Promise<{ examId?: string }>; // Add searchParams to the interface
-}
-
-export default async function NewPaperPage({ params, searchParams }: PageProps) {
+export default async function NewPaperPage() {
     await requireAdminPage(); // Ensure only admins can access this page
 
     const allExams = await prisma.exam.findMany({

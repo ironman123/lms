@@ -75,6 +75,16 @@ export const moderationCaseTransitionSchema = z.object({
     note: z.string().trim().max(5_000).optional().default(""),
 });
 
+export const moderationCaseAssignmentSchema = z.object({
+    caseId: z.string().uuid(),
+    assigneeId: z.string().uuid().nullable(),
+});
+
+export const moderationCaseMergeSchema = z.object({
+    sourceCaseId: z.string().uuid(),
+    targetCaseId: z.string().uuid(),
+});
+
 export type ContentReportInput = z.infer<typeof contentReportInputSchema>;
 export type ReportCategoryValue = (typeof REPORT_CATEGORIES)[number];
 export type ModerationConfigInput = z.infer<
@@ -82,4 +92,10 @@ export type ModerationConfigInput = z.infer<
 >;
 export type ModerationCaseTransitionInput = z.infer<
     typeof moderationCaseTransitionSchema
+>;
+export type ModerationCaseAssignmentInput = z.infer<
+    typeof moderationCaseAssignmentSchema
+>;
+export type ModerationCaseMergeInput = z.infer<
+    typeof moderationCaseMergeSchema
 >;

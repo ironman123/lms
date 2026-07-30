@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Library, Settings, ShieldCheck } from "lucide-react";
+import { Archive, Library, Settings, ShieldCheck } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth";
 
 export default async function AdminLayout({
@@ -38,6 +38,13 @@ export default async function AdminLayout({
                         >
                             <Settings size={16} />
                             Settings
+                        </Link>
+                        <Link
+                            href="/admin/papers/archived"
+                            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold hover:border-primary/40 hover:text-primary"
+                        >
+                            <Archive size={16} />
+                            Archived papers
                         </Link>
                         <Link
                             href="/library"

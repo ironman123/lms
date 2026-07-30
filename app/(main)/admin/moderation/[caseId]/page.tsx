@@ -9,7 +9,11 @@ import {
     Users,
 } from "lucide-react";
 import ModerationCaseActions from "@/components/ModerationCaseActions";
-import { getModerationCase } from "@/lib/moderation/admin-service";
+import {
+    getModerationCase,
+    getModerationAdmins,
+    getModerationMergeCandidates,
+} from "@/lib/moderation/admin-service";
 import { REPORT_CATEGORY_LABELS } from "@/lib/moderation/schemas";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +38,10 @@ export default async function ModerationCasePage({
     const { caseId } = await params;
     const moderationCase = await getModerationCase(caseId);
     if (!moderationCase) notFound();
+    const [admins, mergeCandidates] = await Promise.all([
+        getModerationAdmins(),
+        getModerationMergeCandidates(caseId),
+    ]);
 
     const snapshot = asRecord(moderationCase.targetSnapshot);
     const reportedContent =
@@ -57,6 +65,7 @@ export default async function ModerationCasePage({
         moderationCase.question?.paper ?? moderationCase.paper ?? null;
     const categoryCounts = new Map<string, number>();
     for (const report of moderationCase.reports) {
+        if (report.withdrawnAt) continue;
         categoryCounts.set(
             report.category,
             (categoryCounts.get(report.category) ?? 0) + 1
@@ -145,10 +154,10 @@ export default async function ModerationCasePage({
                             </div>
                             {moderationCase.question?.paper?.id && (
                                 <Link
-                                    href={`/library/paper/${moderationCase.question.paper.id}/edit`}
+                                    href={`/library/paper/${moderationCase.question.paper.id}/edit?moderationCaseId=${moderationCase.id}&reportedQuestionId=${moderationCase.question.id}`}
                                     className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground"
                                 >
-                                    Edit paper
+                                    Edit question and resolve
                                     <ExternalLink size={14} />
                                 </Link>
                             )}
@@ -245,6 +254,9 @@ export default async function ModerationCasePage({
                                                 report.category
                                             ]
                                         }
+                                        {report.withdrawnAt
+                                            ? " · Withdrawn"
+                                            : ""}
                                     </p>
                                     {report.comment && (
                                         <p className="mt-2 whitespace-pre-wrap rounded-xl bg-muted/45 p-3 text-sm leading-relaxed text-foreground">
@@ -267,6 +279,9 @@ export default async function ModerationCasePage({
                     <ModerationCaseActions
                         caseId={moderationCase.id}
                         status={moderationCase.status}
+                        admins={admins}
+                        assignedToId={moderationCase.assignedToId}
+                        mergeCandidates={mergeCandidates}
                     />
 
                     <section className="rounded-2xl border border-border bg-card p-5">

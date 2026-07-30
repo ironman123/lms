@@ -67,7 +67,9 @@ export default async function ExamPage({ params }: PageProps) {
         }, {} as Record<string, { category: string; topics: string[] }>)
     );
 
-    const questionPapers = currentExam.examQuestionPaperLinks.map(link => link.paper);
+    const questionPapers = currentExam.examQuestionPaperLinks
+        .map(link => link.paper)
+        .filter(paper => isAdmin || !paper.isArchived);
 
     // Now use `questionPapers` for all your math and filtering:
     const pyqCount = questionPapers.filter(p => p.year !== null).length;

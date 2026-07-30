@@ -70,6 +70,8 @@ export interface PaperBuilderProps {
     initialPaper?: { id: string; title: string; year: number | null; type: QuestionPaperType };
     initialQuestions?: Question[];
     linkedExamIds?: string[];
+    moderationCaseId?: string;
+    reportedQuestionId?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -334,6 +336,8 @@ export default function PaperBuilder({
     initialPaper,
     linkedExamIds,
     initialQuestions = [],
+    moderationCaseId,
+    reportedQuestionId,
 }: PaperBuilderProps) {
 
     const [title, setTitle] = useState(initialPaper?.title ?? "");
@@ -805,6 +809,11 @@ export default function PaperBuilder({
                                 syllabusEntries={syllabusEntries}
                                 onUpdate={updated => updateQuestion_(i, updated)}
                                 onDelete={() => deleteQuestion_(i)}
+                                moderationCaseId={
+                                    q.id === reportedQuestionId
+                                        ? moderationCaseId
+                                        : undefined
+                                }
                             />
                         ))}
                     </div>

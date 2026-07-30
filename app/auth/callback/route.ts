@@ -6,7 +6,7 @@ import { UserRole } from '@prisma/client'
 import type { NextRequest } from 'next/server'
 import prisma from '@/lib/prisma'
 
-function getSafeRedirect(next: string | null, origin: string): string {
+function getSafeRedirect(next: string | null): string {
     if (!next) return '/dashboard';
     // Only allow relative paths starting with /
     if (next.startsWith('/') && !next.startsWith('//')) return next;
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
     //const next = searchParams.get('next') ?? '/dashboard'
-    const safeNext = getSafeRedirect(searchParams.get('next'), origin)
+    const safeNext = getSafeRedirect(searchParams.get('next'))
 
     if (!code)
     {

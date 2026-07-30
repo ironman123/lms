@@ -891,7 +891,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 
 
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -917,10 +917,31 @@ interface AuditRecord {
     executionTimeMs: number;
 }
 
+interface SeedOption {
+    text?: string | null;
+}
+
+interface SeedQuestion {
+    content?: string | null;
+    type?: string | null;
+    options?: SeedOption[] | null;
+    correctAnswer?: string | null;
+    explanation?: string | null;
+}
+
+interface SeedPaper {
+    scrapedTitle?: string | null;
+    pdfUrl?: string | null;
+    testDate?: string | null;
+    paperType?: string | null;
+    extractedYear?: number | null;
+    questions?: SeedQuestion[] | null;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 
-function mapQuestionType(raw: string): "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE" {
+function mapQuestionType(raw?: string | null): "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE" {
     const t = (raw ?? "").toUpperCase().trim();
     if (t === "MSQ") return "MSQ";
     if (t === "NUMERICAL") return "NUMERICAL";
@@ -960,7 +981,12 @@ async function seedQuestionPapers() {
         process.exit(1);
     }
 
-    const papersData: any[] = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    const parsedPapers = JSON.parse(fs.readFileSync(filePath, "utf-8")) as unknown;
+    if (!Array.isArray(parsedPapers))
+    {
+        throw new Error("Expected scripts/kpsc-papers.json to contain an array.");
+    }
+    const papersData = parsedPapers as SeedPaper[];
     console.log(`\n📂 Loaded ${papersData.length} papers from JSON\n`);
 
     // ── Phase 1: Load DB state into memory ────────────────────────────────
@@ -1020,7 +1046,7 @@ async function seedQuestionPapers() {
         }
 
         // ── Skip: No questions ───────────────────────────────────────────
-        const questions: any[] = Array.isArray(paper.questions) ? paper.questions : [];
+        const questions = Array.isArray(paper.questions) ? paper.questions : [];
         if (questions.length === 0)
         {
             console.log(`  ⏭  SKIPPED — no questions extracted`);
@@ -1050,7 +1076,7 @@ async function seedQuestionPapers() {
 
         // ── Build flat arrays in RAM ─────────────────────────────────────
         const paperId = crypto.randomUUID();
-        const questionsToInsert: any[] = [];
+        const questionsToInsert: Prisma.QuestionCreateManyInput[] = [];
 
         for (const q of questions)
         {
@@ -1062,10 +1088,11 @@ async function seedQuestionPapers() {
             // Build JSONB options
             const rawOptions = Array.isArray(q.options) ? q.options : [];
             const optionsJson = rawOptions
-                .filter((o: any) => o.text?.trim())
-                .map((o: any, idx: number) => ({
+                .filter((option): option is SeedOption & { text: string } =>
+                    typeof option.text === "string" && option.text.trim().length > 0)
+                .map((option, idx: number) => ({
                     index: idx,
-                    text: o.text.trim(),
+                    text: option.text.trim(),
                 }));
 
             // Derive correctOptions indices from correctAnswer label ("A", "B", etc.)
@@ -1095,7 +1122,11 @@ async function seedQuestionPapers() {
             });
         }
 
-        const totalEmbeddedOptions = questionsToInsert.reduce((s, q) => s + (q.options?.length ?? 0), 0);
+        const totalEmbeddedOptions = questionsToInsert.reduce(
+            (sum, question) =>
+                sum + (Array.isArray(question.options) ? question.options.length : 0),
+            0,
+        );
         console.log(`  ⚙  Prepared: ${questionsToInsert.length} questions, ${totalEmbeddedOptions} options`);
 
         // ── Insert in transaction ────────────────────────────────────────
@@ -1149,11 +1180,12 @@ async function seedQuestionPapers() {
                 executionTimeMs: ms,
             });
 
-        } catch (err: any)
+        } catch (error: unknown)
         {
             const ms = Date.now() - startTime;
+            const message = error instanceof Error ? error.message : String(error);
             errorCount++;
-            console.error(`  ❌ ERROR in ${ms}ms: ${err.message}`);
+            console.error(`  ❌ ERROR in ${ms}ms: ${message}`);
 
             auditLog.push({
                 index: i + 1,
@@ -1165,7 +1197,7 @@ async function seedQuestionPapers() {
                 optionsEmbedded: 0,
                 pdfUrl: currentUrl,
                 testDate: paper.testDate ?? null,
-                errorMessage: err.message,
+                errorMessage: message,
                 executionTimeMs: ms,
             });
         }

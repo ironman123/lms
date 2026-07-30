@@ -9,18 +9,22 @@ import {
     getNotificationSeenAt,
 } from "@/app/(main)/actions/notification-actions";
 import { ThemeToggle } from "./ThemeToggle";
+import { getOpenModerationAttentionCount } from "@/lib/moderation/admin-service";
 
 //import { Show, SignInButton, UserButton } from '@clerk/nextjs'
 
 const Navbar = async () => {
     const user = await getOptionalUser();
 
-    const [notifications, seenAt] = user
+    const [notifications, seenAt, moderationAttentionCount] = user
         ? await Promise.all([
             getRecentNotifications(),
             getNotificationSeenAt(user.id),
+            user.role === "ADMIN"
+                ? getOpenModerationAttentionCount()
+                : Promise.resolve(0),
         ])
-        : [[], null];
+        : [[], null, 0];
 
 
     return (
@@ -55,6 +59,9 @@ const Navbar = async () => {
                             email={user.email}
                             avatarUrl={user.avatarUrl}
                             role={user.role}
+                            moderationAttentionCount={
+                                moderationAttentionCount
+                            }
                         />
                     </>
                 ) : (

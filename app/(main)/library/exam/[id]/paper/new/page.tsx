@@ -8,16 +8,12 @@ import { notFound } from "next/navigation";
 
 interface PageProps {
     params: Promise<{ id: string }>;
-    searchParams: Promise<{ examId?: string }>; // Add searchParams to the interface
 }
 
-export default async function NewPaperPage({ params, searchParams }: PageProps) {
+export default async function NewPaperPage({ params }: PageProps) {
     await requireAdminPage(); // Ensure only admins can access this page
     // 1. Extract the slug from the URL path (e.g., /library/exam/temp-1)
     const { id: examSlug } = await params;
-
-    // 2. Extract the examId from the query string (e.g., ?examId=...)
-    const { examId } = await searchParams;
 
     const allExams = await prisma.exam.findMany({
         select: { id: true, name: true },

@@ -23,6 +23,12 @@ async function getCachedUser(supabaseId: string) {
     );
 }
 
+// Sensitive authorization checks must not inherit the five-minute profile
+// cache; role changes need to take effect on the next request.
+async function getAuthorizationUser(supabaseId: string) {
+    return prisma.user.findUnique({ where: { supabaseId } });
+}
+
 // Use in server components that require auth
 export async function requireAuth() {
     const supabaseId = await getAuthSubject()
@@ -57,7 +63,7 @@ export async function requireAdmin() {
     const supabaseId = await getAuthSubject()
     if (!supabaseId) throw new Error('UNAUTHORIZED')
 
-    const dbUser = await getCachedUser(supabaseId);
+    const dbUser = await getAuthorizationUser(supabaseId);
 
     if (!dbUser || dbUser.role !== 'ADMIN') throw new Error('FORBIDDEN')
 
@@ -79,7 +85,7 @@ export async function requireAdminPage() {
     const supabaseId = await getAuthSubject()
     if (!supabaseId) redirect('/login')
 
-    const dbUser = await getCachedUser(supabaseId);
+    const dbUser = await getAuthorizationUser(supabaseId);
 
     if (!dbUser || dbUser.role !== 'ADMIN') redirect('/dashboard')
     return dbUser

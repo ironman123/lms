@@ -42,7 +42,7 @@ const MinimalHero = ({ title, subtitle, backgroundImage }: HeroProps) => {
             <div className="relative z-10 max-w-7xl mx-auto">
                 <div className="max-w-2xl">
                     <h1 className="text-4xl md:text-5xl font-light text-foreground dark:text-slate-100 tracking-tight leading-tight">
-                        Kerala PSC <span className="font-bold">Preparation Hub</span>
+                        {title}
                     </h1>
 
                     <p className="mt-4 text-lg text-muted-foreground dark:text-slate-400 font-normal leading-relaxed">

@@ -25,10 +25,9 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
     const [isPending, startTransition] = useTransition();
     const [isScanning, setIsScanning] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [createdPaper, setCreatedPaper] = useState<{ id: string; title: string; year: number | null } | null>(null);
     const isEditing = !!initialData;
 
-    const form = useForm<PaperFormInput>({
+    const form = useForm<PaperFormInput, undefined, PaperFormValues>({
         resolver: zodResolver(paperSchema),
         defaultValues: initialData ?? {
             title: '',
@@ -82,8 +81,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
                     toast.success("Paper updated successfully!");
                 } else
                 {
-                    const result = await createQuestionPaper({ ...data, examIds: examId ? [examId] : [] }, examSlug);
-                    setCreatedPaper({ id: result.id, title: result.title, year: result.year });
+                    await createQuestionPaper({ ...data, examIds: examId ? [examId] : [] }, examSlug);
                     toast.success("Paper created! Now add your questions.");
                 }
             } catch
@@ -119,7 +117,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
 
                 {/* Basic Details */}
                 <div className="space-y-6">

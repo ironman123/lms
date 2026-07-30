@@ -18,7 +18,7 @@ interface WorkspacePaperCardProps {
     shift: string;
     color?: string;
     isAdmin?: boolean;
-    onDelete?: () => Promise<any>;
+    onDelete?: () => Promise<unknown>;
     resumableSession?: {
         id: string;
         mode: "PRACTICE" | "MOCK";
@@ -26,7 +26,7 @@ interface WorkspacePaperCardProps {
 }
 
 const WorkspacePaperCard = ({
-    id, title, type, year, examSlug, pricing, examId,
+    id, title, type, year, pricing,
     subject, duration, shift, color = "#0F172A",
     isAdmin, onDelete, resumableSession,
 }: WorkspacePaperCardProps) => {

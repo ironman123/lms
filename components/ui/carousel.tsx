@@ -111,12 +111,14 @@ const Carousel = React.forwardRef<
         return
       }
 
-      onSelect(api)
+      const initialSelectionFrame = requestAnimationFrame(() => onSelect(api))
       api.on("reInit", onSelect)
       api.on("select", onSelect)
 
       return () => {
-        api?.off("select", onSelect)
+        cancelAnimationFrame(initialSelectionFrame)
+        api.off("reInit", onSelect)
+        api.off("select", onSelect)
       }
     }, [api, onSelect])
 

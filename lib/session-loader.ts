@@ -78,6 +78,15 @@ export async function loadActiveSession(
                         checkpointRevision: true,
                     },
                 },
+                contentReports: {
+                    where: { withdrawnAt: null },
+                    select: {
+                        id: true,
+                        moderationCase: {
+                            select: { questionId: true },
+                        },
+                    },
+                },
             },
         }),
         getSessionPaper(paperId),
@@ -184,5 +193,16 @@ export async function loadActiveSession(
             confidenceLevel: interaction.confidenceLevel,
             checkpointRevision: Number(interaction.checkpointRevision),
         })),
+        reportIdsByQuestion: Object.fromEntries(
+            session.contentReports
+                .filter(
+                    (report) =>
+                        typeof report.moderationCase.questionId === "string"
+                )
+                .map((report) => [
+                    report.moderationCase.questionId!,
+                    report.id,
+                ])
+        ),
     };
 }

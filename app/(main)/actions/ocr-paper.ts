@@ -1,7 +1,12 @@
 "use server";
 
 import { requireAdmin } from "@/lib/auth";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+    GoogleGenerativeAI,
+    type GenerateContentResult,
+    type GenerativeModel,
+    type Part,
+} from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -26,27 +31,44 @@ export interface ParsedPaper {
     questions: ParsedQuestion[];
 }
 
-async function generateWithRetry(model: any, parts: any[], maxRetries = 3): Promise<any> {
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+    return typeof value === "object" && value !== null
+        ? value as Record<string, unknown>
+        : {};
+}
+
+async function generateWithRetry(
+    model: GenerativeModel,
+    parts: Array<string | Part>,
+    maxRetries = 3,
+): Promise<GenerateContentResult> {
     for (let attempt = 0; attempt < maxRetries; attempt++)
     {
         try
         {
             return await model.generateContent(parts);
-        } catch (err: any)
+        } catch (error: unknown)
         {
-            const is429 = err.message?.includes("429");
+            const message = errorMessage(error);
+            const is429 = message.includes("429");
             if (is429 && attempt < maxRetries - 1)
             {
-                const match = err.message.match(/retry in (\d+)/i);
+                const match = message.match(/retry in (\d+)/i);
                 const wait = (match ? parseInt(match[1]) : 30) + 5;
                 console.log(`[OCR] Rate limited — waiting ${wait}s (attempt ${attempt + 1}/${maxRetries})`);
                 await new Promise(r => setTimeout(r, wait * 1000));
             } else
             {
-                throw err;
+                throw error;
             }
         }
     }
+
+    throw new Error("OCR request exhausted all retry attempts.");
 }
 
 export async function parsePaperPDF(
@@ -103,10 +125,11 @@ export async function parsePaperPDF(
         console.log(`[OCR] Response length: ${raw.length} chars`, raw);
 
         return parseResponse(raw);
-    } catch (err: any)
+    } catch (error: unknown)
     {
-        console.error(`[OCR] Gemini parse failed: ${err.message}`);
-        return { success: false, error: `Gemini parse failed: ${err.message}` };
+        const message = errorMessage(error);
+        console.error(`[OCR] Gemini parse failed: ${message}`);
+        return { success: false, error: `Gemini parse failed: ${message}` };
     }
 }
 
@@ -166,34 +189,67 @@ function parseResponse(
         return { success: false, error: `No JSON in response: ${raw.slice(0, 100)}` };
     }
 
-    let parsed: any;
+    let parsed: Record<string, unknown>;
     try
     {
-        parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
-    } catch (err: any)
+        parsed = asRecord(JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as unknown);
+    } catch (error: unknown)
     {
-        console.error(`[OCR] JSON parse error: ${err.message}`);
-        return { success: false, error: `Invalid JSON: ${err.message}` };
+        const message = errorMessage(error);
+        console.error(`[OCR] JSON parse error: ${message}`);
+        return { success: false, error: `Invalid JSON: ${message}` };
     }
 
     // Merge answer key into questions
-    const answerKey: Record<string, string> = parsed.answerKey ?? {};
-    const rawQuestions = parsed.questions ?? [];
+    const rawAnswerKey = asRecord(parsed.answerKey);
+    const answerKey = Object.fromEntries(
+        Object.entries(rawAnswerKey).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+    );
+    const rawQuestions = Array.isArray(parsed.questions) ? parsed.questions : [];
 
-    const questions: ParsedQuestion[] = rawQuestions.map((q: any) => ({
-        number: typeof q.number === "number" ? q.number : parseInt(q.number) || 0,
-        content: (q.content ?? "").trim(),
-        options: (q.options ?? []).map((o: any) => ({
-            label: (o.label ?? "").trim().toUpperCase(),
-            text: (o.text ?? "").trim(),
-        })).filter((o: any) => o.label && o.text),
-        correctAnswer: q.correctAnswer ?? answerKey[String(q.number)] ?? null,
-        explanation: q.explanation ?? null,
-        type: q.type ?? "MCQ",
-    })).filter((q: any) => q.content);
+    const questions: ParsedQuestion[] = rawQuestions.flatMap((value) => {
+        const question = asRecord(value);
+        const number = typeof question.number === "number"
+            ? question.number
+            : Number.parseInt(String(question.number ?? ""), 10) || 0;
+        const content = typeof question.content === "string"
+            ? question.content.trim()
+            : "";
+        if (!content) return [];
+
+        const options = (Array.isArray(question.options) ? question.options : [])
+            .flatMap((optionValue): ParsedOption[] => {
+                const option = asRecord(optionValue);
+                const label = typeof option.label === "string"
+                    ? option.label.trim().toUpperCase()
+                    : "";
+                const text = typeof option.text === "string" ? option.text.trim() : "";
+                return label && text ? [{ label, text }] : [];
+            });
+        const rawType = question.type;
+        const type: ParsedQuestion["type"] =
+            rawType === "MSQ" || rawType === "NUMERICAL" || rawType === "SUBJECTIVE"
+                ? rawType
+                : "MCQ";
+
+        return [{
+            number,
+            content,
+            options,
+            correctAnswer: typeof question.correctAnswer === "string"
+                ? question.correctAnswer
+                : answerKey[String(number)] ?? null,
+            explanation: typeof question.explanation === "string"
+                ? question.explanation
+                : null,
+            type,
+        }];
+    });
 
     const data: ParsedPaper = {
-        title: parsed.title?.trim() ?? null,
+        title: typeof parsed.title === "string" ? parsed.title.trim() || null : null,
         year: parsed.year ? parseInt(String(parsed.year)) : null,
         totalQuestions: questions.length,
         questions,

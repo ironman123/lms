@@ -61,6 +61,7 @@ export default async function MockSessionPage({
             userId={data.session.userId}
             sessionExpiresAt={data.session.expiresAt?.toISOString() ?? null}
             restoredInteractions={data.restoredInteractions}
+            reportIdsByQuestion={data.reportIdsByQuestion}
         />
     );
 }

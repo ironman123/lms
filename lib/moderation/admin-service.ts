@@ -14,8 +14,12 @@ import {
 } from "@/lib/moderation/report-policy";
 import {
     moderationCaseTransitionSchema,
+    moderationCaseAssignmentSchema,
+    moderationCaseMergeSchema,
     moderationConfigInputSchema,
     type ModerationCaseTransitionInput,
+    type ModerationCaseAssignmentInput,
+    type ModerationCaseMergeInput,
     type ModerationConfigInput,
 } from "@/lib/moderation/schemas";
 
@@ -42,6 +46,57 @@ export async function getRecentModerationConfigAudits() {
         take: 10,
         include: {
             actor: { select: { name: true, email: true } },
+        },
+    });
+}
+
+export async function getOpenModerationAttentionCount() {
+    return prisma.moderationCase.count({
+        where: {
+            isEscalated: true,
+            status: {
+                in: [
+                    ModerationCaseStatus.OPEN,
+                    ModerationCaseStatus.IN_REVIEW,
+                ],
+            },
+        },
+    });
+}
+
+export async function getModerationAdmins() {
+    return prisma.user.findMany({
+        where: { role: "ADMIN" },
+        orderBy: [{ name: "asc" }, { email: "asc" }],
+        select: { id: true, name: true, email: true },
+    });
+}
+
+export async function getModerationMergeCandidates(caseId: string) {
+    const current = await prisma.moderationCase.findUnique({
+        where: { id: caseId },
+        select: {
+            targetType: true,
+            questionId: true,
+            paperId: true,
+            snapshotHash: true,
+        },
+    });
+    if (!current) return [];
+    return prisma.moderationCase.findMany({
+        where: {
+            id: { not: caseId },
+            targetType: current.targetType,
+            questionId: current.questionId,
+            paperId: current.paperId,
+            snapshotHash: current.snapshotHash,
+        },
+        orderBy: { updatedAt: "desc" },
+        select: {
+            id: true,
+            status: true,
+            uniqueReporterCount: true,
+            createdAt: true,
         },
     });
 }
@@ -93,6 +148,7 @@ export async function getModerationQueue(filters: ModerationQueueFilters) {
                     paper: { select: { id: true, title: true } },
                     assignedTo: { select: { id: true, name: true } },
                     reports: {
+                        where: { withdrawnAt: null },
                         orderBy: { updatedAt: "desc" },
                         take: 3,
                         select: { category: true, comment: true },
@@ -412,4 +468,157 @@ export async function transitionModerationCase(
 
         return updated;
     });
+}
+
+export async function assignModerationCase(
+    actorId: string,
+    rawInput: ModerationCaseAssignmentInput
+) {
+    const input = moderationCaseAssignmentSchema.parse(rawInput);
+    if (input.assigneeId) {
+        const assignee = await prisma.user.findFirst({
+            where: { id: input.assigneeId, role: "ADMIN" },
+            select: { id: true },
+        });
+        if (!assignee) throw new Error("Selected administrator was not found.");
+    }
+    return prisma.moderationCase.update({
+        where: { id: input.caseId },
+        data: {
+            assignedToId: input.assigneeId,
+            actions: {
+                create: {
+                    actorId,
+                    action: ModerationActionType.ASSIGNED,
+                    metadata: { assigneeId: input.assigneeId },
+                    note: input.assigneeId
+                        ? "Case assignment changed."
+                        : "Case unassigned.",
+                },
+            },
+        },
+    });
+}
+
+export async function mergeModerationCases(
+    actorId: string,
+    rawInput: ModerationCaseMergeInput
+) {
+    const input = moderationCaseMergeSchema.parse(rawInput);
+    if (input.sourceCaseId === input.targetCaseId) {
+        throw new Error("A case cannot be merged into itself.");
+    }
+
+    return prisma.$transaction(
+        async (tx) => {
+            const [source, target, config] = await Promise.all([
+                tx.moderationCase.findUnique({
+                    where: { id: input.sourceCaseId },
+                    include: { reports: true },
+                }),
+                tx.moderationCase.findUnique({
+                    where: { id: input.targetCaseId },
+                    include: { reports: true },
+                }),
+                tx.moderationConfig.upsert({
+                    where: { id: "global" },
+                    create: { id: "global" },
+                    update: {},
+                }),
+            ]);
+            if (!source || !target) throw new Error("Moderation case not found.");
+            if (
+                source.targetType !== target.targetType ||
+                source.questionId !== target.questionId ||
+                source.paperId !== target.paperId ||
+                source.snapshotHash !== target.snapshotHash
+            ) {
+                throw new Error(
+                    "Only cases for the same content revision can be merged."
+                );
+            }
+
+            const targetByReporter = new Map(
+                target.reports.map((report) => [report.reporterId, report])
+            );
+            const now = new Date();
+            for (const sourceReport of source.reports) {
+                const targetReport = targetByReporter.get(
+                    sourceReport.reporterId
+                );
+                if (!targetReport) {
+                    await tx.contentReport.update({
+                        where: { id: sourceReport.id },
+                        data: { caseId: target.id },
+                    });
+                    continue;
+                }
+                if (targetReport.withdrawnAt && !sourceReport.withdrawnAt) {
+                    await tx.contentReport.update({
+                        where: { id: targetReport.id },
+                        data: {
+                            category: sourceReport.category,
+                            source: sourceReport.source,
+                            comment: sourceReport.comment,
+                            context: sourceReport.context ?? undefined,
+                            sessionId: sourceReport.sessionId,
+                            withdrawnAt: null,
+                        },
+                    });
+                }
+                await tx.contentReport.update({
+                    where: { id: sourceReport.id },
+                    data: { withdrawnAt: sourceReport.withdrawnAt ?? now },
+                });
+            }
+
+            const uniqueReporterCount = await tx.contentReport.count({
+                where: { caseId: target.id, withdrawnAt: null },
+            });
+            const threshold =
+                target.targetType === ModerationTargetType.QUESTION
+                    ? config.questionReportThreshold
+                    : config.paperReportThreshold;
+            await tx.moderationCase.update({
+                where: { id: target.id },
+                data: {
+                    uniqueReporterCount,
+                    isEscalated: shouldEscalate(
+                        uniqueReporterCount,
+                        threshold
+                    ),
+                    actions: {
+                        create: {
+                            actorId,
+                            action: ModerationActionType.MERGED,
+                            note: `Merged case ${source.id} into this case.`,
+                            metadata: { sourceCaseId: source.id },
+                        },
+                    },
+                },
+            });
+            await tx.moderationCase.update({
+                where: { id: source.id },
+                data: {
+                    status: ModerationCaseStatus.DISMISSED,
+                    activeKey: null,
+                    uniqueReporterCount: 0,
+                    isEscalated: false,
+                    resolvedAt: now,
+                    resolutionNote: `Merged into case ${target.id}.`,
+                    actions: {
+                        create: {
+                            actorId,
+                            action: ModerationActionType.MERGED,
+                            note: `Merged into case ${target.id}.`,
+                            metadata: { targetCaseId: target.id },
+                        },
+                    },
+                },
+            });
+
+            return { sourceCaseId: source.id, targetCaseId: target.id };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 }

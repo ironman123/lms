@@ -46,6 +46,7 @@ export default async function PracticeSessionPage({
             userId={data.session.userId}
             sessionExpiresAt={data.session.expiresAt?.toISOString() ?? null}
             restoredInteractions={data.restoredInteractions}
+            reportIdsByQuestion={data.reportIdsByQuestion}
         />
     );
 }

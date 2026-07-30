@@ -1,8 +1,8 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { CheckCircle2, ImageIcon, LayoutGrid, Type, Palette } from "lucide-react";
-import { CldUploadWidget } from "next-cloudinary";
+import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 import { Button } from '@/components/ui/button';
 import { createCategory, updateCategory, deleteCategory } from "@/app/(main)/actions/category-actions";
 import { useTransition, useState } from "react";
@@ -25,7 +25,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const isEditing = !!initialData;
 
-    const form = useForm<CategoryFormInput>({
+    const form = useForm<CategoryFormInput, undefined, CategoryFormValues>({
         resolver: zodResolver(categorySchema),
         defaultValues: initialData ?? {
             name: "",
@@ -37,7 +37,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
         mode: "onBlur",
     });
 
-    const watchedValues = form.watch();
+    const watchedValues = useWatch({ control: form.control });
 
     const handleDelete = async () => {
         if (!confirm(`Delete "${initialData?.name}"? This cannot be undone.`)) return;
@@ -77,7 +77,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
             <div className="flex-1">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8 bg-card p-8 rounded-2xl border border-border shadow-sm">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 bg-card p-8 rounded-2xl border border-border shadow-sm">
 
                         <FormField
                             control={form.control}
@@ -172,10 +172,12 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
                                     <FormControl>
                                         <CldUploadWidget
                                             uploadPreset="kpsc_preset"
-                                            onSuccess={(result: any) => {
-                                                form.setValue("image", result?.info?.public_id, {
-                                                    shouldValidate: true,
-                                                });
+                                            onSuccess={(result: CloudinaryUploadWidgetResults) => {
+                                                if (typeof result.info === "object" && result.info.public_id) {
+                                                    form.setValue("image", result.info.public_id, {
+                                                        shouldValidate: true,
+                                                    });
+                                                }
                                             }}
                                         >
                                             {({ open }) => (

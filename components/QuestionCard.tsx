@@ -30,6 +30,7 @@ export interface QuestionCardProps {
     onUpdate: (updated: Question) => void;
     onDelete: () => void;
     wrapperRef?: (el: HTMLDivElement | null) => void;
+    moderationCaseId?: string;
 }
 
 // ── Option Row ────────────────────────────────────────────────────────────────
@@ -143,7 +144,7 @@ function TopicPicker({
 
 // ── Question Card ─────────────────────────────────────────────────────────────
 const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
-    ({ q, paperId, examSlug, syllabusEntries, onUpdate, onDelete, wrapperRef }, ref) => {
+    ({ q, paperId, examSlug, syllabusEntries, onUpdate, onDelete, wrapperRef, moderationCaseId }, ref) => {
         const [expanded, setExpanded] = useState(!q.saved);
         const [saving, setSaving] = useState(false);
 
@@ -282,9 +283,19 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 
                 if (q.id)
                 {
-                    await updateQuestion(q.id, paperId!, examSlug, payload);
+                    await updateQuestion(
+                        q.id,
+                        paperId!,
+                        examSlug,
+                        payload,
+                        moderationCaseId
+                    );
                     onUpdate({ ...q, saved: true });
-                    toast.success(`Q${q.number} updated`);
+                    toast.success(
+                        moderationCaseId
+                            ? `Q${q.number} updated and report resolved`
+                            : `Q${q.number} updated`
+                    );
                 } else
                 {
                     const result = await createQuestion(
