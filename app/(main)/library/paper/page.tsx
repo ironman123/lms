@@ -4,27 +4,42 @@ import WorkspacePaperCard from "@/components/WorkspacePaperCard";
 import Link from "next/link";
 import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
+import PaginationPrefetch from "@/components/PaginationPrefetch";
 import { deleteQuestionPaper } from "../../actions/paper-actions";
 import { getOptionalUser } from "@/lib/auth";
 import { withCache } from "@/lib/cache";
 import { SessionMode, SessionStatus } from "@prisma/client";
 import { RESUMABLE_SESSION_STATUSES } from "@/lib/session-policy";
+import { redirect } from "next/navigation";
 
-const BATCH_SIZE = 30;
+const PAGE_SIZE = 12;
+
+function normalizeQuery(query: string) {
+    return query.trim().replace(/\s+/g, " ");
+}
+
+function paperPageHref(query: string, page: number) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    params.set("page", String(page));
+    return `?${params.toString()}`;
+}
 
 async function getPapersData(query: string, page: number) {
-    const cacheKey = `papers:q:${query}:p:${page}`;
+    const normalizedQuery = normalizeQuery(query);
+    const cacheKey =
+        `papers:v2:q:${normalizedQuery.toLowerCase()}:p:${page}`;
     return withCache(
         cacheKey,
         3600,
         async () => {
-            const where = query
+            const where = normalizedQuery
                 ? {
                     OR: [
-                        { title: { contains: query, mode: "insensitive" as const } },
+                        { title: { contains: normalizedQuery, mode: "insensitive" as const } },
                         {
                             examQuestionPaperLinks: {
-                                some: { exam: { name: { contains: query, mode: "insensitive" as const } } },
+                                some: { exam: { name: { contains: normalizedQuery, mode: "insensitive" as const } } },
                             },
                         },
                     ],
@@ -46,15 +61,15 @@ async function getPapersData(query: string, page: number) {
                         _count: { select: { questions: true } },
                     },
                     orderBy: { createdAt: "desc" },
-                    take: BATCH_SIZE,
-                    skip: page * BATCH_SIZE,
+                    take: PAGE_SIZE,
+                    skip: page * PAGE_SIZE,
                 }),
                 prisma.questionPaper.count({ where }),
             ]);
 
-            return { papers, total, totalPages: Math.ceil(total / BATCH_SIZE) };
+            return { papers, total, totalPages: Math.ceil(total / PAGE_SIZE) };
         },
-        ["exams"]
+        ["papers"]
     );
 }
 
@@ -64,11 +79,15 @@ export default async function PaperLibraryPage({
     searchParams: Promise<{ q?: string; page?: string }>;
 }) {
     const { q = "", page = "0" } = await searchParams;
-    const currentPage = parseInt(page) || 0;
+    const query = normalizeQuery(q);
+    const currentPage = Math.max(0, parseInt(page, 10) || 0);
     const [{ papers, total, totalPages }, user] = await Promise.all([
-        getPapersData(q, currentPage),
+        getPapersData(query, currentPage),
         getOptionalUser(),
     ]);
+    if (currentPage > 0 && currentPage >= Math.max(totalPages, 1)) {
+        redirect(paperPageHref(query, Math.max(0, totalPages - 1)));
+    }
     const isAdmin = user?.role === "ADMIN";
     const resumableByPaper = new Map<
         string,
@@ -143,7 +162,7 @@ export default async function PaperLibraryPage({
 
                 <div className="flex justify-center mb-12 w-full">
                     <div className="w-full max-w-md">
-                        <SearchFilter value={q} />
+                        <SearchFilter value={query} />
                     </div>
                 </div>
 
@@ -168,7 +187,7 @@ export default async function PaperLibraryPage({
                                         pricing="Free"
                                         examId={exam?.id ?? ""}
                                         examSlug={exam?.slug ?? ""}
-                                        subject={exam?.name ?? "General"}
+                                        subject={exam?.name ?? "Standalone topic paper"}
                                         duration={exam?.duration ?? 60}
                                         shift="General"
                                         color={exam?.color ?? "#0F172A"}
@@ -202,7 +221,7 @@ export default async function PaperLibraryPage({
                                         pricing="Free"
                                         examId={exam?.id ?? ""}
                                         examSlug={exam?.slug ?? ""}
-                                        subject={exam?.name ?? "General"}
+                                        subject={exam?.name ?? "Standalone topic paper"}
                                         duration={exam?.duration ?? 60}
                                         shift="General"
                                         color={exam?.color ?? "#0F172A"}
@@ -220,7 +239,7 @@ export default async function PaperLibraryPage({
                     <div className="p-12 border-2 border-dashed border-border rounded-3xl text-center bg-card max-w-2xl mx-auto">
                         <Search className="w-10 h-10 text-muted-foreground/60 mb-4 mx-auto" />
                         <h3 className="text-lg font-bold text-foreground">No papers found</h3>
-                        {q && (
+                        {query && (
                             <Link
                                 href="/library/paper"
                                 className="mt-4 inline-block text-sm text-muted-foreground hover:text-foreground"
@@ -232,10 +251,19 @@ export default async function PaperLibraryPage({
                 )}
 
                 {totalPages > 1 && (
+                    <>
+                    <PaginationPrefetch
+                        nextHref={
+                            currentPage < totalPages - 1
+                                ? paperPageHref(query, currentPage + 1)
+                                : undefined
+                        }
+                    />
                     <div className="flex items-center justify-center gap-3 mt-16">
                         {currentPage > 0 && (
                             <Link
-                                href={`?q=${q}&page=${currentPage - 1}`}
+                                href={paperPageHref(query, currentPage - 1)}
+                                prefetch={true}
                                 className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                             >
                                 Previous
@@ -246,13 +274,15 @@ export default async function PaperLibraryPage({
                         </span>
                         {currentPage < totalPages - 1 && (
                             <Link
-                                href={`?q=${q}&page=${currentPage + 1}`}
+                                href={paperPageHref(query, currentPage + 1)}
+                                prefetch={true}
                                 className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
                             >
                                 Next
                             </Link>
                         )}
                     </div>
+                    </>
                 )}
             </main>
         </div>

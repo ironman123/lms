@@ -1,33 +1,45 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function SessionTimer({
-    durationSeconds,
-    startedAt,
+    expiresAt,
+    onExpire,
 }: {
-    durationSeconds: number;
-    startedAt: string;
+    expiresAt: string;
+    onExpire: () => void;
 }) {
-    const [remaining, setRemaining] = useState(durationSeconds);
+    const [remaining, setRemaining] = useState(0);
+    const onExpireRef = useRef(onExpire);
+    const expiredRef = useRef(false);
+
+    useEffect(() => {
+        onExpireRef.current = onExpire;
+    }, [onExpire]);
 
     useEffect(() => {
         const calculateRemaining = () =>
             Math.max(
                 0,
-                durationSeconds -
-                    Math.floor(
-                        (Date.now() - new Date(startedAt).getTime()) / 1000
-                    )
+                Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000)
             );
 
-        setRemaining(calculateRemaining());
-        const interval = setInterval(() => {
+        expiredRef.current = false;
+        const updateRemaining = () => {
             const nextRemaining = calculateRemaining();
             setRemaining(nextRemaining);
-            if (nextRemaining <= 0) clearInterval(interval);
+            if (nextRemaining <= 0 && !expiredRef.current) {
+                expiredRef.current = true;
+                onExpireRef.current();
+            }
+            return nextRemaining;
+        };
+
+        updateRemaining();
+        const interval = setInterval(() => {
+            if (updateRemaining() <= 0) clearInterval(interval);
         }, 1000);
         return () => clearInterval(interval);
-    }, [durationSeconds, startedAt]);
+    }, [expiresAt]);
 
     const h = Math.floor(remaining / 3600).toString().padStart(2, "0");
     const m = Math.floor((remaining % 3600) / 60).toString().padStart(2, "0");

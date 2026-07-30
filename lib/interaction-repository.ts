@@ -4,6 +4,10 @@ import { randomUUID } from "crypto";
 import { Prisma, SessionStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { SubmittedInteractionMetric } from "@/lib/session-interactions";
+import type {
+    QuestionSnapshot,
+    ResultGrade,
+} from "@/lib/exam-results";
 import {
     isPastSessionExpiry,
     isResumableSessionStatus,
@@ -17,20 +21,30 @@ type PersistInteractionsResult =
     | { status: "not_found"; upserted: 0 }
     | { status: "inactive"; upserted: 0 };
 
+type PersistedInteractionMetric = SubmittedInteractionMetric & {
+    grade?: ResultGrade;
+    questionPosition?: number;
+    marksAwarded?: number;
+    penaltyApplied?: number;
+    questionSnapshot?: QuestionSnapshot;
+};
+
 export async function persistSessionInteractions({
     sessionId,
     userId,
     metrics,
     checkpointRevision,
     requireActive = false,
+    db = prisma,
 }: {
     sessionId: string;
     userId: string;
-    metrics: SubmittedInteractionMetric[];
+    metrics: PersistedInteractionMetric[];
     checkpointRevision: number;
     requireActive?: boolean;
+    db?: Prisma.TransactionClient | typeof prisma;
 }): Promise<PersistInteractionsResult> {
-    const session = await prisma.testSession.findUnique({
+    const session = await db.testSession.findUnique({
         where: { id: sessionId },
         select: {
             userId: true,
@@ -56,7 +70,7 @@ export async function persistSessionInteractions({
             isPastSessionExpiry(session.expiresAt) &&
             isResumableSessionStatus(session.status)
         ) {
-            await prisma.testSession.updateMany({
+            await db.testSession.updateMany({
                 where: {
                     id: sessionId,
                     status: { in: [...RESUMABLE_SESSION_STATUSES] },
@@ -67,7 +81,7 @@ export async function persistSessionInteractions({
         return { status: "inactive", upserted: 0 };
     }
 
-    const validQuestions = await prisma.question.findMany({
+    const validQuestions = await db.question.findMany({
         where: {
             paperId: session.paperId,
             id: { in: metrics.map((metric) => metric.questionId) },
@@ -86,27 +100,41 @@ export async function persistSessionInteractions({
     }
 
     const now = new Date();
-    const rows = validMetrics.map((metric) => Prisma.sql`(
-        ${randomUUID()},
-        ${userId},
-        ${metric.questionId},
-        ${sessionId},
-        ${metric.visitCount},
-        ${metric.dwellTimeSeconds},
-        ${metric.isCorrect ?? false},
-        ${metric.selectedAnswer},
-        ${metric.hesitationCount},
-        ${metric.isFlagged},
-        ${metric.wasHinted},
-        ${metric.confidenceLevel},
-        ${checkpointRevision},
-        ${now},
-        ${now}
-    )`);
+    const rows = validMetrics.map((metric) => {
+        const grade =
+            metric.grade ??
+            (metric.isCorrect ? ("CORRECT" as const) : ("SKIPPED" as const));
+        const snapshot = metric.questionSnapshot
+            ? JSON.stringify(metric.questionSnapshot)
+            : null;
+
+        return Prisma.sql`(
+            ${randomUUID()},
+            ${userId},
+            ${metric.questionId},
+            ${sessionId},
+            ${metric.visitCount},
+            ${metric.dwellTimeSeconds},
+            ${metric.isCorrect ?? false},
+            ${metric.selectedAnswer},
+            ${metric.hesitationCount},
+            ${metric.isFlagged},
+            ${metric.wasHinted},
+            ${metric.confidenceLevel},
+            ${checkpointRevision},
+            ${grade}::"InteractionGrade",
+            ${metric.questionPosition ?? null},
+            ${metric.marksAwarded ?? 0},
+            ${metric.penaltyApplied ?? 0},
+            ${snapshot}::jsonb,
+            ${now},
+            ${now}
+        )`;
+    });
 
     // The revision guard makes concurrent interval/pagehide requests safe:
     // a late older request cannot overwrite a newer answer or flag state.
-    await prisma.$executeRaw(Prisma.sql`
+    await db.$executeRaw(Prisma.sql`
         INSERT INTO "QuestionInteraction" (
             "id",
             "userId",
@@ -121,6 +149,11 @@ export async function persistSessionInteractions({
             "wasHinted",
             "confidenceLevel",
             "checkpointRevision",
+            "grade",
+            "questionPosition",
+            "marksAwarded",
+            "penaltyApplied",
+            "questionSnapshot",
             "startedAt",
             "createdAt"
         )
@@ -135,7 +168,30 @@ export async function persistSessionInteractions({
             "isFlagged" = EXCLUDED."isFlagged",
             "wasHinted" = EXCLUDED."wasHinted",
             "confidenceLevel" = EXCLUDED."confidenceLevel",
-            "checkpointRevision" = EXCLUDED."checkpointRevision"
+            "checkpointRevision" = EXCLUDED."checkpointRevision",
+            "grade" = CASE
+                WHEN EXCLUDED."questionSnapshot" IS NOT NULL
+                    THEN EXCLUDED."grade"
+                ELSE "QuestionInteraction"."grade"
+            END,
+            "questionPosition" = COALESCE(
+                EXCLUDED."questionPosition",
+                "QuestionInteraction"."questionPosition"
+            ),
+            "marksAwarded" = CASE
+                WHEN EXCLUDED."questionSnapshot" IS NOT NULL
+                    THEN EXCLUDED."marksAwarded"
+                ELSE "QuestionInteraction"."marksAwarded"
+            END,
+            "penaltyApplied" = CASE
+                WHEN EXCLUDED."questionSnapshot" IS NOT NULL
+                    THEN EXCLUDED."penaltyApplied"
+                ELSE "QuestionInteraction"."penaltyApplied"
+            END,
+            "questionSnapshot" = COALESCE(
+                EXCLUDED."questionSnapshot",
+                "QuestionInteraction"."questionSnapshot"
+            )
         WHERE "QuestionInteraction"."checkpointRevision"
             <= EXCLUDED."checkpointRevision"
     `);

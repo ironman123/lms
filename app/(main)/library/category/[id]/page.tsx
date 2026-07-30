@@ -6,30 +6,45 @@ import ExamCarouselCard from "@/components/ExamCarouselCard";
 import Link from "next/link";
 import { ChevronLeft, Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
-import { notFound } from "next/navigation";
+import PaginationPrefetch from "@/components/PaginationPrefetch";
+import { notFound, redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
 import { deleteExam } from "@/app/(main)/actions/exam-actions";
 import { getIsAdmin } from "@/lib/auth";
 
+const PAGE_SIZE = 12;
 
+function normalizeQuery(query: string) {
+    return query.trim().replace(/\s+/g, " ");
+}
 
-// 1. Create a dynamic cache function that includes the query in the key
-const getExamsData = (slug: string, query: string) =>
+function categoryPageHref(slug: string, query: string, page: number) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    params.set("page", String(page));
+    return `/library/category/${slug}?${params.toString()}`;
+}
+
+const getExamsData = (slug: string, query: string, page: number) =>
     unstable_cache(
         async () => {
-            return await prisma.exam.findMany({
+            const where = {
+                examCategory: { slug },
+                ...(query ? {
+                    OR: [
+                        { name: { contains: query, mode: "insensitive" as const } },
+                        { description: { contains: query, mode: "insensitive" as const } },
+                        { categoryNumber: { contains: query, mode: "insensitive" as const } },
+                        { tags: { some: { tag: { name: { contains: query, mode: "insensitive" as const } } } } },
+                        { syllabusEntries: { some: { topicPath: { contains: query, mode: "insensitive" as const } } } },
+                        { syllabusEntries: { some: { category: { name: { contains: query, mode: "insensitive" as const } } } } },
+                    ]
+                } : {})
+            };
+            const [exams, total] = await Promise.all([
+                prisma.exam.findMany({
                 where: {
-                    examCategory: { slug: slug },
-                    ...(query ? {
-                        OR: [
-                            { name: { contains: query, mode: "insensitive" } },
-                            { description: { contains: query, mode: "insensitive" } },
-                            { categoryNumber: { contains: query, mode: "insensitive" as const } },
-                            { tags: { some: { tag: { name: { contains: query, mode: "insensitive" as const } } } } },
-                            { syllabusEntries: { some: { topicPath: { contains: query, mode: "insensitive" as const } } } },
-                            { syllabusEntries: { some: { category: { name: { contains: query, mode: "insensitive" as const } } } } },
-                        ]
-                    } : {})
+                    ...where,
                 },
                 include: {
                     tags: {
@@ -47,35 +62,59 @@ const getExamsData = (slug: string, query: string) =>
                         orderBy: { topicPath: 'asc' },
                     },
                 },
-                orderBy: { createdAt: 'desc' }
-            });
+                orderBy: { createdAt: 'desc' },
+                take: PAGE_SIZE,
+                skip: page * PAGE_SIZE,
+                }),
+                prisma.exam.count({ where }),
+            ]);
+            return {
+                exams,
+                total,
+                totalPages: Math.ceil(total / PAGE_SIZE),
+            };
         },
-        [`exams-${slug}-${query}`], // Dynamic key ensures search results are cached correctly
+        [`category-exams-v2-${slug}-${query.toLowerCase()}-${page}`],
         { revalidate: 3600, tags: ["exams"] }
     )();
 
 interface PageProps {
     params: Promise<{ id: string }>;
-    searchParams: Promise<{ q?: string }>;
+    searchParams: Promise<{ q?: string; page?: string }>;
 }
 
 export default async function CategoryPage({ params, searchParams }: PageProps) {
-    const { id } = await params; // This is the slug (e.g., 'general')
-    const query = (await searchParams).q || "";
+    const { id } = await params;
+    const { q = "", page = "0" } = await searchParams;
+    const query = normalizeQuery(q);
+    const currentPage = Math.max(0, parseInt(page, 10) || 0);
 
 
 
     // 2. Fetch Category info and exams in parallel
     // We fetch category directly so we always have the most fresh metadata (color, description)
-    const [category, exams, isAdmin] = await Promise.all([
+    const [category, examPage, isAdmin] = await Promise.all([
         prisma.examCategory.findUnique({ where: { slug: id } }),
-        getExamsData(id, query),
+        getExamsData(id, query, currentPage),
         getIsAdmin()
     ]);
 
     // console.log("Exams: ", exams);
 
     if (!category) notFound();
+    if (
+        currentPage > 0 &&
+        currentPage >= Math.max(examPage.totalPages, 1)
+    ) {
+        redirect(
+            categoryPageHref(
+                id,
+                query,
+                Math.max(0, examPage.totalPages - 1)
+            )
+        );
+    }
+    const { exams, totalPages } = examPage;
 
     return (
         <div className="min-h-screen bg-background">
@@ -117,6 +156,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                 </div>
 
                 {exams.length > 0 ? (
+                    <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 xl:gap-10 items-start">
                         {exams.map((exam) => {
                             // 🔥 FIX: Bind the actions here, inside the map where `exam.id` exists
@@ -160,12 +200,59 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                             );
                         })}
                     </div>
+                    {totalPages > 1 && (
+                        <>
+                            <PaginationPrefetch
+                                nextHref={
+                                    currentPage < totalPages - 1
+                                        ? categoryPageHref(
+                                            id,
+                                            query,
+                                            currentPage + 1
+                                        )
+                                        : undefined
+                                }
+                            />
+                            <div className="flex items-center justify-center gap-3 mt-16">
+                                {currentPage > 0 && (
+                                    <Link
+                                        href={categoryPageHref(
+                                            id,
+                                            query,
+                                            currentPage - 1
+                                        )}
+                                        prefetch={true}
+                                        className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
+                                    >
+                                        Previous
+                                    </Link>
+                                )}
+                                <span className="text-sm text-muted-foreground font-medium">
+                                    {currentPage + 1} / {totalPages}
+                                </span>
+                                {currentPage < totalPages - 1 && (
+                                    <Link
+                                        href={categoryPageHref(
+                                            id,
+                                            query,
+                                            currentPage + 1
+                                        )}
+                                        prefetch={true}
+                                        className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
+                                    >
+                                        Next
+                                    </Link>
+                                )}
+                            </div>
+                        </>
+                    )}
+                    </>
                 ) : (
                     <div className="col-span-full p-12 border-2 border-dashed border-border rounded-[2rem] text-center bg-card max-w-2xl mx-auto w-full">
                         <Search className="w-10 h-10 text-muted-foreground/60 mb-4 mx-auto" />
                         <h3 className="text-lg font-bold text-foreground tracking-tight">No exams found</h3>
                         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                            We couldn't find any exams in {category.name} matching <span className="font-bold text-foreground">"{query}"</span>.
+                            We couldn&apos;t find any exams in {category.name} matching <span className="font-bold text-foreground">&ldquo;{query}&rdquo;</span>.
                         </p>
                         {
                             <Link

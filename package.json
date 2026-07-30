@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "prisma generate;next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "seed": "node -r dotenv/config prisma/seed.ts dotenv_config_path=.env.local"
@@ -74,8 +76,8 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.27",
-    "eslint": "^10.1.0",
-    "eslint-config-next": "^0.2.4",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.2.0",
     "postcss": "^8.5.8",
     "prisma": "^6.19.2",
     "tsx": "^4.21.0",

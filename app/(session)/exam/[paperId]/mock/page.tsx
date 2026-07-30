@@ -47,7 +47,7 @@ export default async function MockSessionPage({
             mode={SessionMode.MOCK}
             sessionId={sessionId}
             userId={data.session.userId}
-            sessionStartedAt={data.session.startTime.toISOString()}
+            sessionExpiresAt={data.session.expiresAt?.toISOString() ?? null}
             restoredInteractions={data.restoredInteractions}
         />
     );

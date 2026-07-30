@@ -4,7 +4,6 @@ import StatCard from "@/components/StatCard";
 import ExamPerformanceCard from "@/components/ExamPerformanceCard";
 import { Target, Trophy, Zap, BookOpen, Clock, ArrowRight, Flame } from "lucide-react";
 import Link from "next/link";
-import { requireAuth } from '@/lib/auth'
 
 
 function getHeatmapColor(score: number) {
@@ -23,8 +22,6 @@ function getActivityColor(count: number) {
 }
 
 export default async function DashboardPage() {
-
-    const user = await requireAuth();
 
     const { totalTests, totalQuestions, avgScore, accuracy, examStats,
         timeSpentStr, recentActivity, weakSubject, currentStreak,
@@ -149,7 +146,7 @@ export default async function DashboardPage() {
                                             {session.score}%
                                         </p>
                                         <Link
-                                            href={`/exam/${session.paperId}/results?sessionId=${session.id}`}
+                                            href={`/results/${session.id}`}
                                             className="text-[10px] font-bold text-muted-foreground hover:text-foreground hover:underline"
                                         >
                                             Review

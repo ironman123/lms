@@ -65,11 +65,10 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
         await invalidateTag("exams");
         if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
         return { success: true, id: paper.id, title: paper.title, year: paper.year };
-    } catch (error: any)
+    } catch (error: unknown)
     {
         console.error("❌ CREATE PAPER ERROR:", error);
         handlePrismaError(error);
-        throw new Error(error.message || "Failed to create paper in database");
     }
 }
 

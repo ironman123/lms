@@ -13,10 +13,15 @@ const receiver = new Receiver({
 
 export async function POST(req: NextRequest) {
     const body = await req.text();
-    const isValid = await receiver.verify({
-        signature: req.headers.get("upstash-signature") ?? "",
-        body,
-    });
+    let isValid = false;
+    try {
+        isValid = await receiver.verify({
+            signature: req.headers.get("upstash-signature") ?? "",
+            body,
+        });
+    } catch {
+        isValid = false;
+    }
     if (!isValid) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

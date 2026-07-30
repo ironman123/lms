@@ -1,8 +1,10 @@
 // lib/stats.ts
 import prisma from "@/lib/prisma";
+import { toAppDateKey } from "@/lib/date-utils";
 
 interface QuestionResult {
     isCorrect: boolean;
+    grade: "CORRECT" | "INCORRECT" | "SKIPPED" | "PENDING" | "UNAVAILABLE";
     type: string;
     difficulty: string;
     topicPath: string | null;
@@ -37,9 +39,18 @@ export async function updateUserStats({
         const diffAcc: AccMap = (current?.diffAccuracy ?? {}) as AccMap;
         const subjAcc: AccMap = (current?.subjectAccuracy ?? {}) as AccMap;
 
-        const sessionCorrect = questions.filter((q) => q.isCorrect).length;
+        // Skipped and pending-manual-review answers must not lower a
+        // student's objective accuracy. They can be added after grading.
+        const gradedQuestions = questions.filter(
+            (question) =>
+                question.grade === "CORRECT" ||
+                question.grade === "INCORRECT"
+        );
+        const sessionCorrect = gradedQuestions.filter(
+            (question) => question.isCorrect
+        ).length;
 
-        for (const q of questions)
+        for (const q of gradedQuestions)
         {
             const subject = q.topicPath?.split(">")?.[0]?.trim() ?? "General";
 
@@ -57,13 +68,11 @@ export async function updateUserStats({
         }
 
         // ── Streak ────────────────────────────────────────────────────────────
-        // All dates in UTC ISO "YYYY-MM-DD" to avoid timezone drift.
-        const todayStr = new Date().toISOString().split("T")[0];
-        const yestStr = (() => {
-            const d = new Date();
-            d.setDate(d.getDate() - 1);
-            return d.toISOString().split("T")[0];
-        })();
+        const now = new Date();
+        const todayStr = toAppDateKey(now);
+        const yestStr = toAppDateKey(
+            new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        );
 
         let streak = current?.currentStreak ?? 0;
         const lastDate = current?.lastActiveDate ?? null;
@@ -86,7 +95,7 @@ export async function updateUserStats({
             create: {
                 userId,
                 totalTests: 1,
-                totalQuestions: questions.length,
+                totalQuestions: gradedQuestions.length,
                 totalCorrect: sessionCorrect,
                 totalStudySecs: timeTakenSecs,
                 scoreSum: sessionScore,
@@ -98,7 +107,7 @@ export async function updateUserStats({
             },
             update: {
                 totalTests: { increment: 1 },
-                totalQuestions: { increment: questions.length },
+                totalQuestions: { increment: gradedQuestions.length },
                 totalCorrect: { increment: sessionCorrect },
                 totalStudySecs: { increment: timeTakenSecs },
                 scoreSum: { increment: sessionScore },

@@ -206,30 +206,36 @@ model Question {
 }
 
 model QuestionInteraction {
-  id              String      @id @default(uuid())
-  userId          String
-  questionId      String
-  sessionId       String
-  visitCount      Int         @default(0)
-  totalDwellTime  Int         @default(0)
-  isCorrect       Boolean
-  selectedAnswer  String?
-  hesitationCount Int         @default(0)
-  isFlagged       Boolean     @default(false)
-  wasHinted       Boolean     @default(false)
-  confidenceLevel Int?
-  checkpointRevision BigInt      @default(0)
-  masteryDelta    Float?
-  forgottenAt     DateTime?
-  startedAt       DateTime    @default(now())
-  createdAt       DateTime    @default(now())
-  question        Question    @relation(fields: [questionId], references: [id])
-  session         TestSession @relation(fields: [sessionId], references: [id])
-  user            User        @relation(fields: [userId], references: [id])
+  id                 String           @id @default(uuid())
+  userId             String
+  questionId         String
+  sessionId          String
+  visitCount         Int              @default(0)
+  totalDwellTime     Int              @default(0)
+  isCorrect          Boolean
+  selectedAnswer     String?
+  hesitationCount    Int              @default(0)
+  isFlagged          Boolean          @default(false)
+  wasHinted          Boolean          @default(false)
+  confidenceLevel    Int?
+  checkpointRevision BigInt           @default(0)
+  grade              InteractionGrade @default(SKIPPED)
+  questionPosition   Int?
+  marksAwarded       Float            @default(0.0)
+  penaltyApplied     Float            @default(0.0)
+  questionSnapshot   Json?
+  masteryDelta       Float?
+  forgottenAt        DateTime?
+  startedAt          DateTime         @default(now())
+  createdAt          DateTime         @default(now())
+  question           Question         @relation(fields: [questionId], references: [id])
+  session            TestSession      @relation(fields: [sessionId], references: [id])
+  user               User             @relation(fields: [userId], references: [id])
 
   @@unique([userId, questionId, sessionId])
   @@index([userId]) // "give me all interactions for a user"
   @@index([sessionId]) // "give me all interactions in a session"
+  @@index([sessionId, questionPosition])
   @@index([userId, questionId]) // "has this user seen this question before?"
   @@index([questionId]) // "how many got this question right?" (analytics)
 }
@@ -268,31 +274,37 @@ model User {
 }
 
 model TestSession {
-  id             String                @id @default(uuid())
-  mode           SessionMode           @default(PRACTICE)
-  status         SessionStatus         @default(ACTIVE)
-  startTime      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  endTime        DateTime?
-  lastCheckpointAt DateTime?
-  pausedAt       DateTime?
-  abandonedAt    DateTime?
-  abandonReason  String?
-  expiresAt      DateTime?
-  totalScore     Float?
-  totalQuestions Int                   @default(0)
-  correctCount   Int                   @default(0)
-  accuracy       Float? // correctCount / totalQuestions
-  timeTakenSecs  Int? // actual wall time
-  avgTimePerQ    Float?
-  attemptedCount Int                   @default(0) // not everyone answers all Qs
-  completedAt    DateTime?
-  userId         String
-  paperId        String
-  activityLogs   ActivityLog[]
-  interactions   QuestionInteraction[]
-  paper          QuestionPaper         @relation(fields: [paperId], references: [id])
-  user           User                  @relation(fields: [userId], references: [id])
+  id                  String                @id @default(uuid())
+  mode                SessionMode           @default(PRACTICE)
+  status              SessionStatus         @default(ACTIVE)
+  startTime           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  endTime             DateTime?
+  lastCheckpointAt    DateTime?
+  pausedAt            DateTime?
+  abandonedAt         DateTime?
+  abandonReason       String?
+  expiresAt           DateTime?
+  totalScore          Float?
+  earnedMarks         Float?
+  maximumMarks        Float?
+  penaltyMarks        Float                 @default(0.0)
+  pendingReviewCount  Int                   @default(0)
+  questionSetSnapshot Json?
+  totalQuestions      Int                   @default(0)
+  correctCount        Int                   @default(0)
+  accuracy            Float? // correctCount / totalQuestions
+  timeTakenSecs       Int? // actual wall time
+  pausedDurationSecs  Int                   @default(0)
+  avgTimePerQ         Float?
+  attemptedCount      Int                   @default(0) // not everyone answers all Qs
+  completedAt         DateTime?
+  userId              String
+  paperId             String
+  activityLogs        ActivityLog[]
+  interactions        QuestionInteraction[]
+  paper               QuestionPaper         @relation(fields: [paperId], references: [id])
+  user                User                  @relation(fields: [userId], references: [id])
 
   @@index([userId, status, startTime])
   @@index([status, expiresAt])
@@ -521,6 +533,14 @@ enum SessionStatus {
   ABANDONED
   EXPIRED
   INVALIDATED
+}
+
+enum InteractionGrade {
+  CORRECT
+  INCORRECT
+  SKIPPED
+  PENDING
+  UNAVAILABLE
 }
 
 enum QuestionPaperType {

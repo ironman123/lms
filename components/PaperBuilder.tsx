@@ -21,6 +21,7 @@ export interface Option {
 }
 
 export interface Question {
+    clientId: string;
     id?: string;
     number: number;
     content: string;
@@ -68,8 +69,18 @@ export interface PaperBuilderProps {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
+function createClientId() {
+    return globalThis.crypto?.randomUUID?.()
+        ?? `question-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : "Unknown error";
+}
+
 function emptyQuestion(number: number): Question {
     return {
+        clientId: createClientId(),
         number,
         content: "",
         type: "MCQ",
@@ -116,6 +127,7 @@ function parsedToQuestion(pq: ParsedQuestion, index: number): Question {
         : [];
 
     return {
+        clientId: createClientId(),
         number: pq.number || index + 1,
         content: pq.content,
         type: pq.type,
@@ -173,6 +185,17 @@ function ExamPicker({
                 Assign to Exams <span className="font-normal normal-case">— optional</span>
             </label>
 
+            {selectedExams.length === 0 && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                    <p className="text-xs font-bold text-blue-800">
+                        Standalone topic paper
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-blue-600">
+                        This paper stays in the paper library without belonging to an exam.
+                    </p>
+                </div>
+            )}
+
             {selectedExams.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     {selectedExams.map(exam => (
@@ -228,10 +251,12 @@ function QuestionGrid({
     questions,
     onScrollTo,
     onSaveAll,
+    isSaving,
 }: {
     questions: Question[];
     onScrollTo: (index: number) => void;
     onSaveAll: () => void;
+    isSaving: boolean;
 }) {
     const savedCount = questions.filter(q => q.saved).length;
     const unsavedCount = questions.length - savedCount;
@@ -246,9 +271,11 @@ function QuestionGrid({
                     <button
                         type="button"
                         onClick={onSaveAll}
+                        disabled={isSaving}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors"
                     >
-                        <Save size={12} /> Save all unsaved ({unsavedCount})
+                        {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        {isSaving ? "Saving..." : `Save all unsaved (${unsavedCount})`}
                     </button>
                 )}
             </div>
@@ -256,7 +283,7 @@ function QuestionGrid({
             <div className="flex flex-wrap gap-1.5 max-h-[90px] overflow-y-auto">
                 {questions.map((q, i) => (
                     <button
-                        key={i}
+                        key={q.clientId}
                         type="button"
                         onClick={() => onScrollTo(i)}
                         title={q.content.slice(0, 60)}
@@ -297,7 +324,6 @@ function QuestionGrid({
 export default function PaperBuilder({
     examId,
     examSlug = "",
-    categories = [],
     syllabusEntries = [],
     exams = [],
     initialPaper,
@@ -310,7 +336,6 @@ export default function PaperBuilder({
     const [type, setType] = useState<QuestionPaperType>(initialPaper?.type ?? QuestionPaperType.MOCK);
     const [questions, setQuestions] = useState<Question[]>(initialQuestions);
     const [paperId, setPaperId] = useState<string | null>(initialPaper?.id ?? null);
-    const paperIdRef = useRef<string | null>(initialPaper?.id ?? null);
     const [paperSaved, setPaperSaved] = useState(!!initialPaper);
     //const [paperSaved, setPaperSaved] = useState(false);
 
@@ -325,16 +350,29 @@ export default function PaperBuilder({
     const totalCount = questions.length;
 
 
-    const cardRefs = useRef<(QuestionCardHandle | null)[]>([]);
-    const scrollRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const cardRefs = useRef(new Map<string, QuestionCardHandle>());
+    const scrollRefs = useRef(new Map<string, HTMLDivElement>());
     const [isSavingAll, setIsSavingAll] = useState(false);
 
     const scrollToQuestion = (index: number) => {
-        scrollRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
+        const question = questions[index];
+        if (question)
+        {
+            scrollRefs.current.get(question.clientId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    };
+
+    const registerCardRef = (clientId: string, handle: QuestionCardHandle | null) => {
+        if (handle) cardRefs.current.set(clientId, handle);
+        else cardRefs.current.delete(clientId);
+    };
+
+    const registerScrollRef = (clientId: string, element: HTMLDivElement | null) => {
+        if (element) scrollRefs.current.set(clientId, element);
+        else scrollRefs.current.delete(clientId);
     };
 
     const updatePaperId = (id: string) => {
-        paperIdRef.current = id;
         setPaperId(id);
     };
 
@@ -356,7 +394,7 @@ export default function PaperBuilder({
             {
                 const chunk = unsaved.slice(c, c + CHUNK_SIZE);
                 const results = await Promise.allSettled(
-                    chunk.map(({ i }) => cardRefs.current[i]?.save() ?? Promise.resolve())
+                    chunk.map(({ q }) => cardRefs.current.get(q.clientId)?.save() ?? Promise.resolve())
                 );
 
                 results.forEach((result, ri) => {
@@ -427,9 +465,9 @@ export default function PaperBuilder({
                 {
                     toast.warning("No questions found — fill in manually", { id: toastId });
                 }
-            } catch (err: any)
+            } catch (err: unknown)
             {
-                toast.error(`Failed: ${err.message}`, { id: toastId });
+                toast.error(`Failed: ${getErrorMessage(err)}`, { id: toastId });
             } finally
             {
                 setIsScanning(false);
@@ -449,7 +487,7 @@ export default function PaperBuilder({
         startSavingPaper(async () => {
             try
             {
-                const existingId = initialPaper?.id ?? paperIdRef.current;
+                const existingId = initialPaper?.id ?? paperId;
 
                 if (existingId)
                 {
@@ -477,9 +515,9 @@ export default function PaperBuilder({
                     setPaperSaved(true);
                     toast.success("Paper created — now save your questions");
                 }
-            } catch (err: any)
+            } catch (err: unknown)
             {
-                toast.error(`Failed: ${err.message}`);
+                toast.error(`Failed: ${getErrorMessage(err)}`);
             }
         });
     };
@@ -611,7 +649,7 @@ export default function PaperBuilder({
                 {!paperId && !initialPaper && questions.length > 0 && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
                         <AlertCircle size={16} className="shrink-0" />
-                        Create the paper first, then use "Save Question" on each question below.
+                        Create the paper first, then use &quot;Save Question&quot; on each question below.
                     </div>
                 )}
 
@@ -633,16 +671,16 @@ export default function PaperBuilder({
                                 questions={questions}
                                 onScrollTo={scrollToQuestion}
                                 onSaveAll={handleSaveAll}
+                                isSaving={isSavingAll}
                             />
                         )}
                         {questions.map((q, i) => (
                             <QuestionCard
-                                ref={el => { cardRefs.current[i] = el; }}
-                                wrapperRef={el => { scrollRefs.current[i] = el; }}
-                                key={i}
+                                ref={el => registerCardRef(q.clientId, el)}
+                                wrapperRef={el => registerScrollRef(q.clientId, el)}
+                                key={q.clientId}
                                 q={q}
-                                index={i}
-                                paperId={paperIdRef.current}
+                                paperId={paperId}
                                 examSlug={examSlug}
                                 syllabusEntries={syllabusEntries}
                                 onUpdate={updated => updateQuestion_(i, updated)}

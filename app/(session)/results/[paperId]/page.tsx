@@ -1,47 +1,22 @@
-// app/(session)/results/[paperId]/page.tsx
-import prisma from "@/lib/prisma";
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, XCircle, Clock, BarChart3 } from "lucide-react";
-import { requireAuth } from "@/lib/auth";
-import { Prisma } from "@prisma/client";
+import { notFound, redirect } from "next/navigation";
+import {
+    ArrowLeft,
+    BarChart3,
+    CheckCircle2,
+    Clock3,
+    MinusCircle,
+    RotateCcw,
+    Target,
+    XCircle,
+} from "lucide-react";
+import ResultReview from "@/components/ResultReview";
+import { loadCompletedResult } from "@/lib/result-loader";
+import { formatResultDuration } from "@/lib/exam-results";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-// The shape we store in options Json (must match what questionSchema produces)
-type OptionJSON = { text: string; label?: string };
-
-// ── Helper: derive a human-readable correct-answer string ────────────────────
-
-function getCorrectAnswerText(
-    type: string,
-    options: Prisma.JsonValue,
-    correctOptions: number[],
-    exactAnswer: number | null,
-    answerMin: number | null,
-    answerMax: number | null,
-    modelAnswer: string | null
-): string | null {
-    if (type === "MCQ" || type === "MSQ")
-    {
-        const opts = options as OptionJSON[] | null;
-        if (!opts?.length || !correctOptions.length) return null;
-        return correctOptions
-            .map((idx) => opts[idx]?.text)
-            .filter(Boolean)
-            .join(", ");
-    }
-    if (type === "NUMERICAL")
-    {
-        if (exactAnswer != null) return String(exactAnswer);
-        if (answerMin != null && answerMax != null)
-            return `${answerMin} – ${answerMax}`;
-    }
-    if (type === "SUBJECTIVE") return modelAnswer ?? null;
-    return null;
+function number(value: number) {
+    return value.toFixed(2).replace(/\.?0+$/, "");
 }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ResultsPage({
     params,
@@ -50,222 +25,250 @@ export default async function ResultsPage({
     params: Promise<{ paperId: string }>;
     searchParams: Promise<{ sessionId?: string }>;
 }) {
-    const { paperId } = await params;
-    const { sessionId } = await searchParams;
-    const user = await requireAuth();
+    const { paperId: routeId } = await params;
+    const { sessionId: legacySessionId } = await searchParams;
+    const sessionId = legacySessionId ?? routeId;
 
-    if (!sessionId) notFound();
+    if (legacySessionId && routeId !== legacySessionId) {
+        redirect(`/results/${legacySessionId}`);
+    }
 
-    const [session, paper] = await Promise.all([
-        prisma.testSession.findUnique({
-            where: { id: sessionId, userId: user.id },
-            include: {
-                interactions: {
-                    include: {
-                        // `options` is Json — already on the row, no separate include.
-                        question: true,
-                    },
-                    orderBy: { question: { createdAt: "asc" } },
-                },
-            },
-        }),
-        prisma.questionPaper.findUnique({
-            where: { id: paperId },
-            include: {
-                examQuestionPaperLinks: {
-                    include: { exam: { select: { name: true, slug: true, duration: true } } },
-                    take: 1,
-                },
-            },
-        }),
-    ]);
+    const result = await loadCompletedResult(sessionId);
+    if (!result) notFound();
 
-    if (!session || !paper) notFound();
-
-    const exam = paper.examQuestionPaperLinks[0]?.exam;
-    const interactions = session.interactions;
-
-    // ── Stats ──────────────────────────────────────────────────────────────
-    // `completeExamSession` already computed and stored these — trust the DB.
-    const correctCount = session.correctCount;
-    const attemptedCount = session.attemptedCount;
-    const totalQuestions = interactions.length;
-    const skippedCount = totalQuestions - attemptedCount;
-    const wrongCount = attemptedCount - correctCount;
-
-    // totalScore is stored as a 0-100 percentage; derive raw marks for display.
-    const totalMarks = interactions.reduce((sum, i) => sum + i.question.marks, 0);
-    const earnedMarks = totalMarks * ((session.totalScore ?? 0) / 100);
-
-    const accuracy = session.accuracy ?? 0;
-    const durationMin = session.timeTakenSecs
-        ? Math.floor(session.timeTakenSecs / 60)
-        : session.endTime
-            ? Math.floor(
-                (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) /
-                60000
-            )
-            : 0;
+    const { summary } = result;
+    const safePercent = Math.max(0, Math.min(100, summary.scorePercent));
+    const completedLabel = new Intl.DateTimeFormat("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    }).format(new Date(result.completedAt));
 
     return (
-        <div className="min-h-screen bg-background py-12">
-            <div className="max-w-3xl mx-auto px-4 space-y-6">
-
-                {/* Header */}
-                <div className="text-center">
-                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">
-                        Results
-                    </p>
-                    <h1 className="text-3xl font-black text-foreground">{paper.title}</h1>
-                    {exam && <p className="text-muted-foreground mt-1">{exam.name}</p>}
-                </div>
-
-                {/* Score card */}
-                <div className="bg-card rounded-3xl border border-border shadow-sm p-8 text-center">
-                    <div className="text-6xl font-black text-foreground mb-1">
-                        {earnedMarks.toFixed(1)}
-                        <span className="text-2xl text-muted-foreground font-light">/{totalMarks}</span>
-                    </div>
-                    <p className="text-muted-foreground text-sm font-bold uppercase tracking-widest">
-                        Total Score
-                    </p>
-
-                    <div className="grid grid-cols-3 gap-4 mt-8">
-                        <div className="bg-background rounded-2xl p-4">
-                            <p className="text-2xl font-black text-green-600">{correctCount}</p>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
-                                Correct
-                            </p>
+        <main className="min-h-screen bg-background">
+            <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+                <header className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                                {result.mode} result
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                                {completedLabel}
+                            </span>
                         </div>
-                        <div className="bg-background rounded-2xl p-4">
-                            <p className="text-2xl font-black text-red-500">{wrongCount}</p>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
-                                Wrong
+                        <h1 className="mt-3 text-2xl font-black leading-tight text-foreground sm:text-4xl">
+                            {result.paperTitle}
+                        </h1>
+                        {result.exam && (
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {result.exam.name}
                             </p>
-                        </div>
-                        <div className="bg-background rounded-2xl p-4">
-                            <p className="text-2xl font-black text-muted-foreground">{skippedCount}</p>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
-                                Skipped
-                            </p>
-                        </div>
+                        )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="bg-background rounded-2xl p-4 flex items-center gap-3">
-                            <BarChart3 size={16} className="text-muted-foreground" />
-                            <div className="text-left">
-                                <p className="text-sm font-black text-foreground">
-                                    {Math.round(accuracy)}%
-                                </p>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                                    Accuracy
-                                </p>
-                            </div>
-                        </div>
-                        <div className="bg-background rounded-2xl p-4 flex items-center gap-3">
-                            <Clock size={16} className="text-muted-foreground" />
-                            <div className="text-left">
-                                <p className="text-sm font-black text-foreground">{durationMin}m</p>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                                    Time taken
-                                </p>
-                            </div>
-                        </div>
+                    <div className="flex shrink-0 gap-2">
+                        <Link
+                            href="/library/paper"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground transition-colors hover:bg-accent"
+                        >
+                            <ArrowLeft size={16} />
+                            Papers
+                        </Link>
+                        <Link
+                            href={`/exam/${result.paperId}/lobby`}
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+                        >
+                            <RotateCcw size={16} />
+                            Retake
+                        </Link>
                     </div>
-                </div>
+                </header>
 
-                {/* Question review */}
-                <div className="space-y-3">
-                    <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">
-                        Question Review
-                    </h2>
+                {!result.reviewComplete && (
+                    <div className="mb-6 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm text-foreground">
+                        <p className="font-black">
+                            Some legacy answer details could not be recovered
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                            Your overall score and counters are preserved, but{" "}
+                            {result.unavailableCount} question
+                            {result.unavailableCount === 1 ? "" : "s"} from this
+                            older attempt never reached the review store.
+                        </p>
+                    </div>
+                )}
 
-                    {interactions.map((interaction, i) => {
-                        const q = interaction.question;
-                        // `isCorrect` is persisted by completeExamSession — use it directly.
-                        const isCorrect = interaction.isCorrect;
-                        const wasAttempted = !!interaction.selectedAnswer;
-
-                        const correctAnswerText =
-                            wasAttempted && !isCorrect
-                                ? getCorrectAnswerText(
-                                    q.type,
-                                    q.options,
-                                    q.correctOptions,
-                                    q.exactAnswer,
-                                    q.answerMin,
-                                    q.answerMax,
-                                    q.modelAnswer
-                                )
-                                : null;
-
-                        return (
+                <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8">
+                    <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+                    <div className="relative grid gap-8 lg:grid-cols-[260px_1fr] lg:items-center">
+                        <div className="flex flex-col items-center text-center">
                             <div
-                                key={interaction.id}
-                                className={`bg-card rounded-2xl border p-5 ${!wasAttempted
-                                        ? "border-border"
-                                        : isCorrect
-                                            ? "border-green-200"
-                                            : "border-red-200"
-                                    }`}
+                                className="grid h-48 w-48 place-items-center rounded-full p-3"
+                                style={{
+                                    background: `conic-gradient(var(--primary) ${safePercent * 3.6}deg, var(--muted) 0deg)`,
+                                }}
                             >
-                                <div className="flex items-start gap-3">
-                                    <div className="shrink-0 mt-0.5">
-                                        {!wasAttempted ? (
-                                            <div className="w-5 h-5 rounded-full border-2 border-border" />
-                                        ) : isCorrect ? (
-                                            <CheckCircle2 size={20} className="text-green-500" />
-                                        ) : (
-                                            <XCircle size={20} className="text-red-500" />
-                                        )}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-foreground leading-snug">
-                                            {i + 1}. {q.content}
+                                <div className="grid h-full w-full place-items-center rounded-full bg-card">
+                                    <div>
+                                        <p className="text-5xl font-black tracking-tight text-foreground">
+                                            {number(summary.scorePercent)}
+                                            <span className="text-xl text-muted-foreground">
+                                                %
+                                            </span>
                                         </p>
-
-                                        {correctAnswerText && (
-                                            <p className="text-xs text-green-600 font-bold mt-2">
-                                                Correct: {correctAnswerText}
-                                            </p>
-                                        )}
-
-                                        {q.explanation && (
-                                            <p className="text-xs text-muted-foreground italic mt-2 leading-relaxed">
-                                                {q.explanation}
-                                            </p>
-                                        )}
+                                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                                            Score
+                                        </p>
                                     </div>
-
-                                    <span className="text-[10px] font-bold text-muted-foreground shrink-0">
-                                        {q.marks}M
-                                    </span>
                                 </div>
                             </div>
-                        );
-                    })}
+                            <p className="mt-4 text-lg font-black text-foreground">
+                                {number(summary.earnedMarks)}{" "}
+                                <span className="font-medium text-muted-foreground">
+                                    / {number(summary.maximumMarks)} marks
+                                </span>
+                            </p>
+                            {summary.penaltyMarks > 0 && (
+                                <p className="mt-1 text-xs font-bold text-destructive">
+                                    −{number(summary.penaltyMarks)} from negative
+                                    marking
+                                </p>
+                            )}
+                        </div>
+
+                        <div>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                <div className="rounded-2xl border border-success/25 bg-success/10 p-4">
+                                    <CheckCircle2
+                                        size={18}
+                                        className="text-success"
+                                    />
+                                    <p className="mt-3 text-2xl font-black text-foreground">
+                                        {summary.correctCount}
+                                    </p>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                        Correct
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
+                                    <XCircle
+                                        size={18}
+                                        className="text-destructive"
+                                    />
+                                    <p className="mt-3 text-2xl font-black text-foreground">
+                                        {summary.incorrectCount}
+                                    </p>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                        Incorrect
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl border border-border bg-background p-4">
+                                    <MinusCircle
+                                        size={18}
+                                        className="text-muted-foreground"
+                                    />
+                                    <p className="mt-3 text-2xl font-black text-foreground">
+                                        {summary.skippedCount}
+                                    </p>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                        Skipped
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl border border-warning/25 bg-warning/10 p-4">
+                                    <Clock3
+                                        size={18}
+                                        className="text-warning"
+                                    />
+                                    <p className="mt-3 text-2xl font-black text-foreground">
+                                        {summary.pendingReviewCount}
+                                    </p>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                        Pending
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-4">
+                                    <Target size={18} className="text-primary" />
+                                    <div>
+                                        <p className="font-black text-foreground">
+                                            {number(summary.accuracy)}%
+                                        </p>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                            Accuracy on graded attempts
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-4">
+                                    <BarChart3
+                                        size={18}
+                                        className="text-primary"
+                                    />
+                                    <div>
+                                        <p className="font-black text-foreground">
+                                            {summary.attemptedCount}/
+                                            {summary.totalQuestions}
+                                        </p>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                            Attempted
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-4">
+                                    <Clock3 size={18} className="text-primary" />
+                                    <div>
+                                        <p className="font-black text-foreground">
+                                            {formatResultDuration(
+                                                summary.timeTakenSecs
+                                            )}
+                                        </p>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                            Active time
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                                Score uses total available marks. Accuracy measures
+                                correct answers only among objectively graded
+                                attempts, so these percentages can differ.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <div className="mt-10">
+                    <ResultReview items={result.review} />
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-3 pb-8">
+                <footer className="mt-8 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row">
                     <Link
-                        href={`/exam/${paperId}/lobby`}
-                        className="flex-1 h-12 flex items-center justify-center border border-border rounded-2xl text-sm font-bold text-muted-foreground hover:border-slate-400 transition-colors"
+                        href="/library/paper"
+                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-card text-sm font-bold text-foreground hover:bg-accent"
                     >
-                        Retake
+                        Back to papers
                     </Link>
-                    {exam && (
+                    {result.exam && (
                         <Link
-                            href={`/library/exam/${exam.slug}`}
-                            className="flex-1 h-12 flex items-center justify-center bg-slate-900 rounded-2xl text-sm font-bold text-white hover:bg-slate-700 transition-colors"
+                            href={`/library/exam/${result.exam.slug}`}
+                            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-card text-sm font-bold text-foreground hover:bg-accent"
                         >
-                            Back to {exam.name}
+                            View {result.exam.name}
                         </Link>
                     )}
-                </div>
+                    <Link
+                        href={`/exam/${result.paperId}/lobby`}
+                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground hover:bg-primary/90"
+                    >
+                        Try this paper again
+                    </Link>
+                </footer>
             </div>
-        </div>
+        </main>
     );
 }

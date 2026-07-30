@@ -51,15 +51,20 @@ export async function createQuestion(
 ) {
     await requireAdmin();
     const validated = questionSchema.parse(data);
+    let questionId: string;
     try
     {
-        await prisma.question.create({ data: { ...buildQuestionData(validated), paperId } });
+        const question = await prisma.question.create({
+            data: { ...buildQuestionData(validated), paperId },
+            select: { id: true },
+        });
+        questionId = question.id;
     } catch (error)
     {
         handlePrismaError(error);
     }
     await revalidateQuestionPaths(examSlug, paperId);
-    return { success: true };
+    return { success: true, id: questionId! };
 }
 
 export async function updateQuestion(

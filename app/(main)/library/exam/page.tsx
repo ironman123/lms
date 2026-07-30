@@ -5,9 +5,11 @@ import ExamCarouselCard from "@/components/ExamCarouselCard";
 import Link from "next/link";
 import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
+import PaginationPrefetch from "@/components/PaginationPrefetch";
 import { deleteExam } from "@/app/(main)/actions/exam-actions";
 import { getIsAdmin } from "@/lib/auth";
 import { withCache } from "@/lib/cache";
+import { redirect } from "next/navigation";
 
 const PAGE_SIZE = 12;
 const SYLLABUS_PREVIEW_LIMIT = 10;
@@ -42,6 +44,13 @@ function escapeLike(value: string) {
 
 function normalizeQuery(query: string) {
     return query.trim().replace(/\s+/g, " ");
+}
+
+function examPageHref(query: string, page: number) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    params.set("page", String(page));
+    return `?${params.toString()}`;
 }
 
 function fuzzyTitleClause(query: string) {
@@ -294,35 +303,42 @@ function Pagination({
 }) {
     if (totalPages <= 1) return null;
 
-    const hrefFor = (page: number) => {
-        const params = new URLSearchParams();
-        if (query) params.set("q", query);
-        params.set("page", String(page));
-        return `?${params.toString()}`;
-    };
+    const previousHref =
+        currentPage > 0
+            ? examPageHref(query, currentPage - 1)
+            : undefined;
+    const nextHref =
+        currentPage < totalPages - 1
+            ? examPageHref(query, currentPage + 1)
+            : undefined;
 
     return (
-        <div className="flex items-center justify-center gap-3 mt-16">
-            {currentPage > 0 && (
-                <Link
-                    href={hrefFor(currentPage - 1)}
-                    className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
-                >
-                    Previous
-                </Link>
-            )}
-            <span className="text-sm text-muted-foreground font-medium">
-                {currentPage + 1} / {totalPages}
-            </span>
-            {currentPage < totalPages - 1 && (
-                <Link
-                    href={hrefFor(currentPage + 1)}
-                    className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
-                >
-                    Next
-                </Link>
-            )}
-        </div>
+        <>
+            <PaginationPrefetch nextHref={nextHref} />
+            <div className="flex items-center justify-center gap-3 mt-16">
+                {previousHref && (
+                    <Link
+                        href={previousHref}
+                        prefetch={true}
+                        className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
+                    >
+                        Previous
+                    </Link>
+                )}
+                <span className="text-sm text-muted-foreground font-medium">
+                    {currentPage + 1} / {totalPages}
+                </span>
+                {nextHref && (
+                    <Link
+                        href={nextHref}
+                        prefetch={true}
+                        className="px-5 py-2.5 text-sm font-bold text-muted-foreground bg-card border border-border rounded-xl hover:border-slate-400 transition-colors"
+                    >
+                        Next
+                    </Link>
+                )}
+            </div>
+        </>
     );
 }
 
@@ -370,6 +386,10 @@ async function DeepSearchResults({
     const { exams, deepTotal } = await getDeepMatches(query, offset, take);
     const total = titleTotal + deepTotal;
     const totalPages = Math.ceil(total / PAGE_SIZE);
+
+    if (currentPage > 0 && currentPage >= Math.max(totalPages, 1)) {
+        redirect(examPageHref(query, Math.max(0, totalPages - 1)));
+    }
 
     if (total === 0) {
         return <EmptyState query={query} />;
@@ -438,6 +458,9 @@ export default async function ExamIndexPage({
             getBrowsePage(currentPage),
             isAdminPromise,
         ]);
+        if (currentPage > 0 && currentPage >= Math.max(totalPages, 1)) {
+            redirect(examPageHref("", Math.max(0, totalPages - 1)));
+        }
 
         return (
             <PageShell total={total} query={query} isAdmin={isAdmin}>

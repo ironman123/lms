@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { ChevronLeft, ChevronRight, Flag, Hash, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hasMeaningfulAnswer } from "@/lib/exam-results";
 import SessionTimer from "./SessionTimer";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -23,30 +24,30 @@ import { useExamTelemetry } from "@/app/(main)/hooks/useExamTelemetry";
 import { SessionMode } from "@prisma/client";
 import { OptionJSON } from "@/types/question";
 import type { RestoredInteraction } from "@/lib/session-interactions";
+import type { ActiveSessionPaper } from "@/lib/session-loader";
+
+type SessionQuestion = ActiveSessionPaper["questions"][number];
 
 export default function ActiveSessionClient({
     paper,
     mode,
     sessionId,
     userId,
-    sessionStartedAt,
+    sessionExpiresAt,
     restoredInteractions,
 }: {
-    paper: any;
+    paper: ActiveSessionPaper;
     mode: SessionMode;
     sessionId: string;
     userId: string;
-    sessionStartedAt: string;
+    sessionExpiresAt: string | null;
     restoredInteractions: RestoredInteraction[];
 }) {
     const router = useRouter();
-    const durationInMinutes =
-        paper?.examQuestionPaperLinks?.[0]?.exam?.duration ?? 60;
-
     // ── UI State ──────────────────────────────────────────────────────────────
     const restoredAnswers = useMemo(() => {
         const questionTypes = new Map(
-            paper.questions.map((question: any) => [
+            paper.questions.map((question) => [
                 question.id,
                 question.type,
             ])
@@ -66,7 +67,7 @@ export default function ActiveSessionClient({
     const restoredQuestionIndex = Math.max(
         0,
         paper.questions.findIndex(
-            (question: any) => !(question.id in restoredAnswers)
+            (question) => !(question.id in restoredAnswers)
         )
     );
 
@@ -89,13 +90,20 @@ export default function ActiveSessionClient({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const numericalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const submissionStartedRef = useRef(false);
 
     const currentQuestion = paper.questions[currentIndex];
     const totalQuestions: number = paper.questions.length;
     const isLastQuestion = currentIndex === totalQuestions - 1;
 
     const progress = useMemo(
-        () => (totalQuestions > 0 ? (Object.keys(answers).length / totalQuestions) * 100 : 0),
+        () =>
+            totalQuestions > 0
+                ? (
+                    Object.values(answers).filter(hasMeaningfulAnswer).length /
+                    totalQuestions
+                ) * 100
+                : 0,
         [answers, totalQuestions]
     );
 
@@ -103,6 +111,7 @@ export default function ActiveSessionClient({
     const {
         currentMetrics,
         recentActivities,
+        offlineRecovery,
         handleNavigation,
         handleAnswerSelection,
         syncAnswers,
@@ -124,17 +133,47 @@ export default function ActiveSessionClient({
         }
     }, [restoredInteractions.length]);
 
+    useEffect(() => {
+        if (!offlineRecovery) return;
+        const timeout = window.setTimeout(() => {
+            const questionTypes = new Map(
+                paper.questions.map((question) => [question.id, question.type])
+            );
+            const recoveredAnswers = Object.fromEntries(
+                offlineRecovery
+                    .filter((metric) => metric.selectedAnswer?.trim())
+                    .map((metric) => [
+                        metric.questionId,
+                        questionTypes.get(metric.questionId) === "MSQ"
+                            ? metric.selectedAnswer!.split(",").filter(Boolean)
+                            : metric.selectedAnswer!,
+                    ])
+            ) as Record<string, string | string[]>;
+            setAnswers((previous) => ({ ...previous, ...recoveredAnswers }));
+            setFlagged((previous) => {
+                const next = new Set(previous);
+                for (const metric of offlineRecovery) {
+                    if (metric.isFlagged) next.add(metric.questionId);
+                    else next.delete(metric.questionId);
+                }
+                return next;
+            });
+            toast.success("Recovered newer answers saved on this browser.");
+        }, 0);
+        return () => window.clearTimeout(timeout);
+    }, [offlineRecovery, paper.questions]);
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /** Last segment of a "Physics > Mechanics > Newton's Laws" path. */
-    function topicLabel(q: any): string {
+    function topicLabel(q: SessionQuestion): string {
         if (!q.topicPath) return "General";
         const parts = q.topicPath.split(">");
         return parts[parts.length - 1].trim();
     }
 
     /** Human-readable correct answer for NUMERICAL practice reveal. */
-    function numericalCorrectLabel(q: any): string {
+    function numericalCorrectLabel(q: SessionQuestion): string {
         if (q.exactAnswer != null) return String(q.exactAnswer);
         if (q.answerMin != null && q.answerMax != null)
             return `${q.answerMin} – ${q.answerMax}`;
@@ -194,32 +233,44 @@ export default function ActiveSessionClient({
     };
 
     // ── Submit ────────────────────────────────────────────────────────────────
-    const handleSubmit = async () => {
-        const unanswered = totalQuestions - Object.keys(answers).length;
-        if (unanswered > 0 && !confirm(`${unanswered} unanswered. Submit anyway?`)) return;
+    const submitSession = async (skipUnansweredConfirmation = false) => {
+        if (submissionStartedRef.current) return;
+        const unanswered =
+            totalQuestions -
+            Object.values(answers).filter(hasMeaningfulAnswer).length;
+        if (
+            !skipUnansweredConfirmation &&
+            unanswered > 0 &&
+            !confirm(`${unanswered} unanswered. Submit anyway?`)
+        ) return;
 
+        submissionStartedRef.current = true;
         setIsSubmitting(true);
         setIsLocked(true);
 
         await flushAndSubmit(
             answers,
-            () => router.replace(`/results/${paper.id}?sessionId=${sessionId}`),
+            () => router.replace(`/results/${sessionId}`),
             () => {
+                submissionStartedRef.current = false;
                 toast.error("Failed to submit. Please try again.");
                 setIsSubmitting(false);
                 setIsLocked(false);
             }
         );
     };
+    const handleSubmit = () => void submitSession(false);
 
     // ── Flag ──────────────────────────────────────────────────────────────────
     const onToggleFlag = () => {
         if (isLocked) return;
         setFlagged((prev) => {
             const next = new Set(prev);
-            next.has(currentQuestion.id)
-                ? next.delete(currentQuestion.id)
-                : next.add(currentQuestion.id);
+            if (next.has(currentQuestion.id)) {
+                next.delete(currentQuestion.id);
+            } else {
+                next.add(currentQuestion.id);
+            }
             return next;
         });
         telemetryToggleFlag(currentQuestion.id);
@@ -232,7 +283,7 @@ export default function ActiveSessionClient({
                 <div className="w-full max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
                     <h2 className="text-2xl font-black text-foreground">Empty Paper</h2>
                     <p className="text-sm text-muted-foreground">
-                        This question paper doesn't have any questions yet.
+                        This question paper doesn&apos;t have any questions yet.
                     </p>
                     <button
                         onClick={() => window.history.back()}
@@ -259,11 +310,11 @@ export default function ActiveSessionClient({
                 recentActivities={recentActivities}
             />
 
-            {mode === SessionMode.MOCK && durationInMinutes && (
+            {mode === SessionMode.MOCK && sessionExpiresAt && (
                 <div className="fixed right-4 top-3 z-50 md:right-6">
                     <SessionTimer
-                        durationSeconds={durationInMinutes * 60}
-                        startedAt={sessionStartedAt}
+                        expiresAt={sessionExpiresAt}
+                        onExpire={() => void submitSession(true)}
                     />
                 </div>
             )}
@@ -488,8 +539,10 @@ export default function ActiveSessionClient({
 
                                 <ScrollArea className="flex-1">
                                     <div className="grid grid-cols-6 gap-2 p-4">
-                                        {paper.questions.map((q: any, i: number) => {
-                                            const isAnswered = !!answers[q.id];
+                                        {paper.questions.map((q, i) => {
+                                            const isAnswered = hasMeaningfulAnswer(
+                                                answers[q.id]
+                                            );
                                             const isFlagged = flagged.has(q.id);
                                             const isCurrent = currentIndex === i;
 
@@ -602,8 +655,8 @@ export default function ActiveSessionClient({
 
                 <ScrollArea className="flex-1 p-2">
                     <div className="grid grid-cols-4 gap-2 p-3">
-                        {paper.questions.map((q: any, i: number) => {
-                            const isAnswered = !!answers[q.id];
+                        {paper.questions.map((q, i) => {
+                            const isAnswered = hasMeaningfulAnswer(answers[q.id]);
                             const isFlagged = flagged.has(q.id);
                             const isCurrent = currentIndex === i;
 

@@ -66,18 +66,18 @@ export default async function ExamDashboardPage({
                         </div>
                         <div className="flex items-end justify-between">
                             <div>
-                                <p className="text-xs text-muted-foreground font-bold mb-1">Hesitation Win Rate</p>
-                                <p className="text-3xl font-black text-foreground">{data.diagnostics.hesitationWinRate}%</p>
+                                <p className="text-xs text-muted-foreground font-bold mb-1">Accuracy After Changes</p>
+                                <p className="text-3xl font-black text-foreground">{data.diagnostics.changedQuestionAccuracy}%</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-xs text-muted-foreground font-bold mb-1">Total Changes</p>
-                                <p className="text-lg font-bold text-foreground/80">{data.diagnostics.totalHesitations}</p>
+                                <p className="text-lg font-bold text-foreground/80">{data.diagnostics.totalAnswerChanges}</p>
                             </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-6 italic">
-                            {data.diagnostics.hesitationWinRate > 50
-                                ? "When you change your answer, you usually get it right. Good critical thinking!"
-                                : "When you change your answer, you usually get it wrong. Stick to your first instinct!"}
+                            This is the final accuracy of questions where you
+                            changed an answer. It does not claim the change itself
+                            improved or worsened the result.
                         </p>
                     </div>
                 </div>
@@ -86,9 +86,6 @@ export default async function ExamDashboardPage({
                     <SubjectPerformanceRadar subjects={data.subjectStats} />
                     <SubjectBreakdown subjects={data.subjectStats} />
                 </div>
-
-                {/* Subject performance */}
-                <SubjectBreakdown subjects={data.subjectStats} />
 
                 {/* Weak / Strong topics */}
                 <div className="grid md:grid-cols-2 gap-6">

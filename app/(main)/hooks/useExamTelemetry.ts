@@ -5,6 +5,12 @@ import {
     SESSION_CHECKPOINT_REQUEST_EVENT,
     type SessionCheckpointRequestDetail,
 } from "@/lib/session-checkpoint-client";
+import {
+    clearSessionRecovery,
+    clearSessionRecoveryIfAtMost,
+    loadSessionRecovery,
+    saveSessionRecovery,
+} from "@/lib/session-offline-store";
 
 export interface InteractionMetrics {
     questionId: string;
@@ -40,14 +46,24 @@ export function useExamTelemetry(
     restoredInteractions: RestoredInteraction[] = []
 ) {
     const restoredVault = Object.fromEntries(
-        restoredInteractions.map(({ checkpointRevision: _revision, ...metric }) => [
-            metric.questionId,
-            metric,
+        restoredInteractions.map((interaction) => [
+            interaction.questionId,
+            {
+                questionId: interaction.questionId,
+                selectedAnswer: interaction.selectedAnswer,
+                visitCount: interaction.visitCount,
+                dwellTimeSeconds: interaction.dwellTimeSeconds,
+                hesitationCount: interaction.hesitationCount,
+                isFlagged: interaction.isFlagged,
+                isCorrect: interaction.isCorrect,
+                wasHinted: interaction.wasHinted,
+                confidenceLevel: interaction.confidenceLevel,
+            },
         ])
     );
     const metricsVault = useRef<Record<string, InteractionMetrics>>(restoredVault);
     const currentQuestionRef = useRef(initialQuestionId);
-    const questionEnterTimeRef = useRef(Date.now());
+    const questionEnterTimeRef = useRef(0);
     const isSubmittedRef = useRef(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const checkpointTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -58,25 +74,17 @@ export function useExamTelemetry(
             0
         )
     );
-    const initializedRef = useRef(false);
-
-    if (!initializedRef.current && initialQuestionId) {
-        const resumed =
-            metricsVault.current[initialQuestionId] ??
-            emptyMetrics(initialQuestionId);
-        resumed.visitCount += 1;
-        metricsVault.current[initialQuestionId] = resumed;
-        initializedRef.current = true;
-    }
+    const recoveryReadyRef = useRef(false);
 
     const [currentMetrics, setCurrentMetrics] = useState<InteractionMetrics>(
-        () =>
-            metricsVault.current[initialQuestionId] ??
-            emptyMetrics(initialQuestionId)
+        () => restoredVault[initialQuestionId] ?? emptyMetrics(initialQuestionId)
     );
     const [recentActivities, setRecentActivities] = useState<
         Array<{ event: string; time: string }>
     >([]);
+    const [offlineRecovery, setOfflineRecovery] = useState<
+        InteractionMetrics[] | null
+    >(null);
 
     const getOrInitMetrics = useCallback((questionId: string) => {
         if (!metricsVault.current[questionId]) {
@@ -109,9 +117,29 @@ export function useExamTelemetry(
         }));
     }, []);
 
+    const persistOfflineSnapshot = useCallback(() => {
+        if (
+            !sessionId ||
+            isSubmittedRef.current ||
+            !recoveryReadyRef.current
+        ) return;
+        const revision = Math.max(Date.now(), revisionRef.current + 1);
+        revisionRef.current = revision;
+        void saveSessionRecovery({
+            sessionId,
+            revision,
+            metrics: snapshotMetrics(),
+            updatedAt: Date.now(),
+        });
+    }, [sessionId, snapshotMetrics]);
+
     const sendCheckpoint = useCallback(
         async (useBeacon = false, waitForInFlight = false) => {
-            if (!sessionId || isSubmittedRef.current) return true;
+            if (
+                !sessionId ||
+                isSubmittedRef.current ||
+                !recoveryReadyRef.current
+            ) return true;
 
             if (checkpointInFlightRef.current) {
                 if (!waitForInFlight) return true;
@@ -128,6 +156,12 @@ export function useExamTelemetry(
             revisionRef.current = revision;
             const body = JSON.stringify({ revision, metrics });
             const url = `/api/sessions/${sessionId}/checkpoint`;
+            await saveSessionRecovery({
+                sessionId,
+                revision,
+                metrics,
+                updatedAt: Date.now(),
+            });
 
             if (
                 useBeacon &&
@@ -141,8 +175,7 @@ export function useExamTelemetry(
                 if (accepted) return true;
             }
 
-            let request: Promise<boolean>;
-            request = fetch(url, {
+            const request: Promise<boolean> = fetch(url, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body,
@@ -155,6 +188,7 @@ export function useExamTelemetry(
                             `Checkpoint failed with ${response.status}`
                         );
                     }
+                    void clearSessionRecoveryIfAtMost(sessionId, revision);
                     return true;
                 })
                 .catch((error) => {
@@ -183,8 +217,9 @@ export function useExamTelemetry(
                     ? answer.join(",")
                     : answer;
             });
+            persistOfflineSnapshot();
         },
-        [getOrInitMetrics]
+        [getOrInitMetrics, persistOfflineSnapshot]
     );
 
     const handleNavigation = useCallback(
@@ -208,8 +243,9 @@ export function useExamTelemetry(
             questionEnterTimeRef.current = now;
             setCurrentMetrics({ ...newMetrics });
             logActivity(`NAV → ${newQuestionId.slice(-4)}`);
+            persistOfflineSnapshot();
         },
-        [getOrInitMetrics, logActivity]
+        [getOrInitMetrics, logActivity, persistOfflineSnapshot]
     );
 
     const handleAnswerSelection = useCallback(
@@ -217,9 +253,10 @@ export function useExamTelemetry(
             questionId: string,
             answer: string,
             isCorrect: boolean,
-            _questionType: "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE"
+            questionType: "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE"
         ) => {
             if (isSubmittedRef.current) return;
+            void questionType;
             const metrics = getOrInitMetrics(questionId);
 
             if (
@@ -238,8 +275,9 @@ export function useExamTelemetry(
             if (currentQuestionRef.current === questionId) {
                 setCurrentMetrics({ ...metrics });
             }
+            persistOfflineSnapshot();
         },
-        [getOrInitMetrics, logActivity]
+        [getOrInitMetrics, logActivity, persistOfflineSnapshot]
     );
 
     const toggleFlag = useCallback(
@@ -253,8 +291,9 @@ export function useExamTelemetry(
             logActivity(
                 `${metrics.isFlagged ? "FLAGGED" : "UNFLAGGED"} → ${questionId.slice(-4)}`
             );
+            persistOfflineSnapshot();
         },
-        [getOrInitMetrics, logActivity]
+        [getOrInitMetrics, logActivity, persistOfflineSnapshot]
     );
 
     const flushAndSubmit = useCallback(
@@ -291,6 +330,7 @@ export function useExamTelemetry(
                 );
 
                 if (result.success) {
+                    await clearSessionRecovery(sessionId);
                     onSuccess();
                 } else {
                     isSubmittedRef.current = false;
@@ -304,6 +344,51 @@ export function useExamTelemetry(
         },
         [getOrInitMetrics, sessionId]
     );
+
+    useEffect(() => {
+        let cancelled = false;
+        const now = Date.now();
+        questionEnterTimeRef.current = now;
+        const firstQuestionId = currentQuestionRef.current;
+        if (firstQuestionId) {
+            const restoredMetric =
+                metricsVault.current[firstQuestionId] ??
+                emptyMetrics(firstQuestionId);
+            const initialMetric = {
+                ...restoredMetric,
+                visitCount: restoredMetric.visitCount + 1,
+            };
+            metricsVault.current[firstQuestionId] = initialMetric;
+        }
+        void loadSessionRecovery(sessionId).then((recovery) => {
+            if (cancelled) return;
+            if (!recovery) {
+                recoveryReadyRef.current = true;
+                return;
+            }
+            if (recovery.revision <= revisionRef.current) {
+                recoveryReadyRef.current = true;
+                void clearSessionRecoveryIfAtMost(
+                    sessionId,
+                    revisionRef.current
+                );
+                return;
+            }
+
+            for (const metric of recovery.metrics) {
+                metricsVault.current[metric.questionId] = { ...metric };
+            }
+            revisionRef.current = recovery.revision;
+            const activeMetric =
+                metricsVault.current[currentQuestionRef.current];
+            if (activeMetric) setCurrentMetrics({ ...activeMetric });
+            recoveryReadyRef.current = true;
+            setOfflineRecovery(recovery.metrics);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [sessionId]);
 
     useEffect(() => {
         if (!sessionId) return;
@@ -370,6 +455,7 @@ export function useExamTelemetry(
     return {
         currentMetrics,
         recentActivities,
+        offlineRecovery,
         handleNavigation,
         handleAnswerSelection,
         syncAnswers,

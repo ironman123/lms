@@ -1,27 +1,19 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useTransition, useEffect, useState, useRef } from "react";
+import { useTransition, useEffect, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 
 export default function SearchFilter({ value }: { value: string }) {
+    return <SearchFilterInput key={value} value={value} />;
+}
+
+function SearchFilterInput({ value }: { value: string }) {
     const router = useRouter();
     const pathname = usePathname();
     const [isPending, startTransition] = useTransition();
-
-    // 1. Local state for the input
     const [localValue, setLocalValue] = useState(value);
 
-    // 2. Sync local state ONLY when the prop 'value' changes from the OUTSIDE
-    // (e.g., when you click a "Clear" link or go back in history)
-    useEffect(() => {
-        if (value !== localValue)
-        {
-            setLocalValue(value);
-        }
-    }, [value]);
-
-    // 3. Debounced URL Update
     useEffect(() => {
         const timer = setTimeout(() => {
             // Don't update the URL if the local typing matches what's already in the URL
@@ -37,7 +29,10 @@ export default function SearchFilter({ value }: { value: string }) {
                     params.delete("q");
                 }
                 params.delete("page");
-                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                const search = params.toString();
+                router.replace(search ? `${pathname}?${search}` : pathname, {
+                    scroll: false,
+                });
             });
         }, 300);
 

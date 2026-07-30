@@ -13,7 +13,7 @@ function getScoreColors(score: number) {
 export default function TestHistoryList({ tests }: {
     tests: {
         sessionId: string; paperId: string; title: string; date: string;
-        score: number; correct: number; total: number; accuracy: number; duration: number;
+        score: number; correct: number; total: number; accuracy: number; duration: string;
     }[]
 }) {
     return (
@@ -27,7 +27,7 @@ export default function TestHistoryList({ tests }: {
                     return (
                         <Link
                             key={test.sessionId}
-                            href={`/exam/${test.paperId}/results?sessionId=${test.sessionId}`}
+                            href={`/results/${test.sessionId}`}
                             className={`flex items-center gap-4 p-4 border rounded-xl transition-colors group ${colors.bg} ${colors.border}`}
                         >
                             <div className="flex-1 min-w-0">
@@ -50,7 +50,7 @@ export default function TestHistoryList({ tests }: {
                                     </div>
                                     <div>
                                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Time</p>
-                                        <p className="text-sm font-black text-foreground">{test.duration}m</p>
+                                        <p className="text-sm font-black text-foreground">{test.duration}</p>
                                     </div>
                                 </div>
                             </div>

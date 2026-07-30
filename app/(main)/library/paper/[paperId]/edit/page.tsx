@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import PaperBuilder from "@/components/PaperBuilder";
+import PaperBuilder, { type Question } from "@/components/PaperBuilder";
 import { requireAdminPage } from "@/lib/auth";
 import { OptionJSON } from "@/types/question";
 
@@ -58,15 +58,16 @@ export default async function EditPaperPage({ params }: PageProps) {
         : [];
 
     // Questions belong to QuestionPaper directly — not through the link table
-    const initialQuestions = paper.questions.map((q, i) => {
+    const initialQuestions: Question[] = paper.questions.map((q, i) => {
         const options = (q.options ?? []) as OptionJSON[];
 
         return {
+            clientId: q.id,
             id: q.id,
             number: i + 1,
             content: q.content,
-            type: q.type as any,
-            difficulty: q.difficulty as any,
+            type: q.type,
+            difficulty: q.difficulty,
             marks: q.marks,
             negativeMarks: q.negativeMarks,
             explanation: q.explanation,

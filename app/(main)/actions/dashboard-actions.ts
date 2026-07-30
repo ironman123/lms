@@ -3,17 +3,31 @@
 
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import {
+    APP_TIME_ZONE,
+    formatCompactDuration,
+    getEffectiveStreak,
+    toAppDateKey,
+} from "@/lib/date-utils";
 
 type AccMap = Record<string, { c: number; t: number }>;
 
 // ── Overview ──────────────────────────────────────────────────────────────────
-// 4 parallel queries instead of 1 unbounded monster.
+// Canonical totals come from completed sessions/interactions. UserStats remains
+// a rebuildable cache for streaks and detailed breakdowns.
 export async function getDashboardOverview() {
     const user = await requireAuth();
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const [stats, examStatsRaw, recentSessions, heatmapSessions] =
+    const [
+        stats,
+        examStatsRaw,
+        recentSessions,
+        heatmapSessions,
+        sessionSummary,
+        gradeSummary,
+    ] =
         await Promise.all([
             // 1. Scalar aggregates + JSON breakdowns — 1 row
             prisma.userStats.findUnique({ where: { userId: user.id } }),
@@ -29,7 +43,7 @@ export async function getDashboardOverview() {
 
             // 3. Last 3 sessions for "Recent Activity" — title, score, date only
             prisma.testSession.findMany({
-                where: { userId: user.id, endTime: { not: null } },
+                where: { userId: user.id, status: "COMPLETED" },
                 select: {
                     id: true,
                     paperId: true,
@@ -53,36 +67,70 @@ export async function getDashboardOverview() {
             prisma.testSession.findMany({
                 where: {
                     userId: user.id,
-                    endTime: { not: null },
+                    status: "COMPLETED",
                     startTime: { gte: thirtyDaysAgo },
                 },
                 select: {
+                    startTime: true,
                     endTime: true,
-                    _count: { select: { interactions: true } },
+                    completedAt: true,
+                    attemptedCount: true,
                 },
+            }),
+
+            prisma.testSession.aggregate({
+                where: { userId: user.id, status: "COMPLETED" },
+                _count: { _all: true },
+                _sum: {
+                    totalScore: true,
+                    timeTakenSecs: true,
+                },
+            }),
+
+            prisma.questionInteraction.groupBy({
+                by: ["grade"],
+                where: {
+                    userId: user.id,
+                    session: { status: "COMPLETED" },
+                    grade: { in: ["CORRECT", "INCORRECT"] },
+                },
+                _count: { _all: true },
             }),
         ]);
 
     // ── Scalar totals ─────────────────────────────────────────────────────────
-    const totalTests = stats?.totalTests ?? 0;
-    const totalQuestions = stats?.totalQuestions ?? 0;
-    const avgScore = totalTests > 0 ? (stats?.scoreSum ?? 0) / totalTests : 0;
+    const totalTests = sessionSummary._count._all;
+    const correctQuestions =
+        gradeSummary.find((row) => row.grade === "CORRECT")?._count._all ?? 0;
+    const incorrectQuestions =
+        gradeSummary.find((row) => row.grade === "INCORRECT")?._count._all ?? 0;
+    const totalQuestions = correctQuestions + incorrectQuestions;
+    const avgScore =
+        totalTests > 0
+            ? (sessionSummary._sum.totalScore ?? 0) / totalTests
+            : 0;
     const accuracy =
         totalQuestions > 0
-            ? ((stats?.totalCorrect ?? 0) / totalQuestions) * 100
+            ? (correctQuestions / totalQuestions) * 100
             : 0;
-    const currentStreak = stats?.currentStreak ?? 0;
+    const currentStreak =
+        totalTests > 0
+            ? getEffectiveStreak(
+                stats?.currentStreak ?? 0,
+                stats?.lastActiveDate
+            )
+            : 0;
 
-    const totalSecs = stats?.totalStudySecs ?? 0;
+    const totalSecs = sessionSummary._sum.timeTakenSecs ?? 0;
     const totalHours = Math.floor(totalSecs / 3600);
     const totalMinutes = Math.floor((totalSecs % 3600) / 60);
     const timeSpentStr =
         totalHours > 0 ? `${totalHours}h ${totalMinutes}m` : `${totalMinutes}m`;
 
     // ── JSON breakdowns ───────────────────────────────────────────────────────
-    const typeAcc = (stats?.typeAccuracy ?? {}) as AccMap;
-    const diffAcc = (stats?.diffAccuracy ?? {}) as AccMap;
-    const subjAcc = (stats?.subjectAccuracy ?? {}) as AccMap;
+    const typeAcc = (totalTests > 0 ? stats?.typeAccuracy ?? {} : {}) as AccMap;
+    const diffAcc = (totalTests > 0 ? stats?.diffAccuracy ?? {} : {}) as AccMap;
+    const subjAcc = (totalTests > 0 ? stats?.subjectAccuracy ?? {} : {}) as AccMap;
 
     const typeStats = Object.entries(typeAcc).map(([type, v]) => ({
         type,
@@ -109,6 +157,7 @@ export async function getDashboardOverview() {
         title: s.paper.title,
         examSlug: s.paper.examQuestionPaperLinks[0]?.exam?.slug,
         date: s.startTime.toLocaleDateString("en-IN", {
+            timeZone: APP_TIME_ZONE,
             month: "short",
             day: "numeric",
         }),
@@ -116,7 +165,7 @@ export async function getDashboardOverview() {
     }));
 
     // ── Exam performance cards ────────────────────────────────────────────────
-    const examStats = examStatsRaw.map((es) => {
+    const examStats = (totalTests > 0 ? examStatsRaw : []).map((es) => {
         const avg =
             es.testsAttempted > 0 ? es.scoreSum / es.testsAttempted : 0;
 
@@ -142,10 +191,13 @@ export async function getDashboardOverview() {
     const heatmapData = Array.from({ length: 30 }).map((_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - (29 - i));
-        const dateStr = d.toISOString().split("T")[0];
+        const dateStr = toAppDateKey(d);
         const count = heatmapSessions
-            .filter((s) => s.endTime!.toISOString().split("T")[0] === dateStr)
-            .reduce((sum, s) => sum + s._count.interactions, 0);
+            .filter((s) =>
+                toAppDateKey(s.completedAt ?? s.endTime ?? s.startTime) ===
+                dateStr
+            )
+            .reduce((sum, s) => sum + s.attemptedCount, 0);
         return { date: dateStr, count };
     });
 
@@ -175,7 +227,7 @@ export async function getExamDashboard(examId: string) {
         prisma.testSession.findMany({
             where: {
                 userId: user.id,
-                endTime: { not: null },
+                status: "COMPLETED",
                 paper: { examQuestionPaperLinks: { some: { examId } } },
             },
             select: {
@@ -185,12 +237,14 @@ export async function getExamDashboard(examId: string) {
                 endTime: true,
                 totalScore: true,
                 correctCount: true,
+                totalQuestions: true,
                 accuracy: true,
                 timeTakenSecs: true,
                 paper: { select: { title: true } },
                 interactions: {
                     select: {
                         isCorrect: true,
+                        grade: true,
                         totalDwellTime: true,
                         hesitationCount: true,
                         question: {
@@ -211,6 +265,7 @@ export async function getExamDashboard(examId: string) {
     // ── Score trend — uses stored values ──────────────────────────────────────
     const trend = sessions.map((s) => ({
         date: s.startTime.toLocaleDateString("en-IN", {
+            timeZone: APP_TIME_ZONE,
             day: "2-digit",
             month: "short",
         }),
@@ -225,6 +280,9 @@ export async function getExamDashboard(examId: string) {
     {
         for (const i of session.interactions)
         {
+            if (i.grade !== "CORRECT" && i.grade !== "INCORRECT") {
+                continue;
+            }
             const subject =
                 i.question.topicPath?.split(">")?.[0]?.trim() ?? "General";
             if (!subjectMap.has(subject))
@@ -249,12 +307,15 @@ export async function getExamDashboard(examId: string) {
         correctCount = 0,
         incorrectTime = 0,
         incorrectCount = 0;
-    let totalHesitations = 0,
+    let totalAnswerChanges = 0,
+        changedQuestionCount = 0,
         correctAfterHesitation = 0;
 
     sessions.forEach((s) =>
         s.interactions.forEach((i) => {
-            if (i.totalDwellTime > 0)
+            const isObjectivelyGraded =
+                i.grade === "CORRECT" || i.grade === "INCORRECT";
+            if (isObjectivelyGraded && i.totalDwellTime > 0)
             {
                 if (i.isCorrect)
                 {
@@ -268,8 +329,11 @@ export async function getExamDashboard(examId: string) {
             }
             if (i.hesitationCount > 0)
             {
-                totalHesitations++;
-                if (i.isCorrect) correctAfterHesitation++;
+                totalAnswerChanges += i.hesitationCount;
+                if (isObjectivelyGraded) {
+                    changedQuestionCount++;
+                    if (i.isCorrect) correctAfterHesitation++;
+                }
             }
         })
     );
@@ -279,10 +343,12 @@ export async function getExamDashboard(examId: string) {
             correctCount > 0 ? Math.round(correctTime / correctCount) : 0,
         avgIncorrectTimeSec:
             incorrectCount > 0 ? Math.round(incorrectTime / incorrectCount) : 0,
-        totalHesitations,
-        hesitationWinRate:
-            totalHesitations > 0
-                ? Math.round((correctAfterHesitation / totalHesitations) * 100)
+        totalAnswerChanges,
+        changedQuestionAccuracy:
+            changedQuestionCount > 0
+                ? Math.round(
+                    (correctAfterHesitation / changedQuestionCount) * 100
+                )
                 : 0,
     };
 
@@ -291,12 +357,14 @@ export async function getExamDashboard(examId: string) {
         sessionId: s.id,
         paperId: s.paperId,
         title: s.paper.title,
-        date: s.startTime.toLocaleDateString("en-IN"),
+        date: s.startTime.toLocaleDateString("en-IN", {
+            timeZone: APP_TIME_ZONE,
+        }),
         score: Math.round(s.totalScore ?? 0),
         correct: s.correctCount,
-        total: s.interactions.length,
+        total: s.totalQuestions,
         accuracy: Math.round(s.accuracy ?? 0),
-        duration: s.timeTakenSecs ? Math.floor(s.timeTakenSecs / 60) : 0,
+        duration: formatCompactDuration(s.timeTakenSecs),
     }));
 
     return {

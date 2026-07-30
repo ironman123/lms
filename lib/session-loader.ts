@@ -4,11 +4,20 @@ import { SessionMode, SessionStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireAuthSubject } from "@/lib/auth";
 import { getSessionPaper } from "@/lib/session-paper";
+import type { SessionPaper } from "@/lib/session-paper";
+import {
+    parseQuestionSetSnapshot,
+    type SessionQuestionSnapshot,
+} from "@/lib/exam-results";
 import {
     isPastSessionExpiry,
     isResumableSessionStatus,
     RESUMABLE_SESSION_STATUSES,
 } from "@/lib/session-policy";
+
+export type ActiveSessionPaper = Omit<SessionPaper, "questions"> & {
+    questions: SessionQuestionSnapshot[];
+};
 
 export async function loadActiveSession(
     sessionId: string,
@@ -30,6 +39,9 @@ export async function loadActiveSession(
                 startTime: true,
                 endTime: true,
                 expiresAt: true,
+                pausedAt: true,
+                pausedDurationSecs: true,
+                questionSetSnapshot: true,
                 user: { select: { supabaseId: true } },
                 interactions: {
                     select: {
@@ -62,6 +74,41 @@ export async function loadActiveSession(
         return null;
     }
 
+    if (session.status === SessionStatus.PAUSED) {
+        const now = new Date();
+        const pausedSeconds = session.pausedAt
+            ? Math.max(
+                0,
+                Math.floor(
+                    (now.getTime() - session.pausedAt.getTime()) / 1000
+                )
+            )
+            : 0;
+        const resumedExpiry =
+            session.pausedAt && session.expiresAt
+                ? new Date(
+                    session.expiresAt.getTime() + pausedSeconds * 1000
+                )
+                : session.expiresAt;
+        const resumed = await prisma.testSession.updateMany({
+            where: {
+                id: session.id,
+                status: SessionStatus.PAUSED,
+            },
+            data: {
+                status: SessionStatus.ACTIVE,
+                pausedAt: null,
+                expiresAt: resumedExpiry,
+                pausedDurationSecs: { increment: pausedSeconds },
+            },
+        });
+        if (resumed.count === 0) return null;
+        session.status = SessionStatus.ACTIVE;
+        session.pausedAt = null;
+        session.pausedDurationSecs += pausedSeconds;
+        session.expiresAt = resumedExpiry;
+    }
+
     if (isPastSessionExpiry(session.expiresAt)) {
         await prisma.testSession.updateMany({
             where: {
@@ -73,27 +120,36 @@ export async function loadActiveSession(
         return null;
     }
 
-    if (session.status === SessionStatus.PAUSED) {
-        const resumed = await prisma.testSession.updateMany({
-            where: {
-                id: session.id,
-                status: SessionStatus.PAUSED,
-                expiresAt: { gt: new Date() },
-            },
-            data: {
-                status: SessionStatus.ACTIVE,
-                pausedAt: null,
-            },
-        });
-        if (resumed.count === 0) return null;
-        session.status = SessionStatus.ACTIVE;
-    }
-
     const { interactions, ...sessionMetadata } = session;
+    const frozenQuestions = parseQuestionSetSnapshot(
+        session.questionSetSnapshot
+    );
+    const activePaper: ActiveSessionPaper = {
+        ...paper,
+        questions:
+            frozenQuestions ??
+            paper.questions.map((question) => ({
+                id: question.id,
+                version: 1 as const,
+                content: question.content,
+                type: question.type,
+                difficulty: question.difficulty,
+                marks: question.marks,
+                negativeMarks: question.negativeMarks,
+                explanation: question.explanation,
+                topicPath: question.topicPath,
+                options: question.options,
+                correctOptions: question.correctOptions,
+                exactAnswer: question.exactAnswer,
+                answerMin: question.answerMin,
+                answerMax: question.answerMax,
+                modelAnswer: question.modelAnswer,
+            })),
+    };
 
     return {
         session: sessionMetadata,
-        paper,
+        paper: activePaper,
         restoredInteractions: interactions.map((interaction) => ({
             questionId: interaction.questionId,
             selectedAnswer: interaction.selectedAnswer,

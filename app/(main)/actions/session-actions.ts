@@ -7,11 +7,16 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { InteractionMetrics } from "../hooks/useExamTelemetry";
 import { updateUserStats } from "@/lib/stats";
-import { qstash } from "@/lib/qstash";
+import { submittedInteractionMetricsSchema } from "@/lib/session-interactions";
 import {
-    submittedInteractionMetricsSchema,
-    type InteractionPayload,
-} from "@/lib/session-interactions";
+    calculateSessionResult,
+    createQuestionSetSnapshot,
+    parseQuestionSetSnapshot,
+} from "@/lib/exam-results";
+import {
+    FINAL_INTERACTION_REVISION,
+    persistSessionInteractions,
+} from "@/lib/interaction-repository";
 import { sessionRatelimit, actionRatelimit } from "@/lib/ratelimit";
 import { getSessionLaunchAccess } from "@/lib/entitlements";
 import {
@@ -38,7 +43,7 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
             userId: user.id,
             paperId,
             mode,
-            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            status: SessionStatus.ACTIVE,
             expiresAt: { lte: now },
         },
         data: { status: SessionStatus.EXPIRED },
@@ -51,8 +56,13 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
                 userId: user.id,
                 paperId,
                 mode,
-                status: { in: [...RESUMABLE_SESSION_STATUSES] },
-                expiresAt: { gt: now },
+                OR: [
+                    {
+                        status: SessionStatus.ACTIVE,
+                        expiresAt: { gt: now },
+                    },
+                    { status: SessionStatus.PAUSED },
+                ],
             },
             select: { id: true },
             orderBy: { startTime: "desc" },
@@ -110,6 +120,9 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
                     now
                 ),
                 totalQuestions: launchAccess.questionCount,
+                questionSetSnapshot: createQuestionSetSnapshot(
+                    launchAccess.questions
+                ) as unknown as Prisma.InputJsonValue,
             },
             select: { id: true },
         });
@@ -127,8 +140,13 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
                     userId: user.id,
                     paperId,
                     mode,
-                    status: { in: [...RESUMABLE_SESSION_STATUSES] },
-                    expiresAt: { gt: new Date() },
+                    OR: [
+                        {
+                            status: SessionStatus.ACTIVE,
+                            expiresAt: { gt: new Date() },
+                        },
+                        { status: SessionStatus.PAUSED },
+                    ],
                 },
                 select: { id: true },
                 orderBy: { startTime: "desc" },
@@ -230,7 +248,7 @@ export async function resumeExamSession(sessionId: string) {
         where: {
             id: sessionId,
             userId: user.id,
-            status: { in: [...RESUMABLE_SESSION_STATUSES] },
+            status: SessionStatus.ACTIVE,
             expiresAt: { lte: now },
         },
         data: { status: SessionStatus.EXPIRED },
@@ -240,10 +258,21 @@ export async function resumeExamSession(sessionId: string) {
         where: {
             id: sessionId,
             userId: user.id,
-            status: { in: [...RESUMABLE_SESSION_STATUSES] },
-            expiresAt: { gt: now },
+            OR: [
+                {
+                    status: SessionStatus.ACTIVE,
+                    expiresAt: { gt: now },
+                },
+                { status: SessionStatus.PAUSED },
+            ],
         },
-        select: { id: true, paperId: true, mode: true },
+        select: {
+            id: true,
+            paperId: true,
+            mode: true,
+            pausedAt: true,
+            expiresAt: true,
+        },
     });
 
     if (!session) {
@@ -253,16 +282,36 @@ export async function resumeExamSession(sessionId: string) {
         };
     }
 
+    const pausedSeconds = session.pausedAt
+        ? Math.max(
+            0,
+            Math.floor((now.getTime() - session.pausedAt.getTime()) / 1000)
+        )
+        : 0;
+    const resumedExpiry =
+        session.pausedAt && session.expiresAt
+            ? new Date(session.expiresAt.getTime() + pausedSeconds * 1000)
+            : session.expiresAt;
+
     const resumed = await prisma.testSession.updateMany({
         where: {
             id: session.id,
             userId: user.id,
-            status: { in: [...RESUMABLE_SESSION_STATUSES] },
-            expiresAt: { gt: now },
+            OR: [
+                {
+                    status: SessionStatus.ACTIVE,
+                    expiresAt: { gt: now },
+                },
+                { status: SessionStatus.PAUSED },
+            ],
         },
         data: {
             status: SessionStatus.ACTIVE,
             pausedAt: null,
+            expiresAt: resumedExpiry,
+            pausedDurationSecs: {
+                increment: pausedSeconds,
+            },
         },
     });
 
@@ -308,17 +357,22 @@ export async function completeExamSession(
                             take: 1,
                         },
                         questions: {
+                            orderBy: { createdAt: "asc" },
                             select: {
                                 id: true,
+                                content: true,
                                 type: true,
-                                difficulty: true,   // needed for stats breakdown
-                                topicPath: true,    // needed for subject breakdown
+                                difficulty: true,
+                                topicPath: true,
                                 marks: true,
                                 negativeMarks: true,
+                                explanation: true,
+                                options: true,
                                 correctOptions: true,
                                 exactAnswer: true,
                                 answerMin: true,
                                 answerMax: true,
+                                modelAnswer: true,
                             },
                         },
                     },
@@ -331,10 +385,14 @@ export async function completeExamSession(
         {
             return { success: false, error: "Session already submitted." };
         }
-        if (
-            session.status !== SessionStatus.ACTIVE ||
-            isPastSessionExpiry(session.expiresAt)
-        ) {
+        const now = new Date();
+        const expiryGraceCutoff = new Date(now.getTime() - 60_000);
+        const isWithinSubmissionWindow =
+            (session.status === SessionStatus.ACTIVE ||
+                session.status === SessionStatus.EXPIRED) &&
+            (!session.expiresAt ||
+                session.expiresAt.getTime() > expiryGraceCutoff.getTime());
+        if (!isWithinSubmissionWindow) {
             if (isPastSessionExpiry(session.expiresAt)) {
                 await prisma.testSession.updateMany({
                     where: {
@@ -351,166 +409,98 @@ export async function completeExamSession(
             };
         }
 
-        const questionMap = new Map(
-            session.paper.questions.map((q) => [q.id, q])
+        const frozenQuestions = parseQuestionSetSnapshot(
+            session.questionSetSnapshot
         );
-        const submittedByQuestion = new Map(
+        const result = calculateSessionResult(
+            frozenQuestions ?? session.paper.questions,
             parsedMetrics.data
-                .filter((metric) => questionMap.has(metric.questionId))
-                .map((metric) => [metric.questionId, metric])
         );
-
-        let earnedMarks = 0;
-        const totalMarks = session.paper.questions.reduce(
-            (sum, q) => sum + q.marks,
-            0
-        );
-
         // Iterate over authoritative paper questions so forged IDs and
         // duplicate metrics cannot affect scoring.
-        const verifiedMetrics = session.paper.questions.map((q) => {
-            const m = submittedByQuestion.get(q.id) ?? {
-                questionId: q.id,
-                selectedAnswer: null,
-                visitCount: 0,
-                dwellTimeSeconds: 0,
-                hesitationCount: 0,
-                isFlagged: false,
-                isCorrect: null,
-                wasHinted: false,
-                confidenceLevel: null,
-            };
-
-            let isCorrect = false;
-            const answer = m.selectedAnswer?.trim();
-
-            if (answer)
-            {
-                if (q.type === "MCQ")
-                {
-                    isCorrect = q.correctOptions[0] === parseInt(answer, 10);
-                } else if (q.type === "MSQ")
-                {
-                    const submitted = answer.split(",").map(Number).sort().join(",");
-                    const correct = [...q.correctOptions].sort().join(",");
-                    isCorrect = submitted === correct;
-                } else if (q.type === "NUMERICAL")
-                {
-                    const submitted = parseFloat(answer);
-                    if (!isNaN(submitted))
-                    {
-                        if (q.exactAnswer != null)
-                        {
-                            isCorrect = submitted === q.exactAnswer;
-                        } else if (q.answerMin != null && q.answerMax != null)
-                        {
-                            isCorrect = submitted >= q.answerMin && submitted <= q.answerMax;
-                        }
-                    }
-                }
-                // SUBJECTIVE: always false — needs manual review
-            }
-
-            if (isCorrect)
-            {
-                earnedMarks += q.marks;
-            } else if (answer && q.negativeMarks > 0)
-            {
-                earnedMarks -= q.negativeMarks;
-            }
-
-            return { ...m, questionId: q.id, isCorrect };
-        });
-
         // ── Aggregate stats ───────────────────────────────────────────────────
-        const attemptedCount = verifiedMetrics.filter(
-            (m) => m.selectedAnswer?.trim()
-        ).length;
-        const correctCount = verifiedMetrics.filter((m) => m.isCorrect).length;
-        const totalScore =
-            totalMarks > 0
-                ? parseFloat(((earnedMarks / totalMarks) * 100).toFixed(2))
-                : 0;
-        const accuracy =
-            attemptedCount > 0
-                ? parseFloat(((correctCount / attemptedCount) * 100).toFixed(2))
-                : 0;
-        const timeTakenSecs = Math.floor(
-            (Date.now() - session.startTime.getTime()) / 1000
+        const timeTakenSecs = Math.max(
+            0,
+            Math.floor(
+                (now.getTime() - session.startTime.getTime()) / 1000
+            ) - session.pausedDurationSecs
         );
 
         // ── Persist session ───────────────────────────────────────────────────
-        // We handle the session update directly first.
-        const completed = await prisma.testSession.updateMany({
-            where: {
-                id: sessionId,
+        await prisma.$transaction(async (tx) => {
+            const completed = await tx.testSession.updateMany({
+                where: {
+                    id: sessionId,
+                    userId: user.id,
+                    status: {
+                        in: [SessionStatus.ACTIVE, SessionStatus.EXPIRED],
+                    },
+                    endTime: null,
+                    expiresAt: { gt: expiryGraceCutoff },
+                },
+                data: {
+                    endTime: now,
+                    completedAt: now,
+                    status: SessionStatus.COMPLETED,
+                    totalScore: result.totalScore,
+                    earnedMarks: result.earnedMarks,
+                    maximumMarks: result.maximumMarks,
+                    penaltyMarks: result.penaltyMarks,
+                    pendingReviewCount: result.pendingReviewCount,
+                    totalQuestions: result.totalQuestions,
+                    correctCount: result.correctCount,
+                    attemptedCount: result.attemptedCount,
+                    accuracy: result.accuracy,
+                    timeTakenSecs,
+                    avgTimePerQ:
+                        result.attemptedCount > 0
+                            ? parseFloat(
+                                (
+                                    timeTakenSecs / result.attemptedCount
+                                ).toFixed(1)
+                            )
+                            : 0,
+                },
+            });
+            if (completed.count === 0) {
+                throw new Error(
+                    "This session changed state before it could be submitted."
+                );
+            }
+
+            const persisted = await persistSessionInteractions({
+                sessionId,
                 userId: user.id,
-                status: SessionStatus.ACTIVE,
-                endTime: null,
-                expiresAt: { gt: new Date() },
-            },
-            data: {
-                endTime: new Date(),
-                completedAt: new Date(),
-                status: SessionStatus.COMPLETED,
-                totalScore,
-                correctCount,
-                attemptedCount,
-                accuracy,
-                timeTakenSecs,
-                avgTimePerQ:
-                    attemptedCount > 0
-                        ? parseFloat((timeTakenSecs / attemptedCount).toFixed(1))
-                        : 0,
-            },
-        });
-        if (completed.count === 0) {
-            return {
-                success: false,
-                error: "This session changed state before it could be submitted.",
-            };
-        }
-
-        // ── Queue Interactions (Non-blocking) ─────────────────────────────────
-        const qPayload: InteractionPayload = {
-            sessionId,
-            userId: user.id,
-            metrics: verifiedMetrics.map((m) => ({
-                questionId: m.questionId,
-                selectedAnswer: m.selectedAnswer ?? null,
-                isCorrect: m.isCorrect ?? false,
-                visitCount: m.visitCount,
-                dwellTimeSeconds: m.dwellTimeSeconds,
-                hesitationCount: m.hesitationCount,
-                isFlagged: m.isFlagged ?? false,
-                wasHinted: m.wasHinted ?? false,
-                confidenceLevel: m.confidenceLevel ?? null,
-            })),
-        };
-
-        await qstash.publishJSON({
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/api/queues/interactions`,
-            body: qPayload,
-            retries: 3,
+                metrics: result.metrics,
+                checkpointRevision: FINAL_INTERACTION_REVISION,
+                db: tx,
+            });
+            if (
+                persisted.status !== "ok" ||
+                persisted.upserted !== result.totalQuestions
+            ) {
+                throw new Error(
+                    "The complete question review could not be persisted."
+                );
+            }
         });
 
         // ── Update aggregate stats (non-fatal) ────────────────────────────────
-        // Build the question-result array for stats using the verified metrics
-        // and the question map (which has difficulty + topicPath).
-        const questionResults = verifiedMetrics.map((m) => {
-            const q = questionMap.get(m.questionId);
+        const questionResults = result.metrics.map((metric) => {
+            const snapshot = metric.questionSnapshot;
             return {
-                isCorrect: m.isCorrect ?? false,
-                type: q?.type ?? "MCQ",
-                difficulty: q?.difficulty ?? "MEDIUM",
-                topicPath: q?.topicPath ?? null,
+                isCorrect: metric.isCorrect,
+                grade: metric.grade,
+                type: snapshot.type,
+                difficulty: snapshot.difficulty,
+                topicPath: snapshot.topicPath,
             };
         });
 
         await updateUserStats({
             userId: user.id,
             examId: session.paper.examQuestionPaperLinks[0]?.examId ?? null,
-            sessionScore: totalScore,
+            sessionScore: result.totalScore,
             timeTakenSecs,
             questions: questionResults,
         });

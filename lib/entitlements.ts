@@ -1,12 +1,14 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import type { ResultQuestion } from "@/lib/exam-results";
 
 export type SessionLaunchAccess =
     | { exists: false }
     | {
         exists: true;
         questionCount: number;
+        questions: ResultQuestion[];
         durationMinutes: number;
         allowed: true;
       }
@@ -34,6 +36,25 @@ export async function getSessionLaunchAccess(
         where: { id: paperId },
         select: {
             _count: { select: { questions: true } },
+            questions: {
+                orderBy: { createdAt: "asc" },
+                select: {
+                    id: true,
+                    content: true,
+                    type: true,
+                    difficulty: true,
+                    topicPath: true,
+                    marks: true,
+                    negativeMarks: true,
+                    explanation: true,
+                    options: true,
+                    correctOptions: true,
+                    exactAnswer: true,
+                    answerMin: true,
+                    answerMax: true,
+                    modelAnswer: true,
+                },
+            },
             examQuestionPaperLinks: {
                 select: {
                     exam: {
@@ -87,6 +108,7 @@ export async function getSessionLaunchAccess(
         return {
             exists: true,
             questionCount: paper._count.questions,
+            questions: paper.questions,
             durationMinutes,
             allowed: true,
         };

@@ -24,7 +24,6 @@ export interface QuestionCardHandle {
 
 export interface QuestionCardProps {
     q: Question;
-    index: number;
     paperId: string | null;
     examSlug: string;
     syllabusEntries: SyllabusEntry[];
@@ -37,7 +36,6 @@ export interface QuestionCardProps {
 function OptionRow({
     option,
     isCorrect,
-    isMulti,
     onToggle,
     onChange,
     onRemove,
@@ -45,7 +43,6 @@ function OptionRow({
 }: {
     option: Option;
     isCorrect: boolean;       // driven by correctOptions[], not option.isCorrect
-    isMulti: boolean;
     onToggle: () => void;
     onChange: (text: string) => void;
     onRemove: () => void;
@@ -146,7 +143,7 @@ function TopicPicker({
 
 // ── Question Card ─────────────────────────────────────────────────────────────
 const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
-    ({ q, index, paperId, examSlug, syllabusEntries, onUpdate, onDelete, wrapperRef }, ref) => {
+    ({ q, paperId, examSlug, syllabusEntries, onUpdate, onDelete, wrapperRef }, ref) => {
         const [expanded, setExpanded] = useState(!q.saved);
         const [saving, setSaving] = useState(false);
 
@@ -154,8 +151,11 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         const isNumerical = q.type === "NUMERICAL";
         const isSubjective = q.type === "SUBJECTIVE";
 
+        const updateQuestionDraft = (changes: Partial<Question>) =>
+            onUpdate({ ...q, ...changes, saved: false });
+
         const updateField = <K extends keyof Question>(key: K, value: Question[K]) =>
-            onUpdate({ ...q, [key]: value });
+            updateQuestionDraft({ [key]: value });
 
         // ── Option helpers ──────────────────────────────────────────────────────
 
@@ -163,7 +163,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
             if (q.type === "MCQ")
             {
                 // Radio behaviour — only one correct at a time
-                onUpdate({ ...q, correctOptions: [optionIndex] });
+                updateQuestionDraft({ correctOptions: [optionIndex] });
             } else
             {
                 // MSQ — toggle in/out of correctOptions array
@@ -171,7 +171,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                 const next = already
                     ? q.correctOptions.filter(i => i !== optionIndex)
                     : [...q.correctOptions, optionIndex];
-                onUpdate({ ...q, correctOptions: next });
+                updateQuestionDraft({ correctOptions: next });
             }
         };
 
@@ -179,14 +179,13 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
             const newOpts = q.options.map((o, i) =>
                 i === optionIndex ? { ...o, text } : o
             );
-            onUpdate({ ...q, options: newOpts });
+            updateQuestionDraft({ options: newOpts });
         };
 
         const addOption = () => {
             if (q.options.length >= 6) return;
             const i = q.options.length;
-            onUpdate({
-                ...q,
+            updateQuestionDraft({
                 options: [
                     ...q.options,
                     { index: i, label: String.fromCharCode(65 + i), text: "" },
@@ -205,7 +204,10 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                 .filter(i => i !== optionIndex)          // drop removed index
                 .map(i => (i > optionIndex ? i - 1 : i)); // shift down indices above removed
 
-            onUpdate({ ...q, options: newOpts, correctOptions: newCorrect });
+            updateQuestionDraft({
+                options: newOpts,
+                correctOptions: newCorrect,
+            });
         };
 
         // ── Validation ──────────────────────────────────────────────────────────
@@ -237,8 +239,6 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         };
 
         // ── Save ────────────────────────────────────────────────────────────────
-
-        useImperativeHandle(ref, () => ({ save: handleSave }));
 
         const handleSave = async () => {
             const error = validate();
@@ -287,20 +287,27 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                     toast.success(`Q${q.number} updated`);
                 } else
                 {
-                    await createQuestion(paperId!, examSlug, payload);
-                    onUpdate({ ...q, saved: true });
+                    const result = await createQuestion(
+                        paperId!,
+                        examSlug,
+                        payload
+                    );
+                    onUpdate({ ...q, id: result.id, saved: true });
                     toast.success(`Q${q.number} saved`);
                 }
                 setExpanded(false);
-            } catch (err: any)
+            } catch (err: unknown)
             {
-                toast.error(`Failed: ${err.message}`);
+                const message = err instanceof Error ? err.message : "Unknown error";
+                toast.error(`Failed: ${message}`);
                 throw err;
             } finally
             {
                 setSaving(false);
             }
         };
+
+        useImperativeHandle(ref, () => ({ save: handleSave }));
 
         const handleDelete = async () => {
             if (q.id)
@@ -324,7 +331,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
             if (isOptionsType)
             {
                 const labels = q.correctOptions
-                    .sort()
+                    .toSorted((left, right) => left - right)
                     .map(i => String.fromCharCode(65 + i))
                     .join(", ");
                 return labels || null;
@@ -467,10 +474,9 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 </label>
                                 {q.options.map((opt, oi) => (
                                     <OptionRow
-                                        key={oi}
+                                        key={`${q.clientId}-option-${opt.index}`}
                                         option={opt}
                                         isCorrect={q.correctOptions.includes(oi)}
-                                        isMulti={q.type === "MSQ"}
                                         onToggle={() => toggleCorrect(oi)}
                                         onChange={text => updateOptionText(oi, text)}
                                         onRemove={() => removeOption(oi)}
@@ -554,7 +560,11 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                             entries={syllabusEntries}
                             value={q.topicPath}
                             onChange={(topicId, topicPath, categoryId) =>
-                                onUpdate({ ...q, topicId, topicPath, categoryId })
+                                updateQuestionDraft({
+                                    topicId,
+                                    topicPath,
+                                    categoryId,
+                                })
                             }
                         />
 
