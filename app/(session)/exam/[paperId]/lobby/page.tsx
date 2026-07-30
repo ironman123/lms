@@ -7,6 +7,10 @@ import { Timer, ClipboardCheck, AlertCircle, BookOpen, Layers, Trophy } from "lu
 import { SessionMode, SessionStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { RESUMABLE_SESSION_STATUSES } from "@/lib/session-policy";
+import {
+    getPaperReadiness,
+    paperReadinessMessage,
+} from "@/lib/paper-readiness";
 
 export default async function PaperLobbyPage({
     params,
@@ -29,9 +33,22 @@ export default async function PaperLobbyPage({
                     }
                 },
                 questions: {
+                    where: { isArchived: false },
                     select: {
+                        id: true,
+                        content: true,
                         type: true,
-                        marks: true, // Fetch marks for summation
+                        difficulty: true,
+                        marks: true,
+                        negativeMarks: true,
+                        explanation: true,
+                        topicPath: true,
+                        options: true,
+                        correctOptions: true,
+                        exactAnswer: true,
+                        answerMin: true,
+                        answerMax: true,
+                        modelAnswer: true,
                         topic: {
                             select: {
                                 category: { select: { name: true } }
@@ -39,7 +56,11 @@ export default async function PaperLobbyPage({
                         }
                     }
                 },
-                _count: { select: { questions: true } }
+                _count: {
+                    select: {
+                        questions: { where: { isArchived: false } },
+                    },
+                },
             }
         }),
     ]);
@@ -90,6 +111,8 @@ export default async function PaperLobbyPage({
         msq: paper.questions.filter(q => q.type === 'MSQ').length,
         sub: paper.questions.filter(q => q.type === "SUBJECTIVE").length
     };
+    const readiness = getPaperReadiness(paper.questions);
+    const readinessMessage = paperReadinessMessage(readiness);
 
     return (
         <div className="min-h-full w-full bg-background py-6 md:py-12">
@@ -106,6 +129,24 @@ export default async function PaperLobbyPage({
                         />
                         That attempt expired or is no longer available. You can
                         start a new session below.
+                    </div>
+                )}
+                {readinessMessage && resumeByMode.size === 0 && (
+                    <div
+                        role="alert"
+                        className="mb-4 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-5 py-4 text-sm text-foreground"
+                    >
+                        <AlertCircle
+                            className="mt-0.5 shrink-0 text-destructive"
+                            size={18}
+                            aria-hidden="true"
+                        />
+                        <div>
+                            <p className="font-bold">Paper unavailable</p>
+                            <p className="mt-1 text-muted-foreground">
+                                {readinessMessage}
+                            </p>
+                        </div>
                     </div>
                 )}
                 <Card className="rounded-[2.5rem] border-border shadow-2xl p-8 md:p-12 bg-card relative overflow-hidden">
@@ -226,6 +267,11 @@ export default async function PaperLobbyPage({
                                 resumeSessionId={resumeByMode.get(
                                     SessionMode.PRACTICE
                                 )}
+                                disabledReason={
+                                    resumeByMode.has(SessionMode.PRACTICE)
+                                        ? null
+                                        : readinessMessage
+                                }
                             />
                             <StartExamButton
                                 paperId={paperId}
@@ -239,6 +285,11 @@ export default async function PaperLobbyPage({
                                 resumeSessionId={resumeByMode.get(
                                     SessionMode.MOCK
                                 )}
+                                disabledReason={
+                                    resumeByMode.has(SessionMode.MOCK)
+                                        ? null
+                                        : readinessMessage
+                                }
                             />
                         </div>
                     </div>

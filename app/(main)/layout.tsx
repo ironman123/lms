@@ -25,7 +25,7 @@ export default async function MainLayout({
       <DynamicBreadcrumb />
       <div className="relative">
         <LibrarySidebar />
-        <main>
+        <main className="w-full pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-0">
           {user && <PushRegistrar />}
           {children}
         </main>

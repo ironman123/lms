@@ -20,6 +20,7 @@ export default async function EditPaperPage({ params }: PageProps) {
             where: { id: paperId },
             include: {
                 questions: {
+                    where: { isArchived: false },
                     orderBy: { createdAt: "asc" },
                 },
                 examQuestionPaperLinks: {

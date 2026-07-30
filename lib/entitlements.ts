@@ -2,6 +2,10 @@ import "server-only";
 
 import prisma from "@/lib/prisma";
 import type { ResultQuestion } from "@/lib/exam-results";
+import {
+    getPaperReadiness,
+    type PaperReadiness,
+} from "@/lib/paper-readiness";
 
 export type SessionLaunchAccess =
     | { exists: false }
@@ -9,6 +13,7 @@ export type SessionLaunchAccess =
         exists: true;
         questionCount: number;
         questions: ResultQuestion[];
+        readiness: PaperReadiness;
         durationMinutes: number;
         allowed: true;
       }
@@ -35,8 +40,8 @@ export async function getSessionLaunchAccess(
     const paper = await prisma.questionPaper.findUnique({
         where: { id: paperId },
         select: {
-            _count: { select: { questions: true } },
             questions: {
+                where: { isArchived: false },
                 orderBy: { createdAt: "asc" },
                 select: {
                     id: true,
@@ -102,13 +107,15 @@ export async function getSessionLaunchAccess(
     );
     const durationMinutes =
         paper.examQuestionPaperLinks[0]?.exam.duration ?? 60;
+    const readiness = getPaperReadiness(paper.questions);
     const uniqueBundles = [...new Map(bundles.map((bundle) => [bundle.id, bundle])).values()];
 
     if (uniqueBundles.length === 0 || uniqueBundles.some((bundle) => bundle.purchases.length > 0)) {
         return {
             exists: true,
-            questionCount: paper._count.questions,
+            questionCount: paper.questions.length,
             questions: paper.questions,
+            readiness,
             durationMinutes,
             allowed: true,
         };
@@ -116,7 +123,7 @@ export async function getSessionLaunchAccess(
 
     return {
         exists: true,
-        questionCount: paper._count.questions,
+        questionCount: paper.questions.length,
         durationMinutes,
         allowed: false,
         bundleId: uniqueBundles[0].id,

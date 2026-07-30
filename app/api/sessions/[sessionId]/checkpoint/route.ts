@@ -4,6 +4,9 @@ import { persistSessionInteractions } from "@/lib/interaction-repository";
 import { checkpointPayloadSchema } from "@/lib/session-interactions";
 import prisma from "@/lib/prisma";
 import { RESUMABLE_SESSION_STATUSES } from "@/lib/session-policy";
+import { checkpointRatelimit } from "@/lib/ratelimit";
+
+const MAX_CHECKPOINT_BODY_BYTES = 1_000_000;
 
 export async function POST(
     req: NextRequest,
@@ -19,9 +22,61 @@ export async function POST(
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { sessionId } = await context.params;
+    try {
+        const limit = await checkpointRatelimit.limit(
+            `${user.id}:${sessionId}`
+        );
+        if (!limit.success) {
+            return NextResponse.json(
+                { error: "Checkpoint rate limit exceeded" },
+                {
+                    status: 429,
+                    headers: {
+                        "Retry-After": String(
+                            Math.max(
+                                1,
+                                Math.ceil((limit.reset - Date.now()) / 1000)
+                            )
+                        ),
+                    },
+                }
+            );
+        }
+    } catch (error) {
+        // A Redis outage must not destroy a student's local recovery path.
+        console.error(JSON.stringify({
+            event: "checkpoint_rate_limit_unavailable",
+            sessionId,
+            userId: user.id,
+            error: error instanceof Error ? error.message : String(error),
+        }));
+    }
+
+    const declaredLength = Number(req.headers.get("content-length") ?? 0);
+    if (
+        Number.isFinite(declaredLength) &&
+        declaredLength > MAX_CHECKPOINT_BODY_BYTES
+    ) {
+        return NextResponse.json(
+            { error: "Checkpoint payload too large" },
+            { status: 413 }
+        );
+    }
+
     let json: unknown;
     try {
-        json = await req.json();
+        const body = await req.text();
+        if (
+            new TextEncoder().encode(body).byteLength >
+            MAX_CHECKPOINT_BODY_BYTES
+        ) {
+            return NextResponse.json(
+                { error: "Checkpoint payload too large" },
+                { status: 413 }
+            );
+        }
+        json = JSON.parse(body);
     } catch {
         return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
@@ -31,7 +86,7 @@ export async function POST(
         return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const { sessionId } = await context.params;
+    const startedAt = performance.now();
     const result = await persistSessionInteractions({
         sessionId,
         userId: user.id,
@@ -59,9 +114,17 @@ export async function POST(
         data: { lastCheckpointAt: new Date() },
     });
 
-    return NextResponse.json({
-        ok: true,
-        revision: parsed.data.revision,
-        upserted: result.upserted,
-    });
+    const durationMs = Math.round(performance.now() - startedAt);
+    return NextResponse.json(
+        {
+            ok: true,
+            revision: parsed.data.revision,
+            upserted: result.upserted,
+        },
+        {
+            headers: {
+                "Server-Timing": `checkpoint;dur=${durationMs}`,
+            },
+        }
+    );
 }

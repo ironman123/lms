@@ -46,9 +46,10 @@ model Exam {
 
   userExamStats UserExamStats[]
 
-  bundles       ProductBundle[]
-  events        ExamEvent[]
-  notifications Notification[]
+  bundles            ProductBundle[]
+  events             ExamEvent[]
+  notifications      Notification[]
+  statsContributions SessionStatsContribution[]
 }
 
 model Tag {
@@ -185,6 +186,9 @@ model Question {
   topicPath         String?
   paperId           String?
   createdAt         DateTime              @default(now())
+  isArchived        Boolean               @default(false)
+  archivedAt        DateTime?
+  archiveReason     String?
   paper             QuestionPaper?        @relation(fields: [paperId], references: [id], onDelete: Cascade)
   topic             Topic?                @relation(fields: [topicId], references: [id])
   interactions      QuestionInteraction[]
@@ -202,6 +206,7 @@ model Question {
   modelAnswer String? // expected answer text for manual evaluation
 
   @@index([paperId])
+  @@index([paperId, isArchived])
   @@index([topicId])
 }
 
@@ -268,17 +273,18 @@ model User {
   userStats UserStats?
   examStats UserExamStats[]
 
-  purchases UserPurchase[]
-  pushSubs  PushSubscription[]
-  notifLogs NotificationLog[]
+  purchases          UserPurchase[]
+  pushSubs           PushSubscription[]
+  notifLogs          NotificationLog[]
+  statsContributions SessionStatsContribution[]
 }
 
 model TestSession {
-  id                  String                @id @default(uuid())
-  mode                SessionMode           @default(PRACTICE)
-  status              SessionStatus         @default(ACTIVE)
-  startTime           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  id                  String                    @id @default(uuid())
+  mode                SessionMode               @default(PRACTICE)
+  status              SessionStatus             @default(ACTIVE)
+  startTime           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
   endTime             DateTime?
   lastCheckpointAt    DateTime?
   pausedAt            DateTime?
@@ -288,28 +294,48 @@ model TestSession {
   totalScore          Float?
   earnedMarks         Float?
   maximumMarks        Float?
-  penaltyMarks        Float                 @default(0.0)
-  pendingReviewCount  Int                   @default(0)
+  penaltyMarks        Float                     @default(0.0)
+  pendingReviewCount  Int                       @default(0)
   questionSetSnapshot Json?
-  totalQuestions      Int                   @default(0)
-  correctCount        Int                   @default(0)
+  totalQuestions      Int                       @default(0)
+  correctCount        Int                       @default(0)
   accuracy            Float? // correctCount / totalQuestions
   timeTakenSecs       Int? // actual wall time
-  pausedDurationSecs  Int                   @default(0)
+  pausedDurationSecs  Int                       @default(0)
   avgTimePerQ         Float?
-  attemptedCount      Int                   @default(0) // not everyone answers all Qs
+  attemptedCount      Int                       @default(0) // not everyone answers all Qs
   completedAt         DateTime?
   userId              String
   paperId             String
   activityLogs        ActivityLog[]
   interactions        QuestionInteraction[]
-  paper               QuestionPaper         @relation(fields: [paperId], references: [id])
-  user                User                  @relation(fields: [userId], references: [id])
+  paper               QuestionPaper             @relation(fields: [paperId], references: [id])
+  user                User                      @relation(fields: [userId], references: [id])
+  statsContribution   SessionStatsContribution?
 
   @@index([userId, status, startTime])
   @@index([status, expiresAt])
   @@index([paperId, status])
   @@index([userId, completedAt])
+}
+
+model SessionStatsContribution {
+  id          String      @id @default(uuid())
+  sessionId   String      @unique
+  userId      String
+  examId      String?
+  payload     Json
+  createdAt   DateTime    @default(now())
+  processedAt DateTime?
+  attempts    Int         @default(0)
+  lastError   String?
+  session     TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam        Exam?       @relation(fields: [examId], references: [id], onDelete: SetNull)
+
+  @@index([processedAt, createdAt])
+  @@index([userId, processedAt])
+  @@index([userId, examId, processedAt])
 }
 
 model ActivityLog {

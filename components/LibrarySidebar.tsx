@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-    LayoutGrid, BookOpen, FileText, ChevronLeft, ChevronRight,
+    LayoutGrid,
+    FileText,
     GraduationCap,
     LayoutDashboard,
-    BookMarked,
-    BellRing
+    BellRing,
 } from "lucide-react";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -116,7 +116,7 @@ export default function LibrarySidebar() {
 
 
             {/* MOBILE NAVIGATION */}
-            <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm bg-card/80 dark:bg-slate-900/80 backdrop-blur-lg border border-white/20 dark:border-slate-800/20 shadow-2xl rounded-[2rem] overflow-hidden">
+            <nav className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 overflow-hidden rounded-[2rem] border border-white/20 bg-card/80 shadow-2xl backdrop-blur-lg dark:border-slate-800/20 dark:bg-slate-900/80 md:hidden">
                 <div
                     className="flex items-center justify-start h-16 px-4 gap-2 overflow-x-auto flex-nowrap no-scrollbar touch-pan-x"
                     style={{

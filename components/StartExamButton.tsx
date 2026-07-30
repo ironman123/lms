@@ -17,6 +17,7 @@ interface StartButtonProps {
     label: string;
     variant?: "default" | "outline";
     resumeSessionId?: string;
+    disabledReason?: string | null;
 }
 
 export default function StartExamButton({
@@ -25,6 +26,7 @@ export default function StartExamButton({
     label,
     variant = "default",
     resumeSessionId,
+    disabledReason,
 }: StartButtonProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -73,7 +75,7 @@ export default function StartExamButton({
         <div className="flex flex-1 flex-col gap-2">
             <Button
                 onClick={handleStart}
-                disabled={isPending}
+                disabled={isPending || Boolean(disabledReason)}
                 variant={variant}
                 className={cn(
                     "h-16 w-full rounded-2xl font-black text-lg transition-all hover:scale-[1.02] active:scale-95",
@@ -91,6 +93,14 @@ export default function StartExamButton({
                     label
                 )}
             </Button>
+            {disabledReason && (
+                <p
+                    role="status"
+                    className="text-center text-xs font-semibold text-warning"
+                >
+                    {disabledReason}
+                </p>
+            )}
             {error && (
                 <p role="alert" className="text-center text-xs font-semibold text-destructive">
                     {error}

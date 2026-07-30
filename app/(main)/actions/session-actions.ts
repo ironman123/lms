@@ -6,7 +6,6 @@ import { Prisma, SessionMode, SessionStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { InteractionMetrics } from "../hooks/useExamTelemetry";
-import { updateUserStats } from "@/lib/stats";
 import { submittedInteractionMetricsSchema } from "@/lib/session-interactions";
 import {
     calculateSessionResult,
@@ -19,13 +18,21 @@ import {
 } from "@/lib/interaction-repository";
 import { sessionRatelimit, actionRatelimit } from "@/lib/ratelimit";
 import { getSessionLaunchAccess } from "@/lib/entitlements";
+import { paperReadinessMessage } from "@/lib/paper-readiness";
 import {
     getSessionExpiry,
     isPastSessionExpiry,
     RESUMABLE_SESSION_STATUSES,
 } from "@/lib/session-policy";
+import {
+    enqueueSessionStatsRetry,
+    processSessionStatsContribution,
+} from "@/lib/session-stats";
+import { elapsedMs, logExamEvent } from "@/lib/observability";
 
 export async function createExamSession(paperId: string, mode: SessionMode) {
+    const startedAt = performance.now();
+    const operationId = crypto.randomUUID();
     const user = await requireAuth();
 
     if (mode !== SessionMode.PRACTICE && mode !== SessionMode.MOCK)
@@ -34,7 +41,6 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
     }
 
     const now = new Date();
-    const launchAccessPromise = getSessionLaunchAccess(user.id, paperId);
 
     // Clear expired attempts first so the partial unique index can safely
     // permit a new resumable session for this user/paper/mode.
@@ -49,25 +55,43 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
         data: { status: SessionStatus.EXPIRED },
     });
 
-    const [launchAccess, resumableSession] = await Promise.all([
-        launchAccessPromise,
-        prisma.testSession.findFirst({
-            where: {
-                userId: user.id,
-                paperId,
-                mode,
-                OR: [
-                    {
-                        status: SessionStatus.ACTIVE,
-                        expiresAt: { gt: now },
-                    },
-                    { status: SessionStatus.PAUSED },
-                ],
-            },
-            select: { id: true },
-            orderBy: { startTime: "desc" },
-        }),
-    ]);
+    const resumableSession = await prisma.testSession.findFirst({
+        where: {
+            userId: user.id,
+            paperId,
+            mode,
+            OR: [
+                {
+                    status: SessionStatus.ACTIVE,
+                    expiresAt: { gt: now },
+                },
+                { status: SessionStatus.PAUSED },
+            ],
+        },
+        select: { id: true },
+        orderBy: { startTime: "desc" },
+    });
+
+    // A resumable attempt already has an immutable question snapshot and has
+    // already passed entitlement/readiness checks. Avoid loading the paper and
+    // its purchase graph again on every resume.
+    if (resumableSession)
+    {
+        logExamEvent("session_resumed_from_launch", {
+            operationId,
+            sessionId: resumableSession.id,
+            userId: user.id,
+            paperId,
+            durationMs: elapsedMs(startedAt),
+        });
+        return {
+            success: true,
+            sessionId: resumableSession.id,
+            resumed: true,
+        };
+    }
+
+    const launchAccess = await getSessionLaunchAccess(user.id, paperId);
 
     if (!launchAccess.exists)
     {
@@ -86,12 +110,13 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
         return { success: false, error: "This paper has no questions." };
     }
 
-    if (resumableSession)
+    if (!launchAccess.readiness.ready)
     {
         return {
-            success: true,
-            sessionId: resumableSession.id,
-            resumed: true,
+            success: false,
+            error:
+                paperReadinessMessage(launchAccess.readiness) ??
+                "This paper is not ready for students.",
         };
     }
 
@@ -127,6 +152,15 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
             select: { id: true },
         });
 
+        logExamEvent("session_created", {
+            operationId,
+            sessionId: session.id,
+            userId: user.id,
+            paperId,
+            mode,
+            questionCount: launchAccess.questionCount,
+            durationMs: elapsedMs(startedAt),
+        });
         return { success: true, sessionId: session.id, resumed: false };
     } catch (error)
     {
@@ -160,7 +194,14 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
             }
         }
 
-        console.error("Failed to create session:", error);
+        logExamEvent("session_create_failed", {
+            operationId,
+            userId: user.id,
+            paperId,
+            mode,
+            durationMs: elapsedMs(startedAt),
+            error: error instanceof Error ? error.message : String(error),
+        }, "error");
         return { success: false, error: "Failed to initialize exam environment." };
     }
 }
@@ -334,6 +375,8 @@ export async function completeExamSession(
     sessionId: string,
     metrics: InteractionMetrics[]
 ) {
+    const startedAt = performance.now();
+    const operationId = crypto.randomUUID();
     const user = await requireAuth();
     const { success } = await actionRatelimit.limit(`submit_${user.id}`);
     if (!success) return { success: false, error: "Too many submissions." };
@@ -383,7 +426,7 @@ export async function completeExamSession(
         if (!session?.paper) throw new Error("Session or paper not found.");
         if (session.endTime !== null || session.status === SessionStatus.COMPLETED)
         {
-            return { success: false, error: "Session already submitted." };
+            return { success: true, alreadySubmitted: true };
         }
         const now = new Date();
         const expiryGraceCutoff = new Date(now.getTime() - 60_000);
@@ -425,6 +468,18 @@ export async function completeExamSession(
                 (now.getTime() - session.startTime.getTime()) / 1000
             ) - session.pausedDurationSecs
         );
+        const questionResults = result.metrics.map((metric) => {
+            const snapshot = metric.questionSnapshot;
+            return {
+                isCorrect: metric.isCorrect,
+                grade: metric.grade,
+                type: snapshot.type,
+                difficulty: snapshot.difficulty,
+                topicPath: snapshot.topicPath,
+            };
+        });
+        const examId =
+            session.paper.examQuestionPaperLinks[0]?.examId ?? null;
 
         // ── Persist session ───────────────────────────────────────────────────
         await prisma.$transaction(async (tx) => {
@@ -483,33 +538,86 @@ export async function completeExamSession(
                     "The complete question review could not be persisted."
                 );
             }
+
+            await tx.sessionStatsContribution.create({
+                data: {
+                    sessionId,
+                    userId: user.id,
+                    examId,
+                    payload: {
+                        sessionScore: result.totalScore,
+                        timeTakenSecs,
+                        completedAt: now.toISOString(),
+                        questions: questionResults,
+                    } as Prisma.InputJsonValue,
+                },
+            });
         });
 
         // ── Update aggregate stats (non-fatal) ────────────────────────────────
-        const questionResults = result.metrics.map((metric) => {
-            const snapshot = metric.questionSnapshot;
-            return {
-                isCorrect: metric.isCorrect,
-                grade: metric.grade,
-                type: snapshot.type,
-                difficulty: snapshot.difficulty,
-                topicPath: snapshot.topicPath,
-            };
-        });
-
-        await updateUserStats({
-            userId: user.id,
-            examId: session.paper.examQuestionPaperLinks[0]?.examId ?? null,
-            sessionScore: result.totalScore,
-            timeTakenSecs,
-            questions: questionResults,
-        });
+        try {
+            await processSessionStatsContribution(sessionId);
+        } catch (statsError) {
+            logExamEvent("session_stats_deferred", {
+                operationId,
+                sessionId,
+                userId: user.id,
+                error:
+                    statsError instanceof Error
+                        ? statsError.message
+                        : String(statsError),
+            }, "error");
+            await enqueueSessionStatsRetry(sessionId).catch((queueError) => {
+                logExamEvent("session_stats_retry_enqueue_failed", {
+                    operationId,
+                    sessionId,
+                    userId: user.id,
+                    error:
+                        queueError instanceof Error
+                            ? queueError.message
+                            : String(queueError),
+                }, "error");
+            });
+        }
 
         revalidatePath("/dashboard");
+        logExamEvent("session_completed", {
+            operationId,
+            sessionId,
+            userId: user.id,
+            paperId: session.paperId,
+            totalScore: result.totalScore,
+            questionCount: result.totalQuestions,
+            durationMs: elapsedMs(startedAt),
+        });
         return { success: true };
     } catch (error)
     {
-        console.error("Failed to complete session:", error);
+        const completed = await prisma.testSession.findFirst({
+            where: {
+                id: sessionId,
+                userId: user.id,
+                status: SessionStatus.COMPLETED,
+                endTime: { not: null },
+            },
+            select: { id: true },
+        }).catch(() => null);
+        if (completed) {
+            logExamEvent("session_submit_retry_acknowledged", {
+                operationId,
+                sessionId,
+                userId: user.id,
+                durationMs: elapsedMs(startedAt),
+            });
+            return { success: true, alreadySubmitted: true };
+        }
+        logExamEvent("session_complete_failed", {
+            operationId,
+            sessionId,
+            userId: user.id,
+            durationMs: elapsedMs(startedAt),
+            error: error instanceof Error ? error.message : String(error),
+        }, "error");
         return { success: false, error: "Failed to save exam results." };
     }
 }

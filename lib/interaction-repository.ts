@@ -132,8 +132,8 @@ export async function persistSessionInteractions({
         )`;
     });
 
-    // The revision guard makes concurrent interval/pagehide requests safe:
-    // a late older request cannot overwrite a newer answer or flag state.
+    // Strictly newer revisions only. Equal-revision retries are idempotent,
+    // and no delayed job can overwrite the final MAX_SAFE_INTEGER snapshot.
     await db.$executeRaw(Prisma.sql`
         INSERT INTO "QuestionInteraction" (
             "id",
@@ -193,7 +193,7 @@ export async function persistSessionInteractions({
                 "QuestionInteraction"."questionSnapshot"
             )
         WHERE "QuestionInteraction"."checkpointRevision"
-            <= EXCLUDED."checkpointRevision"
+            < EXCLUDED."checkpointRevision"
     `);
 
     return { status: "ok", upserted: validMetrics.length };

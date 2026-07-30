@@ -25,12 +25,12 @@ const Navbar = async () => {
 
     return (
         <nav className='navbar'>
-            <Link href='/'>
-                <div className="flex items-center gap-2.5 cursor-pointer">
+            <Link href='/' className="hidden shrink-0 sm:block">
+                <div className="flex cursor-pointer items-center gap-2.5">
                     <Image src='/images/logo.svg' alt='logo' width={30} height={30} />
                 </div>
             </Link>
-            <div className="flex items-center gap-8">
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-2 sm:flex-none sm:justify-start sm:gap-8">
                 <NavItems />
                 {/* <Show when="signed-in">
                     <UserButton />

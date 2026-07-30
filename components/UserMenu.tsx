@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogOut, User, Settings, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { signOut } from "@/app/actions/auth-actions";
 
@@ -20,7 +19,7 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
         <div className="relative">
             <button
                 onClick={() => setOpen(!open)}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-muted dark:hover:bg-slate-800 transition-colors"
+                className="flex items-center gap-2 rounded-xl px-1 py-1.5 transition-colors hover:bg-muted dark:hover:bg-slate-800 sm:px-2"
             >
                 {avatarUrl ? (
                     <img

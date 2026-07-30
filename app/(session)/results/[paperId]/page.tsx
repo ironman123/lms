@@ -263,21 +263,21 @@ export default async function ResultsPage({
                 <footer className="mt-8 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row">
                     <Link
                         href="/library/paper"
-                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-card text-sm font-bold text-foreground hover:bg-accent"
+                        className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-2xl border border-border bg-card px-5 text-sm font-bold text-foreground transition-colors hover:bg-accent sm:w-auto sm:flex-1"
                     >
                         Back to papers
                     </Link>
                     {result.exam && (
                         <Link
                             href={`/library/exam/${result.exam.slug}`}
-                            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-card text-sm font-bold text-foreground hover:bg-accent"
+                            className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-2xl border border-border bg-card px-5 text-center text-sm font-bold text-foreground transition-colors hover:bg-accent sm:w-auto sm:flex-1"
                         >
                             View {result.exam.name}
                         </Link>
                     )}
                     <Link
                         href={`/exam/${result.paperId}/lobby`}
-                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground hover:bg-primary/90"
+                        className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-2xl bg-primary px-5 text-center text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto sm:flex-1"
                     >
                         Try this paper again
                     </Link>

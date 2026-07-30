@@ -1,7 +1,5 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { redis } from "@/lib/redis";
-import { UserRole } from "@prisma/client";
 
 
 // 5 session creations per user per 10 minutes
@@ -18,4 +16,13 @@ export const actionRatelimit = new Ratelimit({
     limiter: Ratelimit.slidingWindow(20, "1 m"),
     analytics: true,
     prefix: "rl:action",
+});
+
+// Checkpoints are deliberately more frequent than normal actions, but still
+// bounded per user/session to prevent write amplification.
+export const checkpointRatelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(8, "1 m"),
+    analytics: true,
+    prefix: "rl:checkpoint",
 });

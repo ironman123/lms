@@ -199,7 +199,7 @@ body {
   }
 
   .navbar {
-    @apply flex items-center justify-between mx-auto w-full px-14 py-4 bg-background border-b border-border max-sm:px-4;
+    @apply flex items-center justify-between mx-auto w-full px-14 py-4 bg-background border-b border-border max-sm:px-3;
   }
 
   .btn-signin {

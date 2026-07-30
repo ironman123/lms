@@ -9,7 +9,7 @@ export default async function SettingsPage() {
 
     return (
         <div className="min-h-screen bg-background">
-            <main className="max-w-2xl mx-auto px-4 py-12">
+            <main className="mx-auto w-full max-w-2xl px-4 py-12">
                 <div className="mb-8">
                     <h1 className="text-3xl font-black text-foreground tracking-tight">
                         Settings

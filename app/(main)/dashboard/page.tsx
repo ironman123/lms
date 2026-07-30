@@ -30,7 +30,7 @@ export default async function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-background">
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-10">
+            <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-6">
 
                 <div>
                     <h1 className="text-3xl font-black text-foreground tracking-tight">

@@ -12,12 +12,15 @@ const navItems = [
 const NavItems = () => {
     const pathname = usePathname();
     return (
-        <nav className="flex items-center gap-4">
+        <nav className="flex min-w-0 items-center gap-3 sm:gap-4">
             {navItems.map(({ label, href }) => (
                 <Link
                     key={label}
                     href={href}
-                    className={cn("text-muted-foreground hover:text-foreground transition hover:scale-105 transition-transform duration-100", pathname === href && 'text-primary font-bold')}
+                    className={cn(
+                        "whitespace-nowrap text-[13px] text-muted-foreground transition duration-100 hover:scale-105 hover:text-foreground sm:text-base",
+                        pathname === href && "font-bold text-primary"
+                    )}
                 >
                     {label}
                 </Link>

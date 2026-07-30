@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import "./(main)/globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -12,6 +12,12 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
     title: "Converso",
     description: "All Exams. One Platform.",
+};
+
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
 };
 
 export default function RootLayout({

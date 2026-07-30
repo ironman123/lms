@@ -79,7 +79,12 @@ export async function updateQuestion(
     {
         await prisma.question.update({
             where: { id: questionId, paperId },
-            data: buildQuestionData(validated),
+            data: {
+                ...buildQuestionData(validated),
+                isArchived: false,
+                archivedAt: null,
+                archiveReason: null,
+            },
         });
     } catch (error)
     {
@@ -97,7 +102,16 @@ export async function deleteQuestion(
     await requireAdmin();
     try
     {
-        await prisma.question.delete({ where: { id: questionId, paperId } });
+        // Keep the row because active and completed sessions can reference it.
+        // New attempts and the paper builder exclude archived questions.
+        await prisma.question.update({
+            where: { id: questionId, paperId },
+            data: {
+                isArchived: true,
+                archivedAt: new Date(),
+                archiveReason: "ADMIN_DELETED",
+            },
+        });
     } catch (error)
     {
         handlePrismaError(error);

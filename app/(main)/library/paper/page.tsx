@@ -58,7 +58,13 @@ async function getPapersData(query: string, page: number) {
                             },
                             take: 1,
                         },
-                        _count: { select: { questions: true } },
+                        _count: {
+                            select: {
+                                questions: {
+                                    where: { isArchived: false },
+                                },
+                            },
+                        },
                     },
                     orderBy: { createdAt: "desc" },
                     take: PAGE_SIZE,
