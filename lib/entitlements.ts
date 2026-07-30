@@ -45,6 +45,7 @@ export async function getSessionLaunchAccess(
                 orderBy: { createdAt: "asc" },
                 select: {
                     id: true,
+                    contentRevision: true,
                     content: true,
                     type: true,
                     difficulty: true,

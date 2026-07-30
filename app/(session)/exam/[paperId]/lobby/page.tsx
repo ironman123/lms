@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import StartExamButton from "@/components/StartExamButton";
+import ReportIssueDialog from "@/components/ReportIssueDialog";
 import { Timer, ClipboardCheck, AlertCircle, BookOpen, Layers, Trophy } from "lucide-react";
 import { SessionMode, SessionStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
@@ -290,6 +291,15 @@ export default async function PaperLobbyPage({
                                         ? null
                                         : readinessMessage
                                 }
+                            />
+                        </div>
+                        <div className="mt-5 flex justify-center">
+                            <ReportIssueDialog
+                                target={{
+                                    targetType: "PAPER",
+                                    paperId,
+                                    source: "PAPER_PAGE",
+                                }}
                             />
                         </div>
                     </div>

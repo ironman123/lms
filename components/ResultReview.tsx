@@ -19,6 +19,7 @@ import type {
     ResultReviewItem,
 } from "@/lib/result-loader";
 import type { ResultGrade } from "@/lib/exam-results";
+import ReportIssueDialog from "@/components/ReportIssueDialog";
 
 type Filter = "ALL" | ResultGrade | "FLAGGED";
 
@@ -83,7 +84,13 @@ function formatMarks(value: number) {
     return "0";
 }
 
-function ReviewCard({ item }: { item: ResultReviewItem }) {
+function ReviewCard({
+    item,
+    sessionId,
+}: {
+    item: ResultReviewItem;
+    sessionId: string;
+}) {
     const config = gradeConfig[item.grade];
     const Icon = config.icon;
     const [explanationOpen, setExplanationOpen] = useState(
@@ -124,6 +131,15 @@ function ReviewCard({ item }: { item: ResultReviewItem }) {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <ReportIssueDialog
+                            compact
+                            target={{
+                                targetType: "QUESTION",
+                                questionId: item.questionId,
+                                sessionId,
+                                source: "RESULT_REVIEW",
+                            }}
+                        />
                         <span
                             className={cn(
                                 "inline-flex items-center gap-1.5 text-xs font-black",
@@ -317,8 +333,10 @@ function ReviewCard({ item }: { item: ResultReviewItem }) {
 
 export default function ResultReview({
     items,
+    sessionId,
 }: {
     items: ResultReviewItem[];
+    sessionId: string;
 }) {
     const [filter, setFilter] = useState<Filter>("ALL");
     const [visibleCount, setVisibleCount] = useState(20);
@@ -406,7 +424,11 @@ export default function ResultReview({
             {visible.length > 0 ? (
                 <div className="space-y-4">
                     {visible.map((item) => (
-                        <ReviewCard key={item.id} item={item} />
+                <ReviewCard
+                    key={item.id}
+                    item={item}
+                    sessionId={sessionId}
+                />
                     ))}
                 </div>
             ) : (

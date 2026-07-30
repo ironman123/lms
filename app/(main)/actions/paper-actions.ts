@@ -7,17 +7,27 @@ import { paperSchema, PaperFormInput } from "@/types/paper";
 import { requireAdmin } from "@/lib/auth";
 import { handlePrismaError } from "@/lib/prisma";
 import { invalidateTag, invalidateKey } from "@/lib/cache";
+import {
+    ModerationActionType,
+    ModerationCaseStatus,
+} from "@prisma/client";
 
 export async function linkPaperToExam(paperId: string, examId: string) {
     await requireAdmin();
     if (!paperId || !examId) throw new Error("Invalid IDs");
     try
     {
-        await prisma.examQuestionPaperLink.upsert({
-            where: { examId_paperId: { examId, paperId } },
-            update: {},
-            create: { examId, paperId },
-        });
+        await prisma.$transaction([
+            prisma.examQuestionPaperLink.upsert({
+                where: { examId_paperId: { examId, paperId } },
+                update: {},
+                create: { examId, paperId },
+            }),
+            prisma.questionPaper.update({
+                where: { id: paperId },
+                data: { contentRevision: { increment: 1 } },
+            }),
+        ]);
         await invalidateTag("exams");
         await invalidateKey(`paper:${paperId}`);
     } catch (error)
@@ -32,9 +42,15 @@ export async function unlinkPaperFromExam(paperId: string, examId: string) {
     if (!paperId || !examId) throw new Error("Invalid IDs");
     try
     {
-        await prisma.examQuestionPaperLink.delete({
-            where: { examId_paperId: { examId, paperId } },
-        });
+        await prisma.$transaction([
+            prisma.examQuestionPaperLink.delete({
+                where: { examId_paperId: { examId, paperId } },
+            }),
+            prisma.questionPaper.update({
+                where: { id: paperId },
+                data: { contentRevision: { increment: 1 } },
+            }),
+        ]);
         await invalidateTag("exams");
         await invalidateKey(`paper:${paperId}`);
     } catch (error)
@@ -77,25 +93,53 @@ export async function updateQuestionPaper(
     data: PaperFormInput,
     examSlug: string
 ) {
-    await requireAdmin();
+    const admin = await requireAdmin();
     if (!paperId) throw new Error("Paper ID is required for update");
     const validated = paperSchema.parse(data);
 
-    await prisma.$transaction([
-        prisma.questionPaper.update({
+    await prisma.$transaction(async (tx) => {
+        await tx.questionPaper.update({
             where: { id: paperId },
-            data: { title: validated.title, year: validated.year ?? null, type: validated.type },
-        }),
-        prisma.examQuestionPaperLink.deleteMany({ where: { paperId } }),
-        ...(validated.examIds?.length > 0
-            ? [
-                prisma.examQuestionPaperLink.createMany({
-                    data: validated.examIds.map((examId: string) => ({ examId, paperId })),
-                    skipDuplicates: true,
-                }),
-            ]
-            : []),
-    ]);
+            data: {
+                title: validated.title,
+                year: validated.year ?? null,
+                type: validated.type,
+                contentRevision: { increment: 1 },
+            },
+        });
+        await tx.examQuestionPaperLink.deleteMany({ where: { paperId } });
+        if (validated.examIds?.length > 0) {
+            await tx.examQuestionPaperLink.createMany({
+                data: validated.examIds.map((examId: string) => ({
+                    examId,
+                    paperId,
+                })),
+                skipDuplicates: true,
+            });
+        }
+        const activeCases = await tx.moderationCase.findMany({
+            where: {
+                paperId,
+                status: {
+                    in: [
+                        ModerationCaseStatus.OPEN,
+                        ModerationCaseStatus.IN_REVIEW,
+                    ],
+                },
+            },
+            select: { id: true },
+        });
+        if (activeCases.length > 0) {
+            await tx.moderationAction.createMany({
+                data: activeCases.map((moderationCase) => ({
+                    caseId: moderationCase.id,
+                    actorId: admin.id,
+                    action: ModerationActionType.CONTENT_EDITED,
+                    note: "Paper details or exam links were updated.",
+                })),
+            });
+        }
+    });
 
     await invalidateTag("exams");
     await invalidateKey(`paper:${paperId}`);

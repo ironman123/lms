@@ -153,18 +153,20 @@ model ExamQuestionPaperLink {
 }
 
 model QuestionPaper {
-  id        String            @id @default(uuid())
-  title     String
-  url       String?
-  type      QuestionPaperType @default(PYQ)
-  year      Int?
-  createdAt DateTime          @default(now())
-  questions Question[]
+  id              String            @id @default(uuid())
+  title           String
+  url             String?
+  type            QuestionPaperType @default(PYQ)
+  year            Int?
+  contentRevision Int               @default(1)
+  createdAt       DateTime          @default(now())
+  questions       Question[]
   //exam      Exam?      @relation(fields: [examId], references: [id], onDelete: Cascade)
   //examId    String?
 
   testSessions           TestSession[]
   examQuestionPaperLinks ExamQuestionPaperLink[]
+  moderationCases        ModerationCase[]
 
   //@@unique([examId, title])
 }
@@ -189,9 +191,11 @@ model Question {
   isArchived        Boolean               @default(false)
   archivedAt        DateTime?
   archiveReason     String?
+  contentRevision   Int                   @default(1)
   paper             QuestionPaper?        @relation(fields: [paperId], references: [id], onDelete: Cascade)
   topic             Topic?                @relation(fields: [topicId], references: [id])
   interactions      QuestionInteraction[]
+  moderationCases   ModerationCase[]
 
   // MCQ + MSQ only
   options        Json? // OptionJSON[] | null for NUMERICAL/SUBJECTIVE
@@ -277,6 +281,11 @@ model User {
   pushSubs           PushSubscription[]
   notifLogs          NotificationLog[]
   statsContributions SessionStatsContribution[]
+  contentReports     ContentReport[]
+  moderationActions  ModerationAction[]         @relation("ModerationActionActor")
+  assignedCases      ModerationCase[]           @relation("ModerationCaseAssignee")
+  moderationConfigs  ModerationConfig[]         @relation("ModerationConfigUpdatedBy")
+  configAudits       ModerationConfigAudit[]
 }
 
 model TestSession {
@@ -312,11 +321,108 @@ model TestSession {
   paper               QuestionPaper             @relation(fields: [paperId], references: [id])
   user                User                      @relation(fields: [userId], references: [id])
   statsContribution   SessionStatsContribution?
+  contentReports      ContentReport[]
 
   @@index([userId, status, startTime])
   @@index([status, expiresAt])
   @@index([paperId, status])
   @@index([userId, completedAt])
+}
+
+model ModerationConfig {
+  id                      String   @id @default("global")
+  questionReportThreshold Int      @default(3)
+  paperReportThreshold    Int      @default(3)
+  reportLimitPerHour      Int      @default(10)
+  reportLimitPerDay       Int      @default(30)
+  maxCommentLength        Int      @default(1000)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  updatedById             String?
+  updatedBy               User?    @relation("ModerationConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model ModerationConfigAudit {
+  id        String   @id @default(uuid())
+  actorId   String
+  before    Json
+  after     Json
+  createdAt DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+}
+
+model ModerationCase {
+  id                  String               @id @default(uuid())
+  targetType          ModerationTargetType
+  questionId          String?
+  paperId             String?
+  questionRevision    Int?
+  paperRevision       Int?
+  snapshotHash        String?
+  targetSnapshot      Json?
+  activeKey           String?              @unique
+  status              ModerationCaseStatus @default(OPEN)
+  uniqueReporterCount Int                  @default(0)
+  isEscalated         Boolean              @default(false)
+  escalatedAt         DateTime?
+  assignedToId        String?
+  resolutionNote      String?
+  resolvedAt          DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  question   Question?          @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  paper      QuestionPaper?     @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  assignedTo User?              @relation("ModerationCaseAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  reports    ContentReport[]
+  actions    ModerationAction[]
+
+  @@index([status, isEscalated, updatedAt])
+  @@index([questionId, questionRevision])
+  @@index([paperId, status])
+  @@index([assignedToId, status])
+}
+
+model ContentReport {
+  id         String         @id @default(uuid())
+  caseId     String
+  reporterId String
+  sessionId  String?
+  category   ReportCategory
+  source     ReportSource
+  comment    String?
+  context    Json?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  moderationCase ModerationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  reporter       User           @relation(fields: [reporterId], references: [id], onDelete: Restrict)
+  session        TestSession?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@unique([caseId, reporterId])
+  @@index([reporterId, createdAt])
+  @@index([caseId, category])
+  @@index([sessionId])
+}
+
+model ModerationAction {
+  id        String               @id @default(uuid())
+  caseId    String
+  actorId   String?
+  action    ModerationActionType
+  note      String?
+  metadata  Json?
+  createdAt DateTime             @default(now())
+
+  moderationCase ModerationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actor          User?          @relation("ModerationActionActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([caseId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model SessionStatsContribution {
@@ -577,4 +683,50 @@ enum QuestionPaperType {
 enum PlanType {
   FREE
   PRO
+}
+
+enum ModerationTargetType {
+  QUESTION
+  PAPER
+}
+
+enum ModerationCaseStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportCategory {
+  WRONG_ANSWER_KEY
+  AMBIGUOUS_QUESTION
+  INVALID_OPTIONS
+  TYPO_OR_FORMATTING
+  INCORRECT_EXPLANATION
+  MISSING_OR_BROKEN_IMAGE
+  TRANSLATION_ISSUE
+  OUT_OF_SYLLABUS
+  DUPLICATE_QUESTION
+  WRONG_PAPER_DETAILS
+  INCOMPLETE_PAPER
+  OTHER
+}
+
+enum ReportSource {
+  ACTIVE_SESSION
+  RESULT_REVIEW
+  PAPER_PAGE
+}
+
+enum ModerationActionType {
+  CREATED
+  ESCALATED
+  ASSIGNED
+  MARKED_IN_REVIEW
+  RESOLVED
+  DISMISSED
+  REOPENED
+  COMMENTED
+  CONTENT_EDITED
+  CONTENT_ARCHIVED
 }

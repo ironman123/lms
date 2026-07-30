@@ -152,6 +152,7 @@ export async function loadActiveSession(
             paper.questions.map((question) => ({
                 id: question.id,
                 version: 1 as const,
+                contentRevision: question.contentRevision,
                 content: question.content,
                 type: question.type,
                 difficulty: question.difficulty,

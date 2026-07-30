@@ -257,7 +257,10 @@ export default async function ResultsPage({
                 </section>
 
                 <div className="mt-10">
-                    <ResultReview items={result.review} />
+                    <ResultReview
+                        items={result.review}
+                        sessionId={result.sessionId}
+                    />
                 </div>
 
                 <footer className="mt-8 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row">

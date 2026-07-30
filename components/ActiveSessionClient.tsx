@@ -24,6 +24,7 @@ import { SessionMode } from "@prisma/client";
 import { OptionJSON } from "@/types/question";
 import type { RestoredInteraction } from "@/lib/session-interactions";
 import type { ActiveSessionPaper } from "@/lib/session-loader";
+import ReportIssueDialog from "@/components/ReportIssueDialog";
 
 type SessionQuestion = ActiveSessionPaper["questions"][number];
 
@@ -335,16 +336,28 @@ export default function ActiveSessionClient({
                                         {topicLabel(currentQuestion)}
                                     </span>
                                 </div>
-                                <Badge
-                                    className={cn(
-                                        "px-2 py-0 text-[9px] font-black uppercase md:text-[10px]",
-                                        currentQuestion.difficulty === "HARD"
-                                            ? "bg-destructive text-white"
-                                            : "bg-secondary text-secondary-foreground"
-                                    )}
-                                >
-                                    {currentQuestion.difficulty}
-                                </Badge>
+                                <div className="flex items-center gap-1">
+                                    <ReportIssueDialog
+                                        key={currentQuestion.id}
+                                        compact
+                                        target={{
+                                            targetType: "QUESTION",
+                                            questionId: currentQuestion.id,
+                                            sessionId,
+                                            source: "ACTIVE_SESSION",
+                                        }}
+                                    />
+                                    <Badge
+                                        className={cn(
+                                            "px-2 py-0 text-[9px] font-black uppercase md:text-[10px]",
+                                            currentQuestion.difficulty === "HARD"
+                                                ? "bg-destructive text-white"
+                                                : "bg-secondary text-secondary-foreground"
+                                        )}
+                                    >
+                                        {currentQuestion.difficulty}
+                                    </Badge>
+                                </div>
                             </CardHeader>
 
                             <CardContent className="p-5 md:p-7">

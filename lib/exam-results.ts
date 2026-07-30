@@ -16,6 +16,7 @@ export type ResultOption = {
 
 export type ResultQuestion = {
     id: string;
+    contentRevision?: number;
     content: string;
     type: ResultQuestionType;
     difficulty: string;
@@ -44,10 +45,12 @@ export type SubmittedResultMetric = {
 
 export type QuestionSnapshot = Omit<ResultQuestion, "id"> & {
     version: 1;
+    contentRevision: number;
 };
 
 export type SessionQuestionSnapshot = ResultQuestion & {
     version: 1;
+    contentRevision?: number;
 };
 
 export type EvaluatedMetric = SubmittedResultMetric & {
@@ -256,6 +259,7 @@ export function createQuestionSnapshot(
 ): QuestionSnapshot {
     return {
         version: 1,
+        contentRevision: question.contentRevision ?? 1,
         content: question.content,
         type: question.type,
         difficulty: question.difficulty,
@@ -289,6 +293,10 @@ function isSessionQuestionSnapshot(
     return (
         question.version === 1 &&
         typeof question.id === "string" &&
+        (question.contentRevision === undefined ||
+            (typeof question.contentRevision === "number" &&
+                Number.isInteger(question.contentRevision) &&
+                question.contentRevision > 0)) &&
         typeof question.content === "string" &&
         ["MCQ", "MSQ", "NUMERICAL", "SUBJECTIVE"].includes(
             String(question.type)

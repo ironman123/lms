@@ -2,8 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, User, Settings, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { LogOut, User, Settings, ChevronDown, SlidersHorizontal, ShieldCheck } from "lucide-react";
 import { signOut } from "@/app/actions/auth-actions";
+import Link from "next/link";
+import Image from "next/image";
 
 interface Props {
     name: string | null;
@@ -22,9 +24,12 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
                 className="flex items-center gap-2 rounded-xl px-1 py-1.5 transition-colors hover:bg-muted dark:hover:bg-slate-800 sm:px-2"
             >
                 {avatarUrl ? (
-                    <img
+                    <Image
                         src={avatarUrl}
                         alt={name ?? "User"}
+                        width={32}
+                        height={32}
+                        unoptimized
                         className="w-8 h-8 rounded-full object-cover"
                     />
                 ) : (
@@ -56,28 +61,35 @@ export default function UserMenu({ name, email, avatarUrl, role }: Props) {
 
                         <div className="p-1.5">
 
-                            <a href="/dashboard"
+                            <Link href="/dashboard"
                                 className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"                             >
                                 <User size={15} className="text-muted-foreground" />
                                 Dashboard
-                            </a>
+                            </Link>
 
-                            <a
+                            <Link
                                 href="/settings"
                                 className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
                             >
                                 <SlidersHorizontal size={15} className="text-muted-foreground" />
                                 Settings
-                            </a>
+                            </Link>
 
                             {role === "ADMIN" && (
-
-                                <a href="/library"
-                                    className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
-                                >
-                                    <Settings size={15} className="text-muted-foreground" />
-                                    Admin Library
-                                </a>
+                                <>
+                                    <Link href="/admin/moderation"
+                                        className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+                                    >
+                                        <ShieldCheck size={15} className="text-muted-foreground" />
+                                        Moderation
+                                    </Link>
+                                    <Link href="/library"
+                                        className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+                                    >
+                                        <Settings size={15} className="text-muted-foreground" />
+                                        Admin Library
+                                    </Link>
+                                </>
                             )}
                         </div>
 

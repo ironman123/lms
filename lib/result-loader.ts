@@ -18,6 +18,7 @@ import {
 
 export type ResultReviewItem = {
     id: string;
+    questionId: string;
     position: number;
     grade: ResultGrade;
     unavailableReason:
@@ -86,6 +87,7 @@ function isQuestionSnapshot(value: unknown): value is QuestionSnapshot {
 function toQuestionInput(question: ResultQuestion): ResultQuestion {
     return {
         id: question.id,
+        contentRevision: question.contentRevision,
         content: question.content,
         type: question.type,
         difficulty: question.difficulty,
@@ -180,6 +182,7 @@ export async function loadCompletedResult(
 
         return {
             id: interaction?.id ?? `unavailable-${question.id}`,
+            questionId: question.id,
             position:
                 interaction?.questionPosition !== null &&
                 interaction?.questionPosition !== undefined

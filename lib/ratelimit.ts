@@ -26,3 +26,13 @@ export const checkpointRatelimit = new Ratelimit({
     analytics: true,
     prefix: "rl:checkpoint",
 });
+
+// A short burst limit complements the configurable hourly/daily limits stored
+// in Postgres. Database uniqueness still guarantees repeated clicks do not
+// inflate moderation counts.
+export const contentReportRatelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, "1 m"),
+    analytics: true,
+    prefix: "rl:content-report",
+});

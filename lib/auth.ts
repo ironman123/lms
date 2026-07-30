@@ -82,4 +82,5 @@ export async function requireAdminPage() {
     const dbUser = await getCachedUser(supabaseId);
 
     if (!dbUser || dbUser.role !== 'ADMIN') redirect('/dashboard')
+    return dbUser
 }
