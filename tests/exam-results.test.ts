@@ -9,6 +9,7 @@ import {
     formatResultDuration,
     hasMeaningfulAnswer,
     parseQuestionSetSnapshot,
+    summarizeResultGrades,
     type ResultQuestion,
 } from "../lib/exam-results";
 
@@ -135,6 +136,26 @@ test("questions without an answer key are unavailable rather than incorrect", ()
     assert.equal(result.incorrectCount, 0);
     assert.equal(result.maximumMarks, 2);
     assert.equal(result.totalScore, 100);
+});
+
+test("review counters keep unavailable questions out of incorrect and attempted totals", () => {
+    const summary = summarizeResultGrades([
+        "CORRECT",
+        "INCORRECT",
+        "SKIPPED",
+        "PENDING",
+        "UNAVAILABLE",
+    ]);
+
+    assert.deepEqual(summary, {
+        correctCount: 1,
+        incorrectCount: 1,
+        skippedCount: 1,
+        pendingReviewCount: 1,
+        unavailableCount: 1,
+        attemptedCount: 3,
+        accuracy: 50,
+    });
 });
 
 test("session totals use all paper questions, not received interaction rows", () => {

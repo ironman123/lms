@@ -94,9 +94,23 @@ export default async function ResultsPage({
                         </p>
                         <p className="mt-1 text-muted-foreground">
                             Your overall score and counters are preserved, but{" "}
-                            {result.unavailableCount} question
-                            {result.unavailableCount === 1 ? "" : "s"} from this
+                            {result.legacyUnavailableCount} question
+                            {result.legacyUnavailableCount === 1 ? "" : "s"} from this
                             older attempt never reached the review store.
+                        </p>
+                    </div>
+                )}
+
+                {result.missingAnswerKeyCount > 0 && (
+                    <div className="mb-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm text-foreground">
+                        <p className="font-black">
+                            Some questions were excluded from scoring
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                            {result.missingAnswerKeyCount} question
+                            {result.missingAnswerKeyCount === 1 ? "" : "s"} had
+                            no valid answer key. They received no marks or
+                            penalty and do not reduce the available score.
                         </p>
                     </div>
                 )}

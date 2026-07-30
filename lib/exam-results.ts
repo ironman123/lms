@@ -75,6 +75,36 @@ export type SessionResult = {
     accuracy: number;
 };
 
+export function summarizeResultGrades(grades: ResultGrade[]) {
+    const correctCount = grades.filter((grade) => grade === "CORRECT").length;
+    const incorrectCount = grades.filter(
+        (grade) => grade === "INCORRECT"
+    ).length;
+    const skippedCount = grades.filter((grade) => grade === "SKIPPED").length;
+    const pendingReviewCount = grades.filter(
+        (grade) => grade === "PENDING"
+    ).length;
+    const unavailableCount = grades.filter(
+        (grade) => grade === "UNAVAILABLE"
+    ).length;
+    const attemptedCount =
+        correctCount + incorrectCount + pendingReviewCount;
+    const objectivelyGraded = correctCount + incorrectCount;
+
+    return {
+        correctCount,
+        incorrectCount,
+        skippedCount,
+        pendingReviewCount,
+        unavailableCount,
+        attemptedCount,
+        accuracy:
+            objectivelyGraded > 0
+                ? round((correctCount / objectivelyGraded) * 100)
+                : 0,
+    };
+}
+
 function round(value: number, places = 2) {
     const multiplier = 10 ** places;
     return Math.round((value + Number.EPSILON) * multiplier) / multiplier;
@@ -310,23 +340,15 @@ export function calculateSessionResult(
         };
     });
 
-    const correctCount = metrics.filter(
-        (metric) => metric.grade === "CORRECT"
-    ).length;
-    const incorrectCount = metrics.filter(
-        (metric) => metric.grade === "INCORRECT"
-    ).length;
-    const skippedCount = metrics.filter(
-        (metric) => metric.grade === "SKIPPED"
-    ).length;
-    const pendingReviewCount = metrics.filter(
-        (metric) => metric.grade === "PENDING"
-    ).length;
-    const unavailableCount = metrics.filter(
-        (metric) => metric.grade === "UNAVAILABLE"
-    ).length;
-    const attemptedCount =
-        correctCount + incorrectCount + pendingReviewCount;
+    const {
+        correctCount,
+        incorrectCount,
+        skippedCount,
+        pendingReviewCount,
+        unavailableCount,
+        attemptedCount,
+        accuracy,
+    } = summarizeResultGrades(metrics.map((metric) => metric.grade));
     const maximumMarks = round(metrics.reduce(
         (sum, metric) =>
             metric.grade === "UNAVAILABLE"
@@ -342,12 +364,6 @@ export function calculateSessionResult(
     );
     const totalScore =
         maximumMarks > 0 ? round((earnedMarks / maximumMarks) * 100) : 0;
-    const objectivelyGraded = correctCount + incorrectCount;
-    const accuracy =
-        objectivelyGraded > 0
-            ? round((correctCount / objectivelyGraded) * 100)
-            : 0;
-
     return {
         metrics,
         totalQuestions: questions.length,

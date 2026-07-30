@@ -10,6 +10,7 @@ import {
     formatResultAnswer,
     parseQuestionSetSnapshot,
     parseResultOptions,
+    summarizeResultGrades,
     type QuestionSnapshot,
     type ResultGrade,
     type ResultQuestion,
@@ -19,6 +20,10 @@ export type ResultReviewItem = {
     id: string;
     position: number;
     grade: ResultGrade;
+    unavailableReason:
+        | "MISSING_ANSWER_KEY"
+        | "LEGACY_RESULT_UNRECOVERABLE"
+        | null;
     question: QuestionSnapshot;
     selectedAnswer: string | null;
     selectedAnswerText: string;
@@ -62,7 +67,8 @@ export type ResultView = {
     };
     review: ResultReviewItem[];
     reviewComplete: boolean;
-    unavailableCount: number;
+    legacyUnavailableCount: number;
+    missingAnswerKeyCount: number;
 };
 
 function isQuestionSnapshot(value: unknown): value is QuestionSnapshot {
@@ -158,6 +164,12 @@ export async function loadCompletedResult(
             : hasFinalSnapshot
                 ? interaction.grade
                 : legacyEvaluation?.grade ?? "UNAVAILABLE";
+        const unavailableReason =
+            grade !== "UNAVAILABLE"
+                ? null
+                : interaction
+                    ? "MISSING_ANSWER_KEY"
+                    : "LEGACY_RESULT_UNRECOVERABLE";
         const options = parseResultOptions(snapshot.options);
         const selectedIndices = new Set(
             selectedAnswer
@@ -174,6 +186,7 @@ export async function loadCompletedResult(
                     ? interaction.questionPosition
                     : position,
             grade,
+            unavailableReason,
             question: snapshot,
             selectedAnswer,
             selectedAnswerText: formatResultAnswer(snapshot, selectedAnswer),
@@ -201,28 +214,26 @@ export async function loadCompletedResult(
 
     const maximumMarks =
         session.maximumMarks ??
-        reviewQuestions.reduce(
-            (sum, question) => sum + question.marks,
+        review.reduce(
+            (sum, item) =>
+                item.unavailableReason === "MISSING_ANSWER_KEY"
+                    ? sum
+                    : sum + item.question.marks,
             0
         );
     const earnedMarks =
         session.earnedMarks ??
         maximumMarks * ((session.totalScore ?? 0) / 100);
-    const pendingReviewCount = session.pendingReviewCount;
-    const incorrectCount = Math.max(
-        0,
-        session.attemptedCount -
-            session.correctCount -
-            pendingReviewCount
+    const gradeSummary = summarizeResultGrades(
+        review.map((item) => item.grade)
     );
-    const totalQuestions =
-        session.totalQuestions || reviewQuestions.length;
-    const skippedCount = Math.max(
-        0,
-        totalQuestions - session.attemptedCount
-    );
-    const unavailableCount = review.filter(
-        (item) => item.grade === "UNAVAILABLE"
+    const totalQuestions = review.length;
+    const legacyUnavailableCount = review.filter(
+        (item) =>
+            item.unavailableReason === "LEGACY_RESULT_UNRECOVERABLE"
+    ).length;
+    const missingAnswerKeyCount = review.filter(
+        (item) => item.unavailableReason === "MISSING_ANSWER_KEY"
     ).length;
     const exam = session.paper.examQuestionPaperLinks[0]?.exam ?? null;
 
@@ -243,16 +254,17 @@ export async function loadCompletedResult(
             maximumMarks,
             penaltyMarks: session.penaltyMarks,
             totalQuestions,
-            attemptedCount: session.attemptedCount,
-            correctCount: session.correctCount,
-            incorrectCount,
-            skippedCount,
-            pendingReviewCount,
-            accuracy: session.accuracy ?? 0,
+            attemptedCount: gradeSummary.attemptedCount,
+            correctCount: gradeSummary.correctCount,
+            incorrectCount: gradeSummary.incorrectCount,
+            skippedCount: gradeSummary.skippedCount,
+            pendingReviewCount: gradeSummary.pendingReviewCount,
+            accuracy: gradeSummary.accuracy,
             timeTakenSecs: session.timeTakenSecs,
         },
         review,
-        reviewComplete: unavailableCount === 0,
-        unavailableCount,
+        reviewComplete: legacyUnavailableCount === 0,
+        legacyUnavailableCount,
+        missingAnswerKeyCount,
     };
 }

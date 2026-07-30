@@ -69,6 +69,7 @@ const filters: Array<{ value: Filter; label: string }> = [
     { value: "SKIPPED", label: "Skipped" },
     { value: "CORRECT", label: "Correct" },
     { value: "PENDING", label: "Pending" },
+    { value: "UNAVAILABLE", label: "Unavailable" },
     { value: "FLAGGED", label: "Flagged" },
 ];
 
@@ -149,9 +150,27 @@ function ReviewCard({ item }: { item: ResultReviewItem }) {
 
                 {item.grade === "UNAVAILABLE" ? (
                     <div className="mt-5 rounded-xl border border-border bg-background/70 p-4 text-sm text-muted-foreground">
-                        This attempt predates reliable result snapshots. The
-                        overall score is preserved, but this question&apos;s
-                        submitted answer could not be recovered.
+                        {item.unavailableReason === "MISSING_ANSWER_KEY" ? (
+                            <>
+                                <p className="font-bold text-foreground">
+                                    This question has no valid answer key.
+                                </p>
+                                <p className="mt-1">
+                                    It was excluded from the available marks and
+                                    no penalty was applied. Recorded answer:{" "}
+                                    <span className="font-semibold text-foreground">
+                                        {item.selectedAnswerText}
+                                    </span>
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                This attempt predates reliable result snapshots.
+                                The overall score is preserved, but this
+                                question&apos;s submitted answer could not be
+                                recovered.
+                            </>
+                        )}
                     </div>
                 ) : hasOptions ? (
                     <div className="mt-5 grid gap-2">
@@ -260,7 +279,8 @@ function ReviewCard({ item }: { item: ResultReviewItem }) {
                 </div>
             </div>
 
-            {item.question.explanation && item.grade !== "UNAVAILABLE" && (
+            {item.question.explanation &&
+                item.unavailableReason !== "LEGACY_RESULT_UNRECOVERABLE" && (
                 <div className="border-t border-border bg-background/60">
                     <button
                         type="button"
@@ -306,6 +326,9 @@ export default function ResultReview({
             INCORRECT: items.filter((item) => item.grade === "INCORRECT").length,
             SKIPPED: items.filter((item) => item.grade === "SKIPPED").length,
             PENDING: items.filter((item) => item.grade === "PENDING").length,
+            UNAVAILABLE: items.filter(
+                (item) => item.grade === "UNAVAILABLE"
+            ).length,
             FLAGGED: items.filter((item) => item.isFlagged).length,
         }),
         [items]
