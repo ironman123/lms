@@ -17,7 +17,6 @@ import { ChevronLeft, ChevronRight, Flag, Hash, LayoutGrid } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { hasMeaningfulAnswer } from "@/lib/exam-results";
 import SessionTimer from "./SessionTimer";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import DevMetricsOverlay from "./DevMetricsOverlay";
 import { useExamTelemetry } from "@/app/(main)/hooks/useExamTelemetry";
@@ -43,7 +42,6 @@ export default function ActiveSessionClient({
     sessionExpiresAt: string | null;
     restoredInteractions: RestoredInteraction[];
 }) {
-    const router = useRouter();
     // ── UI State ──────────────────────────────────────────────────────────────
     const restoredAnswers = useMemo(() => {
         const questionTypes = new Map(
@@ -250,7 +248,7 @@ export default function ActiveSessionClient({
 
         await flushAndSubmit(
             answers,
-            () => router.replace(`/results/${sessionId}`),
+            () => window.location.replace(`/results/${sessionId}`),
             () => {
                 submissionStartedRef.current = false;
                 toast.error("Failed to submit. Please try again.");
@@ -486,12 +484,12 @@ export default function ActiveSessionClient({
                 </ScrollArea>
 
                 {/* ── Bottom toolbar ────────────────────────────────────────── */}
-                <div className="mx-1 mb-2 flex h-14 shrink-0 items-center justify-between rounded-2xl border border-border bg-card px-3 shadow-sm md:mx-4 md:h-16 md:rounded-3xl md:px-6">
-                    <div className="flex gap-1 md:gap-2">
+                <div className="mx-1 mb-2 grid shrink-0 grid-cols-3 gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm md:mx-4 md:flex md:h-16 md:items-center md:justify-between md:rounded-3xl md:px-6 md:py-0">
+                    <div className="contents md:flex md:gap-2">
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-9 rounded-xl px-2 text-[9px] font-black md:text-[10px]"
+                            className="h-10 min-w-0 rounded-xl px-2 text-[9px] font-black md:h-9 md:text-[10px]"
                             disabled={currentIndex === 0 || isLocked}
                             onClick={() => onNavigate(currentIndex - 1)}
                         >
@@ -502,8 +500,9 @@ export default function ActiveSessionClient({
                             size="sm"
                             disabled={isLocked}
                             className={cn(
-                                "h-9 rounded-xl px-2 text-[9px] font-black md:text-[10px]",
-                                flagged.has(currentQuestion.id) && "text-warning"
+                                "h-10 min-w-0 rounded-xl px-2 text-[9px] font-black md:h-9 md:text-[10px]",
+                                flagged.has(currentQuestion.id) &&
+                                    "bg-warning/10 text-warning hover:bg-warning/15 hover:text-warning"
                             )}
                             onClick={onToggleFlag}
                         >
@@ -522,7 +521,7 @@ export default function ActiveSessionClient({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-9 rounded-xl px-2 text-[9px] font-black md:text-[10px] xl:hidden"
+                                    className="h-10 min-w-0 rounded-xl px-2 text-[9px] font-black md:h-9 md:text-[10px] xl:hidden"
                                     disabled={isLocked}
                                 >
                                     <LayoutGrid className="mr-0.5 h-3 w-3" />
@@ -609,22 +608,26 @@ export default function ActiveSessionClient({
                         </Sheet>
                     </div>
 
-                    <div className="flex gap-1 md:gap-2">
+                    <div className="col-span-3 grid grid-cols-2 gap-2 md:flex">
                         {mode === SessionMode.PRACTICE && (
                             <Button
-                                disabled={isLocked}
-                                variant="secondary"
+                                disabled={isLocked || showAnswer}
+                                variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl bg-success px-3 text-[9px] font-black text-success-foreground hover:bg-success/90 md:text-[10px]"
+                                className={cn(
+                                    "h-10 rounded-xl border-primary/30 bg-primary/5 px-3 text-[9px] font-black text-foreground hover:bg-primary/10 hover:text-foreground md:h-9 md:text-[10px]",
+                                    showAnswer &&
+                                        "border-success/40 bg-success/10 text-success opacity-100"
+                                )}
                                 onClick={() => setShowAnswer(true)}
                             >
-                                CHECK
+                                {showAnswer ? "ANSWER SHOWN" : "CHECK ANSWER"}
                             </Button>
                         )}
                         {isLastQuestion ? (
                             <Button
                                 size="sm"
-                                className="h-9 rounded-xl bg-success px-5 text-[9px] font-black text-success-foreground hover:bg-success/90 md:px-8 md:text-[10px]"
+                                className="h-10 rounded-xl px-5 text-[9px] font-black md:h-9 md:px-8 md:text-[10px]"
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || isLocked}
                             >
@@ -634,7 +637,11 @@ export default function ActiveSessionClient({
                             <Button
                                 size="sm"
                                 disabled={isLocked}
-                                className="h-9 rounded-xl px-5 text-[9px] font-black md:px-8 md:text-[10px]"
+                                className={cn(
+                                    "h-10 rounded-xl px-5 text-[9px] font-black md:h-9 md:px-8 md:text-[10px]",
+                                    mode !== SessionMode.PRACTICE &&
+                                        "col-span-2 md:col-span-1"
+                                )}
                                 onClick={() => onNavigate(currentIndex + 1)}
                             >
                                 NEXT <ChevronRight className="ml-1 h-3 w-3" />

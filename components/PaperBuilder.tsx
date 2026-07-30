@@ -3,13 +3,18 @@
 import { useState, useTransition, useRef } from "react";
 import {
     Sparkles, Loader2, Plus, CheckCircle2,
-    FileText, BookOpen, AlertCircle, Save, Search, X
+    FileText, BookOpen, AlertCircle, Save, Search, X, FileJson, Download
 } from "lucide-react";
 import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-paper";
 import { createQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
 import { toast } from "sonner";
 import { QuestionPaperType } from "@prisma/client";
 import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
+import {
+    PAPER_JSON_TEMPLATE,
+    normalizePaperJsonQuestion,
+    parsePaperJsonImport,
+} from "@/lib/paper-json-import";
 
 // ── Shared Types ──────────────────────────────────────────────────────────────
 
@@ -344,6 +349,7 @@ export default function PaperBuilder({
 
 
     const [isScanning, setIsScanning] = useState(false);
+    const [isImportingJson, setIsImportingJson] = useState(false);
     const [isSavingPaper, startSavingPaper] = useTransition();
 
     const savedCount = questions.filter(q => q.saved).length;
@@ -477,6 +483,89 @@ export default function PaperBuilder({
         reader.readAsDataURL(file);
     };
 
+    const handleJsonImport = async (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const input = event.target;
+        const file = input.files?.[0];
+        if (!file) return;
+
+        setIsImportingJson(true);
+        const toastId = toast.loading("Validating JSON paper...");
+        try {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("JSON file must be smaller than 5 MB.", {
+                    id: toastId,
+                });
+                return;
+            }
+
+            const parsed = parsePaperJsonImport(await file.text());
+            if (!parsed.success) {
+                toast.error(parsed.error, {
+                    id: toastId,
+                    duration: 10_000,
+                });
+                return;
+            }
+
+            if (
+                questions.length > 0 &&
+                !confirm(
+                    `Append ${parsed.data.questions.length} imported questions to the existing ${questions.length}?`
+                )
+            ) {
+                toast.dismiss(toastId);
+                return;
+            }
+
+            if (!initialPaper && !paperId) {
+                setTitle(parsed.data.title);
+                setYear(parsed.data.year ?? "");
+                setType(parsed.data.type as QuestionPaperType);
+            }
+
+            setQuestions((current) => {
+                const offset = current.length;
+                const importedQuestions = [...parsed.data.questions]
+                    .sort((a, b) => a.number - b.number)
+                    .map((question, index) => ({
+                        clientId: createClientId(),
+                        number: offset + index + 1,
+                        ...normalizePaperJsonQuestion(question),
+                        saved: false,
+                        topicId: "",
+                        categoryId: "",
+                    }));
+                return [...current, ...importedQuestions];
+            });
+            toast.success(
+                `Validated and imported ${parsed.data.questions.length} questions.`,
+                { id: toastId }
+            );
+        } catch (error) {
+            toast.error(`JSON import failed: ${getErrorMessage(error)}`, {
+                id: toastId,
+            });
+        } finally {
+            setIsImportingJson(false);
+            input.value = "";
+        }
+    };
+
+    const downloadJsonTemplate = () => {
+        const blob = new Blob(
+            [JSON.stringify(PAPER_JSON_TEMPLATE, null, 2)],
+            { type: "application/json" }
+        );
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "paper-import-template.json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+    };
+
     const handleSavePaper = () => {
         if (!title.trim())
         {
@@ -534,7 +623,7 @@ export default function PaperBuilder({
             <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
 
                 {/* ── Header bar ── */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-black text-foreground tracking-tight">Paper Builder</h1>
                         <p className="text-sm text-muted-foreground mt-0.5">
@@ -542,8 +631,7 @@ export default function PaperBuilder({
                         </p>
                     </div>
 
-                    {/* Magic Import */}
-                    <div>
+                    <div className="flex flex-wrap items-center gap-2">
                         <input
                             type="file"
                             id="paper-upload"
@@ -551,14 +639,46 @@ export default function PaperBuilder({
                             accept=".pdf,image/*"
                             onChange={handleMagicImport}
                         />
+                        <input
+                            type="file"
+                            id="paper-json-upload"
+                            className="hidden"
+                            accept=".json,application/json"
+                            onChange={handleJsonImport}
+                        />
                         <button
                             type="button"
-                            disabled={isScanning}
+                            disabled={isScanning || isImportingJson}
                             onClick={() => document.getElementById("paper-upload")?.click()}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-200"
+                            className="flex min-h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-violet-700 disabled:opacity-60 dark:shadow-none"
                         >
                             {isScanning ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                            {isScanning ? "Scanning..." : "Magic Import"}
+                            {isScanning ? "Scanning..." : "OCR import"}
+                        </button>
+                        <button
+                            type="button"
+                            disabled={isImportingJson || isScanning}
+                            onClick={() =>
+                                document
+                                    .getElementById("paper-json-upload")
+                                    ?.click()
+                            }
+                            className="flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+                        >
+                            {isImportingJson ? (
+                                <Loader2 size={15} className="animate-spin" />
+                            ) : (
+                                <FileJson size={15} />
+                            )}
+                            {isImportingJson ? "Validating..." : "JSON import"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={downloadJsonTemplate}
+                            className="flex min-h-10 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                            <Download size={14} />
+                            Template
                         </button>
                     </div>
                 </div>

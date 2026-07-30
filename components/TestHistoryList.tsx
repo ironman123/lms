@@ -3,11 +3,11 @@ import { ChevronRight } from "lucide-react";
 
 // 🔥 5-Tier Heatmap Logic for more colorful variance
 function getScoreColors(score: number) {
-    if (score >= 90) return { bg: "bg-fuchsia-50", border: "border-fuchsia-200 hover:border-fuchsia-400", text: "text-fuchsia-700" }; // Outstanding
-    if (score >= 75) return { bg: "bg-emerald-50", border: "border-emerald-200 hover:border-emerald-400", text: "text-emerald-700" }; // Great
-    if (score >= 60) return { bg: "bg-blue-50", border: "border-blue-200 hover:border-blue-400", text: "text-blue-700" };       // Good
-    if (score >= 40) return { bg: "bg-amber-50", border: "border-amber-200 hover:border-amber-400", text: "text-amber-700" };     // Needs Work
-    return { bg: "bg-rose-50", border: "border-rose-200 hover:border-rose-400", text: "text-rose-700" };                          // Poor
+    if (score >= 90) return { bg: "bg-fuchsia-50 dark:bg-fuchsia-950/25", border: "border-fuchsia-200 hover:border-fuchsia-400 dark:border-fuchsia-400/30 dark:hover:border-fuchsia-300/60", text: "text-fuchsia-700 dark:text-fuchsia-300" };
+    if (score >= 75) return { bg: "bg-emerald-50 dark:bg-emerald-950/25", border: "border-emerald-200 hover:border-emerald-400 dark:border-emerald-400/30 dark:hover:border-emerald-300/60", text: "text-emerald-700 dark:text-emerald-300" };
+    if (score >= 60) return { bg: "bg-blue-50 dark:bg-blue-950/25", border: "border-blue-200 hover:border-blue-400 dark:border-blue-400/30 dark:hover:border-blue-300/60", text: "text-blue-700 dark:text-blue-300" };
+    if (score >= 40) return { bg: "bg-amber-50 dark:bg-amber-950/25", border: "border-amber-200 hover:border-amber-400 dark:border-amber-400/30 dark:hover:border-amber-300/60", text: "text-amber-700 dark:text-amber-300" };
+    return { bg: "bg-rose-50 dark:bg-rose-950/25", border: "border-rose-200 hover:border-rose-400 dark:border-rose-400/30 dark:hover:border-rose-300/60", text: "text-rose-700 dark:text-rose-300" };
 }
 
 export default function TestHistoryList({ tests }: {
@@ -28,7 +28,7 @@ export default function TestHistoryList({ tests }: {
                         <Link
                             key={test.sessionId}
                             href={`/results/${test.sessionId}`}
-                            className={`flex items-center gap-4 p-4 border rounded-xl transition-colors group ${colors.bg} ${colors.border}`}
+                            className={`group flex items-center gap-4 rounded-xl border p-4 text-card-foreground transition-colors ${colors.bg} ${colors.border}`}
                         >
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-2">

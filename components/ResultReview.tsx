@@ -34,31 +34,35 @@ const gradeConfig: Record<
     CORRECT: {
         label: "Correct",
         icon: CheckCircle2,
-        className: "border-success/30 bg-success/5",
+        className:
+            "border-success/35 bg-success/5 text-card-foreground dark:border-success/45 dark:bg-success/10",
         iconClassName: "text-success",
     },
     INCORRECT: {
         label: "Incorrect",
         icon: XCircle,
-        className: "border-destructive/30 bg-destructive/5",
+        className:
+            "border-destructive/35 bg-destructive/5 text-card-foreground dark:border-destructive/45 dark:bg-destructive/10",
         iconClassName: "text-destructive",
     },
     SKIPPED: {
         label: "Skipped",
         icon: Minus,
-        className: "border-border bg-card",
+        className: "border-border bg-card text-card-foreground",
         iconClassName: "text-muted-foreground",
     },
     PENDING: {
         label: "Pending review",
         icon: Clock3,
-        className: "border-warning/40 bg-warning/5",
+        className:
+            "border-warning/40 bg-warning/5 text-card-foreground dark:border-warning/50 dark:bg-warning/10",
         iconClassName: "text-warning",
     },
     UNAVAILABLE: {
         label: "Details unavailable",
         icon: AlertCircle,
-        className: "border-border bg-muted/30",
+        className:
+            "border-border bg-muted/30 text-card-foreground dark:bg-muted/45",
         iconClassName: "text-muted-foreground",
     },
 };
@@ -181,11 +185,11 @@ function ReviewCard({ item }: { item: ResultReviewItem }) {
                                 <div
                                     key={option.index}
                                     className={cn(
-                                        "flex items-start gap-3 rounded-xl border bg-background p-3 text-sm",
+                                        "flex items-start gap-3 rounded-xl border bg-card p-3 text-sm",
                                         option.isCorrect &&
-                                            "border-success/50 bg-success/10",
+                                            "border-success/50 bg-success/10 dark:bg-success/15",
                                         selectedWrong &&
-                                            "border-destructive/50 bg-destructive/10",
+                                            "border-destructive/50 bg-destructive/10 dark:bg-destructive/15",
                                         !option.isCorrect &&
                                             !selectedWrong &&
                                             "border-border"
@@ -263,7 +267,7 @@ function ReviewCard({ item }: { item: ResultReviewItem }) {
                     </div>
                 )}
 
-                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-muted-foreground">
+                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-foreground/70">
                     {item.penaltyApplied > 0 && (
                         <span className="font-bold text-destructive">
                             −{item.penaltyApplied} negative mark
@@ -301,7 +305,7 @@ function ReviewCard({ item }: { item: ResultReviewItem }) {
                         />
                     </button>
                     {explanationOpen && (
-                        <p className="px-4 pb-5 text-sm leading-relaxed text-muted-foreground sm:px-6">
+                        <p className="px-4 pb-5 text-sm leading-relaxed text-foreground/75 sm:px-6">
                             {item.question.explanation}
                         </p>
                     )}
@@ -390,7 +394,7 @@ export default function ResultReview({
                                 "shrink-0 rounded-full border px-3 py-2 text-xs font-bold transition-colors",
                                 filter === option.value
                                     ? "border-primary bg-primary text-primary-foreground"
-                                    : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    : "border-border bg-card text-foreground/75 hover:bg-accent hover:text-foreground"
                             )}
                         >
                             {option.label} {count}

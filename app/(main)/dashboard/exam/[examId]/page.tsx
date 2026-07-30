@@ -38,17 +38,17 @@ export default async function ExamDashboardPage({
                     {/* Time Management Card */}
                     <div className="bg-card border border-border rounded-3xl p-6 flex flex-col justify-center">
                         <div className="flex items-center gap-2 mb-6">
-                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center"><Clock size={16} /></div>
+                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/35 dark:text-blue-300 flex items-center justify-center"><Clock size={16} /></div>
                             <h2 className="text-sm font-black text-foreground uppercase tracking-widest">Pacing Analysis</h2>
                         </div>
                         <div className="grid grid-cols-2 gap-6">
                             <div>
                                 <p className="text-xs text-muted-foreground font-bold mb-1">Time per Correct</p>
-                                <p className="text-2xl font-black text-green-600">{data.diagnostics.avgCorrectTimeSec}s</p>
+                                <p className="text-2xl font-black text-green-700 dark:text-green-300">{data.diagnostics.avgCorrectTimeSec}s</p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground font-bold mb-1">Time per Incorrect</p>
-                                <p className="text-2xl font-black text-red-500">{data.diagnostics.avgIncorrectTimeSec}s</p>
+                                <p className="text-2xl font-black text-red-600 dark:text-red-300">{data.diagnostics.avgIncorrectTimeSec}s</p>
                             </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-6 italic">
@@ -61,7 +61,7 @@ export default async function ExamDashboardPage({
                     {/* Behavioral Card ("The Second Guesser") */}
                     <div className="bg-card border border-border rounded-3xl p-6 flex flex-col justify-center">
                         <div className="flex items-center gap-2 mb-6">
-                            <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-500 flex items-center justify-center"><RefreshCcw size={16} /></div>
+                            <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 dark:bg-purple-950/35 dark:text-purple-300 flex items-center justify-center"><RefreshCcw size={16} /></div>
                             <h2 className="text-sm font-black text-foreground uppercase tracking-widest">The Second-Guesser</h2>
                         </div>
                         <div className="flex items-end justify-between">

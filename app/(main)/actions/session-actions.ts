@@ -580,7 +580,6 @@ export async function completeExamSession(
             });
         }
 
-        revalidatePath("/dashboard");
         logExamEvent("session_completed", {
             operationId,
             sessionId,

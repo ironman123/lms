@@ -7,12 +7,20 @@ export default function ScoreTrendChart({ data }: { data: { date: string; score:
             <p className="text-xs text-muted-foreground mb-6">Your score progression over time</p>
             <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={data} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: "0.5px solid #e2e8f0", fontSize: 12 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                        contentStyle={{
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "var(--popover)",
+                            color: "var(--popover-foreground)",
+                            fontSize: 12,
+                        }}
+                    />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Line type="monotone" dataKey="score" stroke="#0f172a" strokeWidth={2} dot={{ r: 4, fill: "#0f172a" }} name="Score %" />
+                    <Line type="monotone" dataKey="score" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 4, fill: "var(--foreground)" }} name="Score %" />
                     <Line type="monotone" dataKey="accuracy" stroke="#22c55e" strokeWidth={2} dot={{ r: 4, fill: "#22c55e" }} name="Accuracy %" />
                 </LineChart>
             </ResponsiveContainer>

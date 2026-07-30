@@ -9,7 +9,7 @@ export default function TopicStrengthCard({
 }) {
     const isWeak = type === "weak";
     return (
-        <div className={`bg-card border rounded-2xl p-6 ${isWeak ? "border-amber-100" : "border-green-100"}`}>
+        <div className={`bg-card border rounded-2xl p-6 ${isWeak ? "border-amber-200 dark:border-amber-400/25" : "border-green-200 dark:border-green-400/25"}`}>
             <div className="flex items-center gap-2 mb-1">
                 {isWeak
                     ? <AlertCircle size={15} className="text-amber-500" />
@@ -20,7 +20,7 @@ export default function TopicStrengthCard({
             <p className="text-xs text-muted-foreground mb-5">{isWeak ? "Topics that need more practice" : "Topics where you excel"}</p>
             <div className="space-y-4">
                 {subjects.slice(0, 3).map(s => (
-                    <div key={s.subject} className={`rounded-xl p-4 border ${isWeak ? "bg-amber-50 border-amber-100" : "bg-green-50 border-green-100"}`}>
+                    <div key={s.subject} className={`rounded-xl p-4 border ${isWeak ? "bg-amber-50 border-amber-100 dark:bg-amber-950/25 dark:border-amber-400/25" : "bg-green-50 border-green-100 dark:bg-green-950/25 dark:border-green-400/25"}`}>
                         <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-bold text-foreground">{s.subject}</span>
                             <span className="text-xs text-muted-foreground">{s.total} Qs</span>
@@ -31,7 +31,7 @@ export default function TopicStrengthCard({
                                 style={{ width: `${s.accuracy}%` }}
                             />
                         </div>
-                        <p className={`text-xs font-black ${isWeak ? "text-amber-600" : "text-green-600"}`}>
+                        <p className={`text-xs font-black ${isWeak ? "text-amber-700 dark:text-amber-300" : "text-green-700 dark:text-green-300"}`}>
                             {s.accuracy}%
                         </p>
                     </div>

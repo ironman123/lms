@@ -19,6 +19,27 @@ export type ActiveSessionPaper = Omit<SessionPaper, "questions"> & {
     questions: SessionQuestionSnapshot[];
 };
 
+export async function isOwnedCompletedSession(
+    sessionId: string,
+    paperId: string,
+    expectedMode: SessionMode
+) {
+    const supabaseId = await requireAuthSubject();
+    const completedSession = await prisma.testSession.findFirst({
+        where: {
+            id: sessionId,
+            paperId,
+            mode: expectedMode,
+            status: SessionStatus.COMPLETED,
+            endTime: { not: null },
+            user: { supabaseId },
+        },
+        select: { id: true },
+    });
+
+    return completedSession !== null;
+}
+
 export async function loadActiveSession(
     sessionId: string,
     paperId: string,

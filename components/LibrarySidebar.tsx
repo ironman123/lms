@@ -116,47 +116,42 @@ export default function LibrarySidebar() {
 
 
             {/* MOBILE NAVIGATION */}
-            <nav className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 overflow-hidden rounded-[2rem] border border-white/20 bg-card/80 shadow-2xl backdrop-blur-lg dark:border-slate-800/20 dark:bg-slate-900/80 md:hidden">
+            <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+            <nav className="pointer-events-auto mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/20 bg-card/90 shadow-2xl backdrop-blur-lg dark:border-slate-800/40 dark:bg-slate-900/90">
                 <div
-                    className="flex items-center justify-start h-16 px-4 gap-2 overflow-x-auto flex-nowrap no-scrollbar touch-pan-x"
-                    style={{
-                        msOverflowStyle: 'none',
-                        scrollbarWidth: 'none',
-                        WebkitOverflowScrolling: 'touch' // Smooth momentum scrolling for iOS
-                    }}
+                    className="grid h-16 grid-cols-5 items-stretch px-2"
                 >
-                    {/* Custom CSS to hide scrollbar */}
-                    <style jsx>{`
-            div::-webkit-scrollbar {
-                display: none;
-            }
-        `}</style>
-
                     {allItems.map((item) => {
                         const isActive = pathname.startsWith(item.href);
                         const Icon = item.icon;
+                        const mobileLabel =
+                            item.label === "My Dashboard"
+                                ? "Dashboard"
+                                : item.label === "Notifications"
+                                    ? "Alerts"
+                                    : item.label;
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
+                                aria-current={isActive ? "page" : undefined}
                                 className={cn(
-                                    "flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-2xl transition-all duration-300",
+                                    "my-1 flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 transition-colors",
                                     isActive
                                         ? "bg-slate-900 dark:bg-slate-800 text-white shadow-md"
-                                        : "text-muted-foreground dark:text-slate-500 hover:bg-muted/50 dark:hover:bg-slate-800/50"
+                                        : "text-muted-foreground dark:text-slate-400 hover:bg-muted/50 dark:hover:bg-slate-800/50"
                                 )}
                             >
-                                <Icon size={20} className="shrink-0" />
-                                {isActive && (
-                                    <span className="text-[13px] font-bold whitespace-nowrap">
-                                        {item.label}
-                                    </span>
-                                )}
+                                <Icon size={19} className="shrink-0" />
+                                <span className="w-full truncate text-center text-[9px] font-bold leading-none">
+                                    {mobileLabel}
+                                </span>
                             </Link>
                         );
                     })}
                 </div>
             </nav>
+            </div>
         </TooltipProvider>
     );
 }

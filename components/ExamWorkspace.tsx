@@ -199,7 +199,7 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                     {isAdmin && (
                         <Link
                             href={`/library/exam/${examSlug}/paper/new?examId=${examId}`}
-                            className="fixed bottom-8 right-8 z-50 flex items-center justify-center w-12 h-12 bg-slate-900 text-white rounded-full shadow-2xl hover:scale-110 transition-transform active:scale-95"
+                            className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-2xl transition-transform hover:scale-110 active:scale-95 md:bottom-8 md:right-8 md:z-50"
                             title="Add New Question Paper"
                         >
                             <Plus className="w-6 h-6" size={16} />

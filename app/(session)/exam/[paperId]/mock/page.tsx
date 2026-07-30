@@ -2,7 +2,10 @@
 import ActiveSessionClient from "@/components/ActiveSessionClient";
 import { redirect } from "next/navigation";
 import { SessionMode } from "@prisma/client";
-import { loadActiveSession } from "@/lib/session-loader";
+import {
+    isOwnedCompletedSession,
+    loadActiveSession,
+} from "@/lib/session-loader";
 
 export default async function MockSessionPage({
     params,
@@ -23,6 +26,15 @@ export default async function MockSessionPage({
     );
 
     if (!data) {
+        if (
+            await isOwnedCompletedSession(
+                sessionId,
+                paperId,
+                SessionMode.MOCK
+            )
+        ) {
+            redirect(`/results/${sessionId}`);
+        }
         redirect(`/exam/${paperId}/lobby?sessionUnavailable=1`);
     }
 

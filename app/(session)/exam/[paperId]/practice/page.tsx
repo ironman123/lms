@@ -2,7 +2,10 @@
 import { redirect } from "next/navigation";
 import ActiveSessionClient from "@/components/ActiveSessionClient";
 import { SessionMode } from "@prisma/client";
-import { loadActiveSession } from "@/lib/session-loader";
+import {
+    isOwnedCompletedSession,
+    loadActiveSession,
+} from "@/lib/session-loader";
 
 export default async function PracticeSessionPage({
     params,
@@ -23,6 +26,15 @@ export default async function PracticeSessionPage({
     );
 
     if (!data) {
+        if (
+            await isOwnedCompletedSession(
+                sessionId,
+                paperId,
+                SessionMode.PRACTICE
+            )
+        ) {
+            redirect(`/results/${sessionId}`);
+        }
         redirect(`/exam/${paperId}/lobby?sessionUnavailable=1`);
     }
 

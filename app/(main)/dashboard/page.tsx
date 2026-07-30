@@ -7,11 +7,17 @@ import Link from "next/link";
 
 
 function getHeatmapColor(score: number) {
-    if (score >= 90) return "bg-fuchsia-50 border-fuchsia-200 hover:border-fuchsia-400";
-    if (score >= 75) return "bg-emerald-50 border-emerald-100 hover:border-emerald-200";
-    if (score >= 60) return "bg-blue-50 border-blue-100 hover:border-blue-200";
-    if (score >= 40) return "bg-amber-50 border-amber-100 hover:border-amber-200";
-    return "bg-rose-50 border-rose-100 hover:border-rose-200";
+    if (score >= 90) return "bg-fuchsia-50 border-fuchsia-200 hover:border-fuchsia-400 dark:bg-fuchsia-950/25 dark:border-fuchsia-400/30";
+    if (score >= 75) return "bg-emerald-50 border-emerald-100 hover:border-emerald-200 dark:bg-emerald-950/25 dark:border-emerald-400/30";
+    if (score >= 60) return "bg-blue-50 border-blue-100 hover:border-blue-200 dark:bg-blue-950/25 dark:border-blue-400/30";
+    if (score >= 40) return "bg-amber-50 border-amber-100 hover:border-amber-200 dark:bg-amber-950/25 dark:border-amber-400/30";
+    return "bg-rose-50 border-rose-100 hover:border-rose-200 dark:bg-rose-950/25 dark:border-rose-400/30";
+}
+
+function getScoreTextColor(score: number) {
+    if (score >= 80) return "text-emerald-700 dark:text-emerald-300";
+    if (score >= 40) return "text-amber-600 dark:text-amber-300";
+    return "text-rose-600 dark:text-rose-300";
 }
 
 function getActivityColor(count: number) {
@@ -142,7 +148,7 @@ export default async function DashboardPage() {
                                         <p className="text-xs text-muted-foreground mt-0.5">{session.date}</p>
                                     </div>
                                     <div className="shrink-0 text-right">
-                                        <p className={`text-sm font-black ${session.score >= 80 ? 'text-emerald-700' : session.score >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                        <p className={`text-sm font-black ${getScoreTextColor(session.score)}`}>
                                             {session.score}%
                                         </p>
                                         <Link

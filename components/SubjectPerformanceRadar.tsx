@@ -13,7 +13,7 @@ interface SubjectPerformanceRadarProps {
 export default function SubjectPerformanceRadar({ subjects }: SubjectPerformanceRadarProps) {
     return (
         <Card className="border-border shadow-sm rounded-2xl bg-card overflow-hidden flex flex-col h-full">
-            <CardHeader className="border-b border-slate-50 bg-background/50 pb-4">
+            <CardHeader className="border-b border-border bg-background/50 pb-4">
                 <h3 className="font-black text-foreground tracking-tight text-sm">Subject-wise Performance</h3>
                 <p className="text-xs text-muted-foreground font-medium">Average accuracy across subjects</p>
             </CardHeader>
@@ -21,20 +21,26 @@ export default function SubjectPerformanceRadar({ subjects }: SubjectPerformance
                 {subjects.length > 2 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <RadarChart cx="50%" cy="50%" outerRadius="70%" data={subjects}>
-                            <PolarGrid stroke="#e2e8f0" />
+                            <PolarGrid stroke="var(--border)" />
                             <PolarAngleAxis
                                 dataKey="subject"
-                                tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                                tick={{ fill: 'var(--muted-foreground)', fontSize: 12, fontWeight: 700 }}
                             />
                             <PolarRadiusAxis
                                 angle={30}
                                 domain={[0, 100]}
-                                tick={{ fill: '#cbd5e1', fontSize: 10 }}
+                                tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
                                 tickCount={5}
                             />
                             <Tooltip
                                 formatter={(value: number) => [`${value}%`, 'Accuracy']}
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                contentStyle={{
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--popover)',
+                                    color: 'var(--popover-foreground)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                                }}
                             />
                             <Radar
                                 name="Accuracy"
