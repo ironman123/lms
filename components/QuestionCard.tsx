@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, forwardRef, useImperativeHandle } from "react";
+import { useMemo, useState, forwardRef, useImperativeHandle } from "react";
 import { toast } from "sonner";
 import {
     Loader2, Plus, Trash2, CheckCircle2, Circle, X, Search,
@@ -51,8 +51,8 @@ function OptionRow({
 }) {
     return (
         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-150 ${isCorrect
-                ? "bg-emerald-50 border-emerald-300 shadow-sm"
-                : "bg-card border-border hover:border-slate-300"
+            ? "bg-emerald-50 border-emerald-300 shadow-sm"
+            : "bg-card border-border hover:border-slate-300"
             }`}>
             <button type="button" onClick={onToggle} className="shrink-0 transition-transform active:scale-90">
                 {isCorrect
@@ -89,9 +89,35 @@ function TopicPicker({
     onChange: (topicId: string, topicPath: string, categoryId: string) => void;
 }) {
     const [query, setQuery] = useState("");
-    const filtered = entries.filter(e =>
-        e.topicPath.toLowerCase().includes(query.toLowerCase())
-    );
+    const normalizedQuery = query.trim().toLowerCase();
+
+    const filtered = useMemo(() => {
+        if (normalizedQuery.length < 2)
+        {
+            return [];
+        }
+
+        const matches: SyllabusEntry[] = [];
+
+        for (const entry of entries)
+        {
+            if (
+                entry.topicPath
+                    .toLowerCase()
+                    .includes(normalizedQuery)
+            )
+            {
+                matches.push(entry);
+
+                if (matches.length >= 30)
+                {
+                    break;
+                }
+            }
+        }
+
+        return matches;
+    }, [entries, normalizedQuery]);
     const selected = entries.find(e => e.topicPath === value);
 
     return (
@@ -120,21 +146,53 @@ function TopicPicker({
                         />
                     </div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-border/60">
-                        {filtered.length === 0 ? (
-                            <p className="text-xs text-muted-foreground px-3 py-3 text-center">No topics found</p>
-                        ) : (
-                            filtered.map(e => (
-                                <button
-                                    key={e.id}
-                                    type="button"
-                                    onClick={() => { onChange(e.topicId ?? "", e.topicPath, e.categoryId); setQuery(""); }}
-                                    className="w-full text-left px-3 py-2.5 hover:bg-background transition-colors"
-                                >
-                                    <p className="text-xs font-medium text-foreground/80">{e.topicPath.split(">").pop()?.trim()}</p>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">{e.topicPath}</p>
-                                </button>
-                            ))
+                        {normalizedQuery.length === 0 && (
+                            <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                                Type at least 2 characters to search topics.
+                            </p>
                         )}
+
+                        {normalizedQuery.length === 1 && (
+                            <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                                Enter one more character to search.
+                            </p>
+                        )}
+
+                        {normalizedQuery.length >= 2 &&
+                            filtered.length === 0 && (
+                                <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                                    No topics found.
+                                </p>
+                            )}
+
+                        {normalizedQuery.length >= 2 &&
+                            filtered.map((entry) => (
+                                <button
+                                    key={entry.id}
+                                    type="button"
+                                    data-topic-result
+                                    onClick={() => {
+                                        onChange(
+                                            entry.topicId ?? "",
+                                            entry.topicPath,
+                                            entry.categoryId
+                                        );
+                                        setQuery("");
+                                    }}
+                                    className="w-full px-3 py-2.5 text-left transition-colors hover:bg-background"
+                                >
+                                    <p className="text-xs font-medium text-foreground/80">
+                                        {entry.topicPath
+                                            .split(">")
+                                            .pop()
+                                            ?.trim()}
+                                    </p>
+
+                                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                        {entry.topicPath}
+                                    </p>
+                                </button>
+                            ))}
                     </div>
                 </div>
             )}
@@ -366,8 +424,8 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
             <div
                 ref={wrapperRef}
                 className={`rounded-2xl border transition-all duration-200 overflow-hidden ${q.saved
-                        ? "border-border bg-card shadow-sm"
-                        : "border-blue-200 bg-blue-50/30 shadow-sm"
+                    ? "border-border bg-card shadow-sm"
+                    : "border-blue-200 bg-blue-50/30 shadow-sm"
                     }`}
             >
                 {/* ── Header ── */}

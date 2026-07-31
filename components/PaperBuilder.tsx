@@ -343,6 +343,8 @@ export default function PaperBuilder({
     reportedQuestionId,
 }: PaperBuilderProps) {
 
+    console.count("PaperBuilder render");
+
     const [title, setTitle] = useState(initialPaper?.title ?? "");
     const [year, setYear] = useState<number | "">(initialPaper?.year ?? "");
     const [type, setType] = useState<QuestionPaperType>(initialPaper?.type ?? QuestionPaperType.MOCK);
@@ -505,8 +507,10 @@ export default function PaperBuilder({
         setIsImportingJson(true);
         setJsonImportFeedback(null);
         const toastId = toast.loading("Validating JSON paper...");
-        try {
-            if (file.size > 5 * 1024 * 1024) {
+        try
+        {
+            if (file.size > 5 * 1024 * 1024)
+            {
                 toast.error("JSON file must be smaller than 5 MB.", {
                     id: toastId,
                 });
@@ -519,7 +523,8 @@ export default function PaperBuilder({
             }
 
             const parsed = parsePaperJsonImport(await file.text());
-            if (!parsed.success) {
+            if (!parsed.success)
+            {
                 toast.error(parsed.error, {
                     id: toastId,
                     duration: 10_000,
@@ -541,12 +546,14 @@ export default function PaperBuilder({
                 !confirm(
                     `Append ${parsed.data.questions.length} imported questions to the existing ${questions.length}?`
                 )
-            ) {
+            )
+            {
                 toast.dismiss(toastId);
                 return;
             }
 
-            if (!initialPaper && !paperId) {
+            if (!initialPaper && !paperId)
+            {
                 setTitle(parsed.data.title);
                 setYear(parsed.data.year ?? "");
                 setType(parsed.data.type as QuestionPaperType);
@@ -574,21 +581,20 @@ export default function PaperBuilder({
                 title: `Imported ${parsed.data.questions.length} questions`,
                 details: cancelledCount > 0
                     ? [
-                        `${cancelledCount} officially cancelled question${
-                            cancelledCount === 1 ? "" : "s"
+                        `${cancelledCount} officially cancelled question${cancelledCount === 1 ? "" : "s"
                         } preserved with zero scoring impact.`,
                     ]
                     : ["All questions passed validation."],
             });
             toast.success(
-                `Validated and imported ${parsed.data.questions.length} questions${
-                    cancelledCount > 0
-                        ? ` (${cancelledCount} cancelled)`
-                        : ""
+                `Validated and imported ${parsed.data.questions.length} questions${cancelledCount > 0
+                    ? ` (${cancelledCount} cancelled)`
+                    : ""
                 }.`,
                 { id: toastId }
             );
-        } catch (error) {
+        } catch (error)
+        {
             const message = getErrorMessage(error);
             toast.error(`JSON import failed: ${message}`, {
                 id: toastId,
@@ -598,7 +604,8 @@ export default function PaperBuilder({
                 title: "JSON import failed",
                 details: [message],
             });
-        } finally {
+        } finally
+        {
             setIsImportingJson(false);
             input.value = "";
         }
@@ -742,11 +749,10 @@ export default function PaperBuilder({
                                 ? "alert"
                                 : "status"
                         }
-                        className={`rounded-2xl border p-4 ${
-                            jsonImportFeedback.kind === "error"
-                                ? "border-destructive/35 bg-destructive/5 text-destructive"
-                                : "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                        }`}
+                        className={`rounded-2xl border p-4 ${jsonImportFeedback.kind === "error"
+                            ? "border-destructive/35 bg-destructive/5 text-destructive"
+                            : "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                            }`}
                     >
                         <div className="flex items-start gap-3">
                             {jsonImportFeedback.kind === "error" ? (
