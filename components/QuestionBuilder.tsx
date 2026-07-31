@@ -21,6 +21,7 @@ interface Question {
     type: "MCQ" | "MSQ" | "NUMERICAL" | "SUBJECTIVE";
     difficulty: "EASY" | "MEDIUM" | "HARD";
     marks: number; negativeMarks: number; explanation: string | null;
+    isCancelled: boolean;
     correctAnswer: string | null;
     topicId: string | null;
     topicPath?: string | null;
@@ -82,6 +83,11 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
                             <div className="flex flex-wrap gap-2 mt-2">
                                 <Badge variant="outline" className="text-xs">{q.type}</Badge>
                                 <Badge className={`text-xs ${DIFFICULTY_COLOR[q.difficulty]}`}>{q.difficulty}</Badge>
+                                {q.isCancelled && (
+                                    <Badge variant="outline" className="border-amber-400/40 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-300">
+                                        Cancelled
+                                    </Badge>
+                                )}
                                 <span className="text-xs text-muted-foreground">{q.marks}M / -{q.negativeMarks}M</span>
                             </div>
                         </div>

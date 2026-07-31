@@ -13,7 +13,14 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { ChevronLeft, ChevronRight, Flag, Hash, LayoutGrid } from "lucide-react";
+import {
+    Ban,
+    ChevronLeft,
+    ChevronRight,
+    Flag,
+    Hash,
+    LayoutGrid,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasMeaningfulAnswer } from "@/lib/exam-results";
 import SessionTimer from "./SessionTimer";
@@ -68,7 +75,9 @@ export default function ActiveSessionClient({
     const restoredQuestionIndex = Math.max(
         0,
         paper.questions.findIndex(
-            (question) => !(question.id in restoredAnswers)
+            (question) =>
+                !question.isCancelled &&
+                !(question.id in restoredAnswers)
         )
     );
 
@@ -101,11 +110,15 @@ export default function ActiveSessionClient({
         () =>
             totalQuestions > 0
                 ? (
-                    Object.values(answers).filter(hasMeaningfulAnswer).length /
+                    paper.questions.filter(
+                        (question) =>
+                            question.isCancelled ||
+                            hasMeaningfulAnswer(answers[question.id])
+                    ).length /
                     totalQuestions
                 ) * 100
                 : 0,
-        [answers, totalQuestions]
+        [answers, paper.questions, totalQuestions]
     );
 
     // ── Telemetry ─────────────────────────────────────────────────────────────
@@ -372,8 +385,25 @@ export default function ActiveSessionClient({
                                     {currentQuestion.content}
                                 </h2>
 
+                                {currentQuestion.isCancelled && (
+                                    <div className="flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-foreground">
+                                        <Ban className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-300" />
+                                        <div>
+                                            <p className="text-sm font-black">
+                                                Cancelled in the official answer key
+                                            </p>
+                                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                                No answer is required. This question
+                                                has zero marks and does not affect
+                                                your score or accuracy.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* ── MCQ / MSQ ──────────────────────────────────── */}
-                                {(currentQuestion.type === "MCQ" ||
+                                {!currentQuestion.isCancelled &&
+                                    (currentQuestion.type === "MCQ" ||
                                     currentQuestion.type === "MSQ") && (
                                         <div className="grid gap-2 md:gap-3">
                                             {options.map((option, i) => {
@@ -436,7 +466,8 @@ export default function ActiveSessionClient({
                                     )}
 
                                 {/* ── NUMERICAL ──────────────────────────────────── */}
-                                {currentQuestion.type === "NUMERICAL" && (
+                                {!currentQuestion.isCancelled &&
+                                    currentQuestion.type === "NUMERICAL" && (
                                     <div className="space-y-3">
                                         <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                                             Enter your answer
@@ -463,7 +494,8 @@ export default function ActiveSessionClient({
                                 )}
 
                                 {/* ── SUBJECTIVE ─────────────────────────────────── */}
-                                {currentQuestion.type === "SUBJECTIVE" && (
+                                {!currentQuestion.isCancelled &&
+                                    currentQuestion.type === "SUBJECTIVE" && (
                                     <div className="space-y-3">
                                         <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                                             Write your answer
@@ -559,9 +591,9 @@ export default function ActiveSessionClient({
                                 <ScrollArea className="flex-1">
                                     <div className="grid grid-cols-6 gap-2 p-4">
                                         {paper.questions.map((q, i) => {
-                                            const isAnswered = hasMeaningfulAnswer(
-                                                answers[q.id]
-                                            );
+                                            const isAnswered =
+                                                Boolean(q.isCancelled) ||
+                                                hasMeaningfulAnswer(answers[q.id]);
                                             const isFlagged = flagged.has(q.id);
                                             const isCurrent = currentIndex === i;
 
@@ -576,10 +608,14 @@ export default function ActiveSessionClient({
                                                     className={cn(
                                                         "relative flex aspect-square items-center justify-center rounded-lg border text-[11px] font-black transition-all",
                                                         isCurrent
-                                                            ? isFlagged
+                                                            ? q.isCancelled
+                                                                ? "z-10 border-amber-500 bg-amber-500/15 text-amber-700 shadow-sm dark:text-amber-300"
+                                                                : isFlagged
                                                                 ? "z-10 border-warning bg-warning/15 text-warning shadow-sm"
                                                                 : "z-10 border-primary bg-primary/10 text-primary shadow-sm"
-                                                            : isAnswered
+                                                            : q.isCancelled
+                                                                ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                                                : isAnswered
                                                                 ? isFlagged
                                                                     ? "border-warning bg-foreground text-background ring-1 ring-warning"
                                                                     : "border-foreground bg-foreground text-background"
@@ -593,6 +629,9 @@ export default function ActiveSessionClient({
                                                 >
                                                     {isFlagged && (
                                                         <Flag className="absolute right-1 top-1 h-2.5 w-2.5 fill-warning text-warning" />
+                                                    )}
+                                                    {q.isCancelled && (
+                                                        <Ban className="absolute left-1 top-1 h-2.5 w-2.5" />
                                                     )}
                                                     {i + 1}
                                                 </button>
@@ -629,7 +668,8 @@ export default function ActiveSessionClient({
                     </div>
 
                     <div className="col-span-3 grid grid-cols-2 gap-2 md:flex">
-                        {mode === SessionMode.PRACTICE && (
+                        {mode === SessionMode.PRACTICE &&
+                            !currentQuestion.isCancelled && (
                             <Button
                                 disabled={isLocked || showAnswer}
                                 variant="outline"
@@ -683,7 +723,9 @@ export default function ActiveSessionClient({
                 <ScrollArea className="flex-1 p-2">
                     <div className="grid grid-cols-4 gap-2 p-3">
                         {paper.questions.map((q, i) => {
-                            const isAnswered = hasMeaningfulAnswer(answers[q.id]);
+                            const isAnswered =
+                                Boolean(q.isCancelled) ||
+                                hasMeaningfulAnswer(answers[q.id]);
                             const isFlagged = flagged.has(q.id);
                             const isCurrent = currentIndex === i;
 
@@ -695,10 +737,14 @@ export default function ActiveSessionClient({
                                     className={cn(
                                         "relative flex aspect-square items-center justify-center rounded-xl border text-[10px] font-black transition-all",
                                         isCurrent
-                                            ? isFlagged
+                                            ? q.isCancelled
+                                                ? "z-10 border-amber-500 bg-amber-500/15 text-amber-700 shadow-sm dark:text-amber-300"
+                                                : isFlagged
                                                 ? "z-10 border-warning bg-warning/15 text-warning shadow-sm"
                                                 : "z-10 border-primary bg-primary/10 text-primary shadow-sm"
-                                            : isAnswered
+                                            : q.isCancelled
+                                                ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                                : isAnswered
                                                 ? isFlagged
                                                     ? "border-warning bg-foreground text-background"
                                                     : "border-foreground bg-foreground text-background"
@@ -712,6 +758,9 @@ export default function ActiveSessionClient({
                                 >
                                     {isFlagged && (
                                         <Flag className="absolute right-1 top-1 h-2.5 w-2.5 fill-warning text-warning" />
+                                    )}
+                                    {q.isCancelled && (
+                                        <Ban className="absolute left-1 top-1 h-2.5 w-2.5" />
                                     )}
                                     {i + 1}
                                 </button>

@@ -95,6 +95,10 @@ function ReviewCard({
 }) {
     const config = gradeConfig[item.grade];
     const Icon = config.icon;
+    const gradeLabel =
+        item.unavailableReason === "CANCELLED"
+            ? "Officially cancelled"
+            : config.label;
     const [explanationOpen, setExplanationOpen] = useState(
         item.grade === "INCORRECT"
     );
@@ -150,7 +154,7 @@ function ReviewCard({
                             )}
                         >
                             <Icon size={16} aria-hidden="true" />
-                            {config.label}
+                            {gradeLabel}
                         </span>
                         <span
                             className={cn(
@@ -173,7 +177,17 @@ function ReviewCard({
 
                 {item.grade === "UNAVAILABLE" ? (
                     <div className="mt-5 rounded-xl border border-border bg-background/70 p-4 text-sm text-muted-foreground">
-                        {item.unavailableReason === "MISSING_ANSWER_KEY" ? (
+                        {item.unavailableReason === "CANCELLED" ? (
+                            <>
+                                <p className="font-bold text-foreground">
+                                    Cancelled in the official answer key
+                                </p>
+                                <p className="mt-1">
+                                    This question was preserved for reference but
+                                    excluded from marks, penalties and accuracy.
+                                </p>
+                            </>
+                        ) : item.unavailableReason === "MISSING_ANSWER_KEY" ? (
                             <>
                                 <p className="font-bold text-foreground">
                                     This question has no valid answer key.

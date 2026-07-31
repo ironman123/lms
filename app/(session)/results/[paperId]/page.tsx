@@ -115,6 +115,20 @@ export default async function ResultsPage({
                     </div>
                 )}
 
+                {result.cancelledCount > 0 && (
+                    <div className="mb-6 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-foreground">
+                        <p className="font-black">
+                            Officially cancelled questions were not scored
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                            {result.cancelledCount} question
+                            {result.cancelledCount === 1 ? " was" : "s were"}{" "}
+                            preserved for reference and excluded from marks,
+                            penalties and accuracy.
+                        </p>
+                    </div>
+                )}
+
                 <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8">
                     <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
                     <div className="relative grid gap-8 lg:grid-cols-[260px_1fr] lg:items-center">

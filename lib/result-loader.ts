@@ -24,6 +24,7 @@ export type ResultReviewItem = {
     unavailableReason:
         | "MISSING_ANSWER_KEY"
         | "LEGACY_RESULT_UNRECOVERABLE"
+        | "CANCELLED"
         | null;
     question: QuestionSnapshot;
     selectedAnswer: string | null;
@@ -70,6 +71,7 @@ export type ResultView = {
     reviewComplete: boolean;
     legacyUnavailableCount: number;
     missingAnswerKeyCount: number;
+    cancelledCount: number;
     reportIdsByQuestion: Record<string, string>;
 };
 
@@ -96,6 +98,7 @@ function toQuestionInput(question: ResultQuestion): ResultQuestion {
         negativeMarks: question.negativeMarks,
         explanation: question.explanation,
         topicPath: question.topicPath,
+        isCancelled: question.isCancelled,
         options: question.options,
         correctOptions: question.correctOptions,
         exactAnswer: question.exactAnswer,
@@ -179,9 +182,11 @@ export async function loadCompletedResult(
         const unavailableReason =
             grade !== "UNAVAILABLE"
                 ? null
-                : interaction
-                    ? "MISSING_ANSWER_KEY"
-                    : "LEGACY_RESULT_UNRECOVERABLE";
+                : snapshot.isCancelled
+                    ? "CANCELLED"
+                    : interaction
+                        ? "MISSING_ANSWER_KEY"
+                        : "LEGACY_RESULT_UNRECOVERABLE";
         const options = parseResultOptions(snapshot.options);
         const selectedIndices = new Set(
             selectedAnswer
@@ -229,7 +234,7 @@ export async function loadCompletedResult(
         session.maximumMarks ??
         review.reduce(
             (sum, item) =>
-                item.unavailableReason === "MISSING_ANSWER_KEY"
+                item.grade === "UNAVAILABLE"
                     ? sum
                     : sum + item.question.marks,
             0
@@ -247,6 +252,9 @@ export async function loadCompletedResult(
     ).length;
     const missingAnswerKeyCount = review.filter(
         (item) => item.unavailableReason === "MISSING_ANSWER_KEY"
+    ).length;
+    const cancelledCount = review.filter(
+        (item) => item.unavailableReason === "CANCELLED"
     ).length;
     const exam = session.paper.examQuestionPaperLinks[0]?.exam ?? null;
 
@@ -279,6 +287,7 @@ export async function loadCompletedResult(
         reviewComplete: legacyUnavailableCount === 0,
         legacyUnavailableCount,
         missingAnswerKeyCount,
+        cancelledCount,
         reportIdsByQuestion: Object.fromEntries(
             session.contentReports
                 .filter(

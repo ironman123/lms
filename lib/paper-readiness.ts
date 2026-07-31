@@ -7,6 +7,7 @@ export type PaperReadinessIssueCode =
     | "INVALID_NEGATIVE_MARKS"
     | "INVALID_OPTIONS"
     | "INVALID_ANSWER_KEY"
+    | "NO_SCORABLE_QUESTIONS"
     | "SUBJECTIVE_REQUIRES_MANUAL_GRADING";
 
 export type PaperReadinessIssue = {
@@ -50,6 +51,25 @@ export function getPaperReadiness(
                 "EMPTY_CONTENT",
                 `Question ${questionNumber} has no content.`
             ));
+        }
+        if (question.isCancelled) {
+            if (question.marks !== 0) {
+                result.push(issue(
+                    question,
+                    questionNumber,
+                    "INVALID_MARKS",
+                    `Cancelled question ${questionNumber} must award 0 marks.`
+                ));
+            }
+            if (question.negativeMarks !== 0) {
+                result.push(issue(
+                    question,
+                    questionNumber,
+                    "INVALID_NEGATIVE_MARKS",
+                    `Cancelled question ${questionNumber} cannot have negative marks.`
+                ));
+            }
+            return result;
         }
         if (!Number.isFinite(question.marks) || question.marks <= 0) {
             result.push(issue(
@@ -136,6 +156,18 @@ export function getPaperReadiness(
 
         return result;
     });
+
+    if (
+        questions.length > 0 &&
+        questions.every((question) => question.isCancelled)
+    ) {
+        issues.push(issue(
+            questions[0],
+            1,
+            "NO_SCORABLE_QUESTIONS",
+            "The paper has no scorable questions."
+        ));
+    }
 
     return { ready: issues.length === 0, issues };
 }

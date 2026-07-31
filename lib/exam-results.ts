@@ -24,6 +24,7 @@ export type ResultQuestion = {
     negativeMarks: number;
     explanation: string | null;
     topicPath: string | null;
+    isCancelled?: boolean;
     options: unknown;
     correctOptions: number[];
     exactAnswer: number | null;
@@ -161,6 +162,7 @@ function parseIndexList(answer: string) {
 }
 
 export function isQuestionGradable(question: ResultQuestion) {
+    if (question.isCancelled) return false;
     if (question.type === "MCQ") {
         return question.correctOptions.length === 1;
     }
@@ -267,6 +269,7 @@ export function createQuestionSnapshot(
         negativeMarks: question.negativeMarks,
         explanation: question.explanation,
         topicPath: question.topicPath,
+        isCancelled: Boolean(question.isCancelled),
         options: parseResultOptions(question.options),
         correctOptions: [...question.correctOptions],
         exactAnswer: question.exactAnswer,
@@ -304,6 +307,8 @@ function isSessionQuestionSnapshot(
         typeof question.difficulty === "string" &&
         typeof question.marks === "number" &&
         typeof question.negativeMarks === "number" &&
+        (question.isCancelled === undefined ||
+            typeof question.isCancelled === "boolean") &&
         Array.isArray(question.correctOptions)
     );
 }
@@ -413,6 +418,7 @@ export function formatResultAnswer(
 }
 
 export function formatCorrectAnswer(question: QuestionSnapshot) {
+    if (question.isCancelled) return "Cancelled in the official answer key";
     if (question.type === "MCQ" || question.type === "MSQ") {
         const options = parseResultOptions(question.options);
         return question.correctOptions

@@ -6,6 +6,88 @@ import {
     parsePaperJsonImport,
 } from "../lib/paper-json-import";
 
+function paperWithQuestion(question: Record<string, unknown>) {
+    return JSON.stringify({
+        version: 1,
+        title: "Import test",
+        year: 2025,
+        type: "PYQ",
+        questions: [question],
+    });
+}
+
+const cancelledQuestion = {
+    number: 84,
+    content: "Officially cancelled question",
+    type: "MCQ",
+    difficulty: "MEDIUM",
+    marks: 0,
+    negativeMarks: 0,
+    topicPath: "General",
+    explanation: "Question Cancelled in Official Answer Key",
+    options: [],
+    correctAnswers: [],
+    exactAnswer: null,
+    answerMin: null,
+    answerMax: null,
+    modelAnswer: null,
+};
+
+test("recognizes the legacy official-cancellation pattern", () => {
+    const result = parsePaperJsonImport(
+        paperWithQuestion(cancelledQuestion)
+    );
+
+    assert.equal(result.success, true);
+    if (!result.success) return;
+    assert.equal(result.data.questions[0].cancelled, true);
+});
+
+test("accepts an explicitly cancelled question without an answer key", () => {
+    const result = parsePaperJsonImport(
+        paperWithQuestion({
+            ...cancelledQuestion,
+            explanation: null,
+            cancelled: true,
+        })
+    );
+
+    assert.equal(result.success, true);
+    if (!result.success) return;
+    assert.equal(result.data.questions[0].cancelled, true);
+});
+
+test("does not silently treat a malformed ordinary MCQ as cancelled", () => {
+    const result = parsePaperJsonImport(
+        paperWithQuestion({
+            ...cancelledQuestion,
+            marks: 1,
+            explanation: null,
+        })
+    );
+
+    assert.equal(result.success, false);
+    if (result.success) return;
+    assert.match(result.error, /Question 84/);
+    assert.ok(
+        result.issues.some((issue) => issue.path === "correctAnswers")
+    );
+});
+
+test("requires cancelled questions to have zero scoring impact", () => {
+    const result = parsePaperJsonImport(
+        paperWithQuestion({
+            ...cancelledQuestion,
+            cancelled: true,
+            marks: 1,
+        })
+    );
+
+    assert.equal(result.success, false);
+    if (result.success) return;
+    assert.match(result.error, /must award 0 marks/);
+});
+
 test("the downloadable JSON paper template is valid", () => {
     const result = parsePaperJsonImport(
         JSON.stringify(PAPER_JSON_TEMPLATE)
@@ -13,8 +95,9 @@ test("the downloadable JSON paper template is valid", () => {
 
     assert.equal(result.success, true);
     if (!result.success) return;
-    assert.equal(result.data.questions.length, 4);
+    assert.equal(result.data.questions.length, 5);
     assert.deepEqual(result.data.questions[1].correctAnswers, ["A", "C"]);
+    assert.equal(result.data.questions[4].cancelled, true);
     const normalized = normalizePaperJsonQuestion(result.data.questions[1]);
     assert.deepEqual(normalized.correctOptions, [0, 2]);
     assert.deepEqual(

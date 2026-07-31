@@ -169,6 +169,7 @@ export async function loadActiveSession(
                 negativeMarks: question.negativeMarks,
                 explanation: question.explanation,
                 topicPath: question.topicPath,
+                isCancelled: question.isCancelled,
                 options: question.options,
                 correctOptions: question.correctOptions,
                 exactAnswer: question.exactAnswer,

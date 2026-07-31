@@ -77,6 +77,7 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
             marks: q.marks,
             negativeMarks: q.negativeMarks,
             explanation: q.explanation,
+            isCancelled: q.isCancelled,
             topicPath: q.topicPath ?? "",
             topicId: q.topicId ?? "",
             categoryId: "",

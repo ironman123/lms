@@ -43,6 +43,7 @@ export default async function PaperLobbyPage({
                         marks: true,
                         negativeMarks: true,
                         explanation: true,
+                        isCancelled: true,
                         topicPath: true,
                         options: true,
                         correctOptions: true,

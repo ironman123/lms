@@ -4,7 +4,7 @@ import { useState, forwardRef, useImperativeHandle } from "react";
 import { toast } from "sonner";
 import {
     Loader2, Plus, Trash2, CheckCircle2, Circle, X, Search,
-    ChevronDown, ChevronUp, Save,
+    ChevronDown, ChevronUp, Save, Ban,
 } from "lucide-react";
 import { createQuestion, updateQuestion, deleteQuestion } from "@/app/(main)/actions/question-actions";
 import type { Question, Option, SyllabusEntry } from "./PaperBuilder";
@@ -216,6 +216,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         const validate = (): string | null => {
             if (!paperId?.trim()) return "Save the paper first before adding questions";
             if (!q.content.trim()) return "Question content is required";
+            if (q.isCancelled) return null;
 
             if (isOptionsType)
             {
@@ -261,6 +262,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                     explanation: q.explanation ?? null,
                     topicPath: q.topicPath || null,
                     topicId: q.topicId || null,
+                    isCancelled: q.isCancelled,
 
                     // MCQ / MSQ
                     options: isOptionsType
@@ -339,6 +341,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         // ── Collapsed summary helpers ───────────────────────────────────────────
 
         const collapsedAnswer = () => {
+            if (q.isCancelled) return null;
             if (isOptionsType)
             {
                 const labels = q.correctOptions
@@ -397,6 +400,11 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 <span className="text-[10px] text-muted-foreground">
                                     {q.marks}M / -{q.negativeMarks}M
                                 </span>
+                                {q.isCancelled && (
+                                    <span className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                        <Ban size={10} /> Officially cancelled
+                                    </span>
+                                )}
                                 {collapsedAnswer() && (
                                     <span className="text-[10px] font-bold text-emerald-600">
                                         Ans: {collapsedAnswer()}
@@ -432,6 +440,39 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                 {expanded && (
                     <div className="px-5 pb-5 space-y-4 border-t border-border/60 pt-4">
 
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
+                            <input
+                                type="checkbox"
+                                checked={q.isCancelled}
+                                onChange={(event) =>
+                                    updateQuestionDraft(
+                                        event.target.checked
+                                            ? {
+                                                isCancelled: true,
+                                                marks: 0,
+                                                negativeMarks: 0,
+                                                correctOptions: [],
+                                                exactAnswer: null,
+                                                answerMin: null,
+                                                answerMax: null,
+                                                modelAnswer: null,
+                                            }
+                                            : { isCancelled: false }
+                                    )
+                                }
+                                className="mt-0.5 size-4 rounded border-amber-500"
+                            />
+                            <span>
+                                <span className="block text-xs font-black text-foreground">
+                                    Cancelled in the official answer key
+                                </span>
+                                <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                    Preserved in the paper, but excluded from marks,
+                                    penalties, accuracy and completion.
+                                </span>
+                            </span>
+                        </label>
+
                         {/* Meta fields */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
@@ -459,8 +500,9 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 <input
                                     type="number" step="0.5"
                                     value={q.marks}
+                                    disabled={q.isCancelled}
                                     onChange={e => updateField("marks", parseFloat(e.target.value) || 0)}
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </div>
                             <div>
@@ -468,14 +510,15 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 <input
                                     type="number" step="0.25"
                                     value={q.negativeMarks}
+                                    disabled={q.isCancelled}
                                     onChange={e => updateField("negativeMarks", parseFloat(e.target.value) || 0)}
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </div>
                         </div>
 
                         {/* MCQ / MSQ options */}
-                        {isOptionsType && (
+                        {!q.isCancelled && isOptionsType && (
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
                                     Options
@@ -507,7 +550,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         )}
 
                         {/* NUMERICAL */}
-                        {isNumerical && (
+                        {!q.isCancelled && isNumerical && (
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
                                     Correct Answer
@@ -551,7 +594,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         )}
 
                         {/* SUBJECTIVE */}
-                        {isSubjective && (
+                        {!q.isCancelled && isSubjective && (
                             <div>
                                 <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">
                                     Model Answer

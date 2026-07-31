@@ -23,6 +23,7 @@ export const questionSchema = z
         explanation: z.string().optional().nullable(),
         topicPath: z.string().optional().nullable(),
         topicId: z.string().optional().nullable(),
+        isCancelled: z.boolean().default(false),
 
         // MCQ / MSQ
         options: z.array(optionSchema).default([]),
@@ -37,6 +38,27 @@ export const questionSchema = z
         modelAnswer: z.string().optional().nullable(),
     })
     .superRefine((data, ctx) => {
+        if (data.isCancelled)
+        {
+            if (data.marks !== 0)
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Cancelled questions must award 0 marks.",
+                    path: ["marks"],
+                });
+            }
+            if (data.negativeMarks !== 0)
+            {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Cancelled questions cannot have negative marks.",
+                    path: ["negativeMarks"],
+                });
+            }
+            return;
+        }
+
         if (data.type === "MCQ" || data.type === "MSQ")
         {
             const validOptions = data.options.filter((o) => o.text.trim() !== "");

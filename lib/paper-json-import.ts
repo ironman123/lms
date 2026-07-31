@@ -21,7 +21,7 @@ const answerLabelSchema = z
     .regex(/^[A-Za-z]$/, "Correct answers must use option labels such as A or B")
     .transform((label) => label.toUpperCase());
 
-const questionImportSchema = z
+const questionImportObjectSchema = z
     .object({
         number: z.number().int().positive(),
         content: z.string().trim().min(1, "Question content is required"),
@@ -43,9 +43,50 @@ const questionImportSchema = z
         answerMin: z.number().nullable().optional().default(null),
         answerMax: z.number().nullable().optional().default(null),
         modelAnswer: z.string().trim().nullable().optional().default(null),
+        cancelled: z.boolean().optional(),
     })
-    .strict()
+    .strict();
+
+type RawImportQuestion = z.infer<typeof questionImportObjectSchema>;
+
+function hasOfficialCancellationPattern(question: RawImportQuestion) {
+    return (
+        question.cancelled === undefined &&
+        question.marks === 0 &&
+        question.negativeMarks === 0 &&
+        question.options.length === 0 &&
+        question.correctAnswers.length === 0 &&
+        /\b(cancelled|canceled)\b/i.test(question.explanation ?? "")
+    );
+}
+
+function isCancelledImportQuestion(question: RawImportQuestion) {
+    return (
+        question.cancelled === true ||
+        hasOfficialCancellationPattern(question)
+    );
+}
+
+const questionImportSchema = questionImportObjectSchema
     .superRefine((question, context) => {
+        if (isCancelledImportQuestion(question)) {
+            if (question.marks !== 0) {
+                context.addIssue({
+                    code: "custom",
+                    path: ["marks"],
+                    message: "Cancelled questions must award 0 marks",
+                });
+            }
+            if (question.negativeMarks !== 0) {
+                context.addIssue({
+                    code: "custom",
+                    path: ["negativeMarks"],
+                    message: "Cancelled questions cannot have negative marks",
+                });
+            }
+            return;
+        }
+
         if (question.type === "MCQ" || question.type === "MSQ") {
             if (question.options.length < 2) {
                 context.addIssue({
@@ -147,7 +188,11 @@ const questionImportSchema = z
                 message: "Subjective questions need a modelAnswer",
             });
         }
-    });
+    })
+    .transform((question) => ({
+        ...question,
+        cancelled: isCancelledImportQuestion(question),
+    }));
 
 export const paperJsonImportSchema = z
     .object({
@@ -207,12 +252,21 @@ export function normalizePaperJsonQuestion(question: PaperJsonQuestion) {
         answerMin: question.answerMin,
         answerMax: question.answerMax,
         modelAnswer: question.modelAnswer,
+        isCancelled: question.cancelled,
     };
 }
 
 export function parsePaperJsonImport(source: string):
     | { success: true; data: PaperJsonImport }
-    | { success: false; error: string } {
+    | {
+        success: false;
+        error: string;
+        issues: Array<{
+            questionNumber: number | null;
+            path: string;
+            message: string;
+        }>;
+      } {
     let json: unknown;
     try {
         json = JSON.parse(source);
@@ -223,22 +277,62 @@ export function parsePaperJsonImport(source: string):
                 error instanceof Error
                     ? `Invalid JSON syntax: ${error.message}`
                     : "Invalid JSON syntax",
+            issues: [{
+                questionNumber: null,
+                path: "file",
+                message:
+                    error instanceof Error
+                        ? `Invalid JSON syntax: ${error.message}`
+                        : "Invalid JSON syntax",
+            }],
         };
     }
 
     const parsed = paperJsonImportSchema.safeParse(json);
     if (parsed.success) return { success: true, data: parsed.data };
 
-    const details = parsed.error.issues.slice(0, 5).map((issue) => {
-        const path = issue.path.length > 0 ? issue.path.join(".") : "file";
-        return `${path}: ${issue.message}`;
+    const issues = parsed.error.issues.map((issue) => {
+        const questionIndex =
+            issue.path[0] === "questions" &&
+            typeof issue.path[1] === "number"
+                ? issue.path[1]
+                : null;
+        const questions =
+            json &&
+            typeof json === "object" &&
+            Array.isArray((json as { questions?: unknown }).questions)
+                ? (json as { questions: Array<{ number?: unknown }> }).questions
+                : null;
+        const candidateNumber =
+            questionIndex !== null
+                ? questions?.[questionIndex]?.number
+                : null;
+        const questionNumber =
+            questionIndex !== null
+                ? typeof candidateNumber === "number"
+                    ? candidateNumber
+                    : questionIndex + 1
+                : null;
+        const path =
+            questionIndex !== null
+                ? issue.path.slice(2).join(".") || "question"
+                : issue.path.length > 0
+                    ? issue.path.join(".")
+                    : "file";
+        return { questionNumber, path, message: issue.message };
     });
-    const remaining = parsed.error.issues.length - details.length;
+    const details = issues.slice(0, 5).map((issue) =>
+        issue.questionNumber === null
+            ? `${issue.path}: ${issue.message}`
+            : `Question ${issue.questionNumber} (${issue.path}): ${issue.message}`
+    );
+    const remaining = issues.length - details.length;
     return {
         success: false,
         error: `${details.join("; ")}${
             remaining > 0 ? `; plus ${remaining} more issue(s)` : ""
         }`,
+        issues,
     };
 }
 
@@ -257,6 +351,7 @@ export const PAPER_JSON_TEMPLATE: PaperJsonImport = {
             negativeMarks: 0.33,
             topicPath: "General Knowledge > Kerala",
             explanation: "Thiruvananthapuram is the capital of Kerala.",
+            cancelled: false,
             options: [
                 { label: "A", text: "Kochi" },
                 { label: "B", text: "Thiruvananthapuram" },
@@ -278,6 +373,7 @@ export const PAPER_JSON_TEMPLATE: PaperJsonImport = {
             negativeMarks: 0,
             topicPath: "Mathematics > Number System",
             explanation: null,
+            cancelled: false,
             options: [
                 { label: "A", text: "2" },
                 { label: "B", text: "4" },
@@ -304,6 +400,7 @@ export const PAPER_JSON_TEMPLATE: PaperJsonImport = {
             exactAnswer: 96,
             answerMin: null,
             answerMax: null,
+            cancelled: false,
             modelAnswer: null,
         },
         {
@@ -320,8 +417,26 @@ export const PAPER_JSON_TEMPLATE: PaperJsonImport = {
             exactAnswer: null,
             answerMin: null,
             answerMax: null,
+            cancelled: false,
             modelAnswer:
                 "The Constitution defines the structure of government, protects fundamental rights, and establishes the rule of law.",
+        },
+        {
+            number: 5,
+            content: "This question was cancelled in the official answer key.",
+            type: "MCQ",
+            difficulty: "MEDIUM",
+            marks: 0,
+            negativeMarks: 0,
+            topicPath: "General",
+            explanation: "Question cancelled in the official answer key.",
+            cancelled: true,
+            options: [],
+            correctAnswers: [],
+            exactAnswer: null,
+            answerMin: null,
+            answerMax: null,
+            modelAnswer: null,
         },
     ],
 };

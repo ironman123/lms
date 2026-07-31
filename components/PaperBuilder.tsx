@@ -35,6 +35,7 @@ export interface Question {
     marks: number;
     negativeMarks: number;
     explanation: string | null;
+    isCancelled: boolean;
     saved: boolean;
     topicId: string;
     topicPath: string;
@@ -95,6 +96,7 @@ function emptyQuestion(number: number): Question {
         marks: 1,
         negativeMarks: 0,
         explanation: null,
+        isCancelled: false,
         saved: false,
         topicId: "",
         topicPath: "",
@@ -142,6 +144,7 @@ function parsedToQuestion(pq: ParsedQuestion, index: number): Question {
         marks: 1,
         negativeMarks: 0,
         explanation: pq.explanation ?? null,
+        isCancelled: false,
         topicId: "",
         topicPath: "",
         categoryId: "",
@@ -354,6 +357,11 @@ export default function PaperBuilder({
 
     const [isScanning, setIsScanning] = useState(false);
     const [isImportingJson, setIsImportingJson] = useState(false);
+    const [jsonImportFeedback, setJsonImportFeedback] = useState<{
+        kind: "success" | "error";
+        title: string;
+        details: string[];
+    } | null>(null);
     const [isSavingPaper, startSavingPaper] = useTransition();
 
     const savedCount = questions.filter(q => q.saved).length;
@@ -495,11 +503,17 @@ export default function PaperBuilder({
         if (!file) return;
 
         setIsImportingJson(true);
+        setJsonImportFeedback(null);
         const toastId = toast.loading("Validating JSON paper...");
         try {
             if (file.size > 5 * 1024 * 1024) {
                 toast.error("JSON file must be smaller than 5 MB.", {
                     id: toastId,
+                });
+                setJsonImportFeedback({
+                    kind: "error",
+                    title: "JSON import failed",
+                    details: ["The JSON file must be smaller than 5 MB."],
                 });
                 return;
             }
@@ -509,6 +523,15 @@ export default function PaperBuilder({
                 toast.error(parsed.error, {
                     id: toastId,
                     duration: 10_000,
+                });
+                setJsonImportFeedback({
+                    kind: "error",
+                    title: "Fix these JSON validation problems",
+                    details: parsed.issues.slice(0, 20).map((issue) =>
+                        issue.questionNumber === null
+                            ? `${issue.path}: ${issue.message}`
+                            : `Question ${issue.questionNumber} · ${issue.path}: ${issue.message}`
+                    ),
                 });
                 return;
             }
@@ -543,13 +566,37 @@ export default function PaperBuilder({
                     }));
                 return [...current, ...importedQuestions];
             });
+            const cancelledCount = parsed.data.questions.filter(
+                (question) => question.cancelled
+            ).length;
+            setJsonImportFeedback({
+                kind: "success",
+                title: `Imported ${parsed.data.questions.length} questions`,
+                details: cancelledCount > 0
+                    ? [
+                        `${cancelledCount} officially cancelled question${
+                            cancelledCount === 1 ? "" : "s"
+                        } preserved with zero scoring impact.`,
+                    ]
+                    : ["All questions passed validation."],
+            });
             toast.success(
-                `Validated and imported ${parsed.data.questions.length} questions.`,
+                `Validated and imported ${parsed.data.questions.length} questions${
+                    cancelledCount > 0
+                        ? ` (${cancelledCount} cancelled)`
+                        : ""
+                }.`,
                 { id: toastId }
             );
         } catch (error) {
-            toast.error(`JSON import failed: ${getErrorMessage(error)}`, {
+            const message = getErrorMessage(error);
+            toast.error(`JSON import failed: ${message}`, {
                 id: toastId,
+            });
+            setJsonImportFeedback({
+                kind: "error",
+                title: "JSON import failed",
+                details: [message],
             });
         } finally {
             setIsImportingJson(false);
@@ -688,6 +735,51 @@ export default function PaperBuilder({
                 </div>
 
                 {/* ── Paper metadata card ── */}
+                {jsonImportFeedback && (
+                    <div
+                        role={
+                            jsonImportFeedback.kind === "error"
+                                ? "alert"
+                                : "status"
+                        }
+                        className={`rounded-2xl border p-4 ${
+                            jsonImportFeedback.kind === "error"
+                                ? "border-destructive/35 bg-destructive/5 text-destructive"
+                                : "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        }`}
+                    >
+                        <div className="flex items-start gap-3">
+                            {jsonImportFeedback.kind === "error" ? (
+                                <AlertCircle className="mt-0.5 size-5 shrink-0" />
+                            ) : (
+                                <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-black">
+                                    {jsonImportFeedback.title}
+                                </p>
+                                <ul className="mt-2 space-y-1 text-xs font-medium text-foreground/80">
+                                    {jsonImportFeedback.details.map(
+                                        (detail, index) => (
+                                            <li key={`${detail}-${index}`}>
+                                                {detail}
+                                            </li>
+                                        )
+                                    )}
+                                </ul>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setJsonImportFeedback(null)}
+                                className="rounded-lg p-1 text-current/70 transition-colors hover:bg-background/60 hover:text-current"
+                                aria-label="Dismiss JSON import result"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="bg-card rounded-2xl border border-border shadow-sm p-6 space-y-5">
                     <div className="flex items-center gap-2 text-foreground font-black text-sm uppercase tracking-widest">
                         <FileText size={14} className="text-muted-foreground" />

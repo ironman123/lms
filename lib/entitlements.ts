@@ -54,6 +54,7 @@ export async function getSessionLaunchAccess(
                     marks: true,
                     negativeMarks: true,
                     explanation: true,
+                    isCancelled: true,
                     options: true,
                     correctOptions: true,
                     exactAnswer: true,

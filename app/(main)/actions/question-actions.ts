@@ -17,24 +17,39 @@ function buildQuestionData(validated: ReturnType<typeof questionSchema.parse>) {
     const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
     const isNumerical = validated.type === "NUMERICAL";
     const isSubjective = validated.type === "SUBJECTIVE";
+    const isCancelled = validated.isCancelled;
 
     return {
         content: validated.content,
         type: validated.type,
         difficulty: validated.difficulty,
-        marks: validated.marks,
-        negativeMarks: validated.negativeMarks,
+        marks: isCancelled ? 0 : validated.marks,
+        negativeMarks: isCancelled ? 0 : validated.negativeMarks,
         explanation: validated.explanation ?? null,
         topicPath: validated.topicPath ?? null,
         topicId: validated.topicId ?? null,
+        isCancelled,
         options: isOptionsType
             ? (validated.options as Prisma.InputJsonValue)
             : Prisma.JsonNull,
-        correctOptions: isOptionsType ? validated.correctOptions : [],
-        exactAnswer: isNumerical ? (validated.exactAnswer ?? null) : null,
-        answerMin: isNumerical ? (validated.answerMin ?? null) : null,
-        answerMax: isNumerical ? (validated.answerMax ?? null) : null,
-        modelAnswer: isSubjective ? (validated.modelAnswer ?? null) : null,
+        correctOptions:
+            isCancelled ? [] : isOptionsType ? validated.correctOptions : [],
+        exactAnswer:
+            !isCancelled && isNumerical
+                ? (validated.exactAnswer ?? null)
+                : null,
+        answerMin:
+            !isCancelled && isNumerical
+                ? (validated.answerMin ?? null)
+                : null,
+        answerMax:
+            !isCancelled && isNumerical
+                ? (validated.answerMax ?? null)
+                : null,
+        modelAnswer:
+            !isCancelled && isSubjective
+                ? (validated.modelAnswer ?? null)
+                : null,
     };
 }
 
