@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import {
+    useMemo,
+    useState,
+    useTransition,
+    useRef,
+} from "react";
 import {
     Sparkles, Loader2, Plus, CheckCircle2,
     FileText, BookOpen, AlertCircle, Save, Search, X, FileJson, Download
@@ -255,6 +260,195 @@ function ExamPicker({
     );
 }
 
+// ── Shared Topic Picker ───────────────────────────────────────────────────────
+
+function SharedTopicPicker({
+    question,
+    entries,
+    onSelect,
+    onClose,
+}: {
+    question: Question;
+    entries: SyllabusEntry[];
+    onSelect: (
+        topicId: string,
+        topicPath: string,
+        categoryId: string
+    ) => void;
+    onClose: () => void;
+}) {
+    const [query, setQuery] = useState("");
+
+    const normalizedQuery = query.trim().toLowerCase();
+
+    const filteredTopics = useMemo(() => {
+        if (normalizedQuery.length < 2)
+        {
+            return [];
+        }
+
+        const matches: SyllabusEntry[] = [];
+
+        for (const entry of entries)
+        {
+            if (
+                entry.topicPath
+                    .toLowerCase()
+                    .includes(normalizedQuery)
+            )
+            {
+                matches.push(entry);
+
+                if (matches.length >= 30)
+                {
+                    break;
+                }
+            }
+        }
+
+        return matches;
+    }, [entries, normalizedQuery]);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onMouseDown={(event) => {
+                if (event.target === event.currentTarget)
+                {
+                    onClose();
+                }
+            }}
+        >
+            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+                <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+                    <div className="min-w-0">
+                        <p className="text-sm font-black text-foreground">
+                            Choose Topic
+                        </p>
+
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                            Question {question.number}:{" "}
+                            {question.content || "Untitled question"}
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        aria-label="Close topic picker"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {question.topicPath && (
+                    <div className="border-b border-border bg-blue-50 px-5 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-blue-500">
+                            Current Topic
+                        </p>
+
+                        <p className="mt-1 text-xs font-bold text-blue-800">
+                            {question.topicPath}
+                        </p>
+                    </div>
+                )}
+
+                <div className="p-5">
+                    <div className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 focus-within:ring-2 focus-within:ring-ring">
+                        <Search
+                            size={15}
+                            className="shrink-0 text-muted-foreground"
+                        />
+
+                        <input
+                            type="search"
+                            value={query}
+                            onChange={(event) =>
+                                setQuery(event.target.value)
+                            }
+                            placeholder="Type at least 2 characters..."
+                            autoComplete="off"
+                            autoFocus
+                            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                        />
+
+                        {query && (
+                            <button
+                                type="button"
+                                onClick={() => setQuery("")}
+                                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                aria-label="Clear topic search"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="mt-3 max-h-[360px] overflow-y-auto rounded-xl border border-border">
+                        {normalizedQuery.length === 0 && (
+                            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+                                Type at least 2 characters to search topics.
+                            </p>
+                        )}
+
+                        {normalizedQuery.length === 1 && (
+                            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+                                Enter one more character to search.
+                            </p>
+                        )}
+
+                        {normalizedQuery.length >= 2 &&
+                            filteredTopics.length === 0 && (
+                                <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+                                    No matching topics found.
+                                </p>
+                            )}
+
+                        {normalizedQuery.length >= 2 &&
+                            filteredTopics.map((entry) => (
+                                <button
+                                    key={entry.id}
+                                    type="button"
+                                    data-topic-result
+                                    onClick={() =>
+                                        onSelect(
+                                            entry.topicId ?? "",
+                                            entry.topicPath,
+                                            entry.categoryId
+                                        )
+                                    }
+                                    className="block w-full border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-accent"
+                                >
+                                    <p className="text-xs font-bold text-foreground">
+                                        {entry.topicPath
+                                            .split(">")
+                                            .pop()
+                                            ?.trim()}
+                                    </p>
+
+                                    <p className="mt-1 text-[10px] text-muted-foreground">
+                                        {entry.topicPath}
+                                    </p>
+
+                                    {entry.category?.name && (
+                                        <p className="mt-1 text-[10px] font-medium text-purple-600">
+                                            {entry.category.name}
+                                        </p>
+                                    )}
+                                </button>
+                            ))}
+                    </div>
+
+                    <p className="mt-2 text-[10px] text-muted-foreground">
+                        A maximum of 30 matching topics is displayed.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Bento Grid ────────────────────────────────────────────────────
 
 function QuestionGrid({
@@ -349,6 +543,7 @@ export default function PaperBuilder({
     const [year, setYear] = useState<number | "">(initialPaper?.year ?? "");
     const [type, setType] = useState<QuestionPaperType>(initialPaper?.type ?? QuestionPaperType.MOCK);
     const [questions, setQuestions] = useState<Question[]>(initialQuestions);
+    const [topicPickerQuestionId, setTopicPickerQuestionId,] = useState<string | null>(null);
     const [paperId, setPaperId] = useState<string | null>(initialPaper?.id ?? null);
     const [paperSaved, setPaperSaved] = useState(!!initialPaper);
     //const [paperSaved, setPaperSaved] = useState(false);
@@ -373,6 +568,19 @@ export default function PaperBuilder({
     const cardRefs = useRef(new Map<string, QuestionCardHandle>());
     const scrollRefs = useRef(new Map<string, HTMLDivElement>());
     const [isSavingAll, setIsSavingAll] = useState(false);
+
+
+    const topicPickerQuestion = useMemo(
+        () =>
+            topicPickerQuestionId
+                ? questions.find(
+                    (question) =>
+                        question.clientId ===
+                        topicPickerQuestionId
+                ) ?? null
+                : null,
+        [questions, topicPickerQuestionId]
+    );
 
     const scrollToQuestion = (index: number) => {
         const question = questions[index];
@@ -676,6 +884,42 @@ export default function PaperBuilder({
         return next.map((q, i) => ({ ...q, number: i + 1 }));
     });
 
+    const openTopicPicker = (clientId: string) => {
+        setTopicPickerQuestionId(clientId);
+    };
+
+    const closeTopicPicker = () => {
+        setTopicPickerQuestionId(null);
+    };
+
+    const selectTopicForQuestion = (
+        topicId: string,
+        topicPath: string,
+        categoryId: string
+    ) => {
+        if (!topicPickerQuestionId)
+        {
+            return;
+        }
+
+        setQuestions((current) =>
+            current.map((question) =>
+                question.clientId ===
+                    topicPickerQuestionId
+                    ? {
+                        ...question,
+                        topicId,
+                        topicPath,
+                        categoryId,
+                        saved: false,
+                    }
+                    : question
+            )
+        );
+
+        setTopicPickerQuestionId(null);
+    };
+
     return (
         <div className="min-h-screen bg-background">
             <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
@@ -904,7 +1148,7 @@ export default function PaperBuilder({
                                 q={q}
                                 paperId={paperId}
                                 examSlug={examSlug}
-                                syllabusEntries={syllabusEntries}
+                                onOpenTopicPicker={openTopicPicker}
                                 onUpdate={updated => updateQuestion_(i, updated)}
                                 onDelete={() => deleteQuestion_(i)}
                                 moderationCaseId={
@@ -935,6 +1179,15 @@ export default function PaperBuilder({
                 </button>
 
             </div>
+            {topicPickerQuestion && (
+                <SharedTopicPicker
+                    key={topicPickerQuestion.clientId}
+                    question={topicPickerQuestion}
+                    entries={syllabusEntries}
+                    onSelect={selectTopicForQuestion}
+                    onClose={closeTopicPicker}
+                />
+            )}
         </div>
     );
 }

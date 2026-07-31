@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState, forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { toast } from "sonner";
 import {
-    Loader2, Plus, Trash2, CheckCircle2, Circle, X, Search,
+    Loader2, Plus, Trash2, CheckCircle2, Circle, X,
     ChevronDown, ChevronUp, Save, Ban,
 } from "lucide-react";
 import { createQuestion, updateQuestion, deleteQuestion } from "@/app/(main)/actions/question-actions";
-import type { Question, Option, SyllabusEntry } from "./PaperBuilder";
+import type { Question, Option } from "./PaperBuilder";
 
 const DIFFICULTIES = ["EASY", "MEDIUM", "HARD"] as const;
 const TYPES = ["MCQ", "MSQ", "NUMERICAL", "SUBJECTIVE"] as const;
@@ -26,9 +26,9 @@ export interface QuestionCardProps {
     q: Question;
     paperId: string | null;
     examSlug: string;
-    syllabusEntries: SyllabusEntry[];
     onUpdate: (updated: Question) => void;
     onDelete: () => void;
+    onOpenTopicPicker: (clientId: string) => void;
     wrapperRef?: (el: HTMLDivElement | null) => void;
     moderationCaseId?: string;
 }
@@ -80,129 +80,18 @@ function OptionRow({
     );
 }
 
-// ── Topic Picker ──────────────────────────────────────────────────────────────
-function TopicPicker({
-    entries, value, onChange,
-}: {
-    entries: SyllabusEntry[];
-    value: string;
-    onChange: (topicId: string, topicPath: string, categoryId: string) => void;
-}) {
-    const [query, setQuery] = useState("");
-    const normalizedQuery = query.trim().toLowerCase();
-
-    const filtered = useMemo(() => {
-        if (normalizedQuery.length < 2)
-        {
-            return [];
-        }
-
-        const matches: SyllabusEntry[] = [];
-
-        for (const entry of entries)
-        {
-            if (
-                entry.topicPath
-                    .toLowerCase()
-                    .includes(normalizedQuery)
-            )
-            {
-                matches.push(entry);
-
-                if (matches.length >= 30)
-                {
-                    break;
-                }
-            }
-        }
-
-        return matches;
-    }, [entries, normalizedQuery]);
-    const selected = entries.find(e => e.topicPath === value);
-
-    return (
-        <div className="relative space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">Topic</label>
-            {selected ? (
-                <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div>
-                        <p className="text-xs font-bold text-blue-800">{selected.topicPath.split(">").pop()?.trim()}</p>
-                        <p className="text-[10px] text-blue-500">{selected.topicPath}</p>
-                    </div>
-                    <button type="button" onClick={() => onChange("", "", "")} className="text-blue-300 hover:text-blue-600">
-                        <X size={14} />
-                    </button>
-                </div>
-            ) : (
-                <div className="border border-border rounded-lg bg-card overflow-hidden">
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60">
-                        <Search size={12} className="text-muted-foreground shrink-0" />
-                        <input
-                            type="text"
-                            value={query}
-                            onChange={e => setQuery(e.target.value)}
-                            placeholder="Search topics..."
-                            className="flex-1 text-sm outline-none text-foreground/80 placeholder:text-muted-foreground/60"
-                        />
-                    </div>
-                    <div className="max-h-48 overflow-y-auto divide-y divide-border/60">
-                        {normalizedQuery.length === 0 && (
-                            <p className="px-3 py-3 text-center text-xs text-muted-foreground">
-                                Type at least 2 characters to search topics.
-                            </p>
-                        )}
-
-                        {normalizedQuery.length === 1 && (
-                            <p className="px-3 py-3 text-center text-xs text-muted-foreground">
-                                Enter one more character to search.
-                            </p>
-                        )}
-
-                        {normalizedQuery.length >= 2 &&
-                            filtered.length === 0 && (
-                                <p className="px-3 py-3 text-center text-xs text-muted-foreground">
-                                    No topics found.
-                                </p>
-                            )}
-
-                        {normalizedQuery.length >= 2 &&
-                            filtered.map((entry) => (
-                                <button
-                                    key={entry.id}
-                                    type="button"
-                                    data-topic-result
-                                    onClick={() => {
-                                        onChange(
-                                            entry.topicId ?? "",
-                                            entry.topicPath,
-                                            entry.categoryId
-                                        );
-                                        setQuery("");
-                                    }}
-                                    className="w-full px-3 py-2.5 text-left transition-colors hover:bg-background"
-                                >
-                                    <p className="text-xs font-medium text-foreground/80">
-                                        {entry.topicPath
-                                            .split(">")
-                                            .pop()
-                                            ?.trim()}
-                                    </p>
-
-                                    <p className="mt-0.5 text-[10px] text-muted-foreground">
-                                        {entry.topicPath}
-                                    </p>
-                                </button>
-                            ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
 // ── Question Card ─────────────────────────────────────────────────────────────
 const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
-    ({ q, paperId, examSlug, syllabusEntries, onUpdate, onDelete, wrapperRef, moderationCaseId }, ref) => {
+    ({
+        q,
+        paperId,
+        examSlug,
+        onUpdate,
+        onDelete,
+        onOpenTopicPicker,
+        wrapperRef,
+        moderationCaseId,
+    }, ref) => {
         const [expanded, setExpanded] = useState(!q.saved);
         const [saving, setSaving] = useState(false);
 
@@ -668,17 +557,66 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         )}
 
                         {/* Topic */}
-                        <TopicPicker
-                            entries={syllabusEntries}
-                            value={q.topicPath}
-                            onChange={(topicId, topicPath, categoryId) =>
-                                updateQuestionDraft({
-                                    topicId,
-                                    topicPath,
-                                    categoryId,
-                                })
-                            }
-                        />
+                        {/* Topic */}
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                Topic
+                            </label>
+
+                            {q.topicPath ? (
+                                <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-bold text-blue-800">
+                                            {q.topicPath
+                                                .split(">")
+                                                .pop()
+                                                ?.trim()}
+                                        </p>
+
+                                        <p className="truncate text-[10px] text-blue-500">
+                                            {q.topicPath}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex shrink-0 items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                onOpenTopicPicker(q.clientId)
+                                            }
+                                            className="rounded-md px-2 py-1 text-[10px] font-bold text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800"
+                                        >
+                                            Change
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                updateQuestionDraft({
+                                                    topicId: "",
+                                                    topicPath: "",
+                                                    categoryId: "",
+                                                })
+                                            }
+                                            className="rounded-md p-1 text-blue-300 transition-colors hover:bg-blue-100 hover:text-blue-600"
+                                            aria-label="Remove selected topic"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        onOpenTopicPicker(q.clientId)
+                                    }
+                                    className="flex w-full items-center justify-center rounded-lg border border-dashed border-border bg-card px-3 py-3 text-xs font-bold text-muted-foreground transition-colors hover:border-slate-400 hover:bg-accent hover:text-foreground"
+                                >
+                                    Choose or search for a topic
+                                </button>
+                            )}
+                        </div>
 
                         {/* Explanation */}
                         <div>
