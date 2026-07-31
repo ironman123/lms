@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-paper";
 import { createQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
+import { createQuestionBatch } from "@/app/(main)/actions/question-actions";
+import type { QuestionFormInput } from "@/types/question";
 import { toast } from "sonner";
 import { QuestionPaperType } from "@prisma/client";
 import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
@@ -89,6 +91,74 @@ function createClientId() {
 
 function getErrorMessage(error: unknown) {
     return error instanceof Error ? error.message : "Unknown error";
+}
+
+function questionToSavePayload(
+    question: Question
+) {
+    const isOptionsType =
+        question.type === "MCQ" ||
+        question.type === "MSQ";
+
+    const isNumerical =
+        question.type === "NUMERICAL";
+
+    const isSubjective =
+        question.type === "SUBJECTIVE";
+
+    return {
+        content: question.content,
+        type: question.type,
+        difficulty: question.difficulty,
+        marks: question.marks,
+        negativeMarks:
+            question.negativeMarks,
+        explanation:
+            question.explanation ?? null,
+        topicPath:
+            question.topicPath || null,
+        topicId:
+            question.topicId || null,
+        isCancelled:
+            question.isCancelled,
+
+        options: isOptionsType
+            ? question.options
+                .filter((option) =>
+                    option.text.trim()
+                )
+                .map((option) => ({
+                    index: option.index,
+                    text: option.text,
+                    ...(option.imageUrl
+                        ? {
+                            imageUrl:
+                                option.imageUrl,
+                        }
+                        : {}),
+                }))
+            : [],
+
+        correctOptions: isOptionsType
+            ? question.correctOptions
+            : [],
+
+        exactAnswer: isNumerical
+            ? question.exactAnswer
+            : null,
+
+        answerMin: isNumerical
+            ? question.answerMin
+            : null,
+
+        answerMax: isNumerical
+            ? question.answerMax
+            : null,
+
+        modelAnswer: isSubjective
+            ? question.modelAnswer
+            : null,
+    };
 }
 
 function emptyQuestion(number: number): Question {
@@ -456,11 +526,13 @@ function QuestionGrid({
     onScrollTo,
     onSaveAll,
     isSaving,
+    canSave,
 }: {
     questions: Question[];
     onScrollTo: (index: number) => void;
     onSaveAll: () => void;
     isSaving: boolean;
+    canSave: boolean;
 }) {
     const savedCount = questions.filter(q => q.saved).length;
     const unsavedCount = questions.length - savedCount;
@@ -475,11 +547,16 @@ function QuestionGrid({
                     <button
                         type="button"
                         onClick={onSaveAll}
-                        disabled={isSaving}
+                        disabled={isSaving || !canSave}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors"
                     >
                         {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                        {isSaving ? "Saving..." : `Save all unsaved (${unsavedCount})`}
+                        {isSaving
+                            ? "Saving..."
+                            : !canSave
+                                ? "Create Paper First"
+                                : `Save all unsaved (${unsavedCount})`
+                        }
                     </button>
                 )}
             </div>
@@ -605,53 +682,199 @@ export default function PaperBuilder({
     };
 
     const handleSaveAll = async () => {
+        if (!paperId)
+        {
+            toast.error(
+                "Create the paper before saving questions."
+            );
+            return;
+        }
+
+        const unsaved = questions
+            .map((question, index) => ({
+                question,
+                index,
+            }))
+            .filter(
+                ({ question }) => !question.saved
+            );
+
+        if (unsaved.length === 0)
+        {
+            toast.success(
+                "All questions are already saved."
+            );
+            return;
+        }
+
+        /*
+         * New imported questions can be inserted in batches.
+         * Existing questions must continue through updateQuestion
+         * because they may contain moderation logic.
+         */
+        const newQuestions = unsaved.filter(
+            ({ question }) => !question.id
+        );
+
+        const existingQuestions = unsaved.filter(
+            ({ question }) => Boolean(question.id)
+        );
+
         setIsSavingAll(true);
+
         let failedCount = 0;
         let firstFailedIndex: number | null = null;
 
+        const CHUNK_SIZE = 15;
+
         try
         {
-            const unsaved = questions
-                .map((q, i) => ({ q, i }))
-                .filter(({ q }) => !q.saved);
-
-            if (unsaved.length === 0) return;
-
-            const CHUNK_SIZE = 15;
-            for (let c = 0; c < unsaved.length; c += CHUNK_SIZE)
+            // One Server Action request per 15 new questions.
+            for (
+                let start = 0;
+                start < newQuestions.length;
+                start += CHUNK_SIZE
+            )
             {
-                const chunk = unsaved.slice(c, c + CHUNK_SIZE);
-                const results = await Promise.allSettled(
-                    chunk.map(({ q }) => cardRefs.current.get(q.clientId)?.save() ?? Promise.resolve())
+                const chunk = newQuestions.slice(
+                    start,
+                    start + CHUNK_SIZE
                 );
 
-                results.forEach((result, ri) => {
-                    if (result.status === "rejected")
+                try
+                {
+                    const result =
+                        await createQuestionBatch(
+                            paperId,
+                            examSlug,
+                            chunk.map(
+                                ({ question }) => ({
+                                    clientId:
+                                        question.clientId,
+                                    data:
+                                        questionToSavePayload(
+                                            question
+                                        ),
+                                })
+                            )
+                        );
+
+                    const createdIds = new Map(
+                        result.questions.map(
+                            (created) => [
+                                created.clientId,
+                                created.id,
+                            ]
+                        )
+                    );
+
+                    // Mark the complete batch saved in one state update.
+                    setQuestions((current) =>
+                        current.map((question) => {
+                            const createdId =
+                                createdIds.get(
+                                    question.clientId
+                                );
+
+                            if (!createdId)
+                            {
+                                return question;
+                            }
+
+                            return {
+                                ...question,
+                                id: createdId,
+                                saved: true,
+                            };
+                        })
+                    );
+                } catch (error)
+                {
+                    console.error(
+                        "Question batch failed:",
+                        error
+                    );
+
+                    failedCount += chunk.length;
+
+                    if (
+                        firstFailedIndex === null &&
+                        chunk.length > 0
+                    )
                     {
-                        failedCount++;
-                        if (firstFailedIndex === null)
-                        {
-                            firstFailedIndex = chunk[ri].i;
-                        }
+                        firstFailedIndex =
+                            chunk[0].index;
                     }
-                });
+                }
+            }
+
+            /*
+             * Existing questions are updates rather than inserts.
+             * Keep using each card's update workflow.
+             */
+            for (const {
+                question,
+                index,
+            } of existingQuestions)
+            {
+                const card =
+                    cardRefs.current.get(
+                        question.clientId
+                    );
+
+                if (!card)
+                {
+                    failedCount++;
+
+                    if (firstFailedIndex === null)
+                    {
+                        firstFailedIndex = index;
+                    }
+
+                    continue;
+                }
+
+                const saved = await card.save();
+
+                if (!saved)
+                {
+                    failedCount++;
+
+                    if (firstFailedIndex === null)
+                    {
+                        firstFailedIndex = index;
+                    }
+                }
             }
 
             if (failedCount > 0)
             {
-                toast.error(`${failedCount} question(s) couldn't be saved — check them manually.`);
+                toast.error(
+                    `${failedCount} question(s) could not be saved.`
+                );
+
                 if (firstFailedIndex !== null)
                 {
-                    scrollToQuestion(firstFailedIndex);
+                    scrollToQuestion(
+                        firstFailedIndex
+                    );
                 }
             } else
             {
-                toast.success("All questions saved!");
+                toast.success(
+                    `${unsaved.length} questions saved successfully!`
+                );
             }
-
         } catch (error)
         {
-            console.error("Unexpected error during save all:", error);
+            console.error(
+                "Unexpected Save All failure:",
+                error
+            );
+
+            toast.error(
+                "Unexpected error while saving questions."
+            );
         } finally
         {
             setIsSavingAll(false);
@@ -865,8 +1088,14 @@ export default function PaperBuilder({
                         examIds: selectedExamIds,
                     }, examSlug);
 
-                    const newPaperId = result.id;
-                    updatePaperId(newPaperId);
+                    if (!result?.id)
+                    {
+                        throw new Error(
+                            "Paper creation succeeded but no paper ID was returned."
+                        );
+                    }
+
+                    setPaperId(result.id);
                     setPaperSaved(true);
                     toast.success("Paper created — now save your questions");
                 }
@@ -1138,6 +1367,7 @@ export default function PaperBuilder({
                                 onScrollTo={scrollToQuestion}
                                 onSaveAll={handleSaveAll}
                                 isSaving={isSavingAll}
+                                canSave={Boolean(paperId)}
                             />
                         )}
                         {questions.map((q, i) => (

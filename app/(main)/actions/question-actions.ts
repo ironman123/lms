@@ -93,6 +93,119 @@ export async function createQuestion(
     return { success: true, id: questionId! };
 }
 
+export interface CreateQuestionBatchItem {
+    clientId: string;
+    data: QuestionFormInput;
+}
+
+export async function createQuestionBatch(
+    paperId: string,
+    examSlug: string,
+    items: CreateQuestionBatchItem[]
+): Promise<{
+    success: true;
+    questions: Array<{
+        clientId: string;
+        id: string;
+    }>;
+}> {
+    await requireAdmin();
+
+    if (!paperId.trim())
+    {
+        throw new Error("Question paper ID is required.");
+    }
+
+    if (items.length === 0)
+    {
+        return {
+            success: true,
+            questions: [],
+        };
+    }
+
+    if (items.length > 25)
+    {
+        throw new Error(
+            "A question batch cannot contain more than 25 questions."
+        );
+    }
+
+    // Validate every question before opening the transaction.
+    const validatedItems = items.map((item) => ({
+        clientId: item.clientId,
+        data: questionSchema.parse(item.data),
+    }));
+
+    let createdQuestions: Array<{
+        clientId: string;
+        id: string;
+    }> = [];
+
+    try
+    {
+        createdQuestions = await prisma.$transaction(
+            async (tx) => {
+                const created: Array<{
+                    clientId: string;
+                    id: string;
+                }> = [];
+
+                for (const item of validatedItems)
+                {
+                    const question =
+                        await tx.question.create({
+                            data: {
+                                ...buildQuestionData(
+                                    item.data
+                                ),
+                                paperId,
+                            },
+                            select: {
+                                id: true,
+                            },
+                        });
+
+                    created.push({
+                        clientId: item.clientId,
+                        id: question.id,
+                    });
+                }
+
+                // Increment once for the whole batch,
+                // not once per question.
+                await tx.questionPaper.update({
+                    where: {
+                        id: paperId,
+                    },
+                    data: {
+                        contentRevision: {
+                            increment: 1,
+                        },
+                    },
+                });
+
+                return created;
+            }
+        );
+    } catch (error)
+    {
+        handlePrismaError(error);
+        throw error;
+    }
+
+    // Revalidate once for the complete batch.
+    await revalidateQuestionPaths(
+        examSlug,
+        paperId
+    );
+
+    return {
+        success: true,
+        questions: createdQuestions,
+    };
+}
+
 export async function updateQuestion(
     questionId: string,
     paperId: string,
@@ -132,7 +245,8 @@ export async function updateQuestion(
                 },
                 select: { id: true },
             });
-            if (activeCases.length > 0) {
+            if (activeCases.length > 0)
+            {
                 await tx.moderationAction.createMany({
                     data: activeCases.map((moderationCase) => ({
                         caseId: moderationCase.id,
@@ -145,7 +259,8 @@ export async function updateQuestion(
                     })),
                 });
             }
-            if (moderationCaseId) {
+            if (moderationCaseId)
+            {
                 const linkedCase = await tx.moderationCase.findFirst({
                     where: {
                         id: moderationCaseId,
@@ -159,7 +274,8 @@ export async function updateQuestion(
                     },
                     select: { id: true },
                 });
-                if (!linkedCase) {
+                if (!linkedCase)
+                {
                     throw new Error(
                         "The moderation case does not match this question or is already closed."
                     );
@@ -228,7 +344,8 @@ export async function deleteQuestion(
                 },
                 select: { id: true },
             });
-            if (activeCases.length > 0) {
+            if (activeCases.length > 0)
+            {
                 const caseIds = activeCases.map(
                     (moderationCase) => moderationCase.id
                 );

@@ -19,7 +19,7 @@ const DIFF_STYLES = {
 };
 
 export interface QuestionCardHandle {
-    save: () => Promise<void>;
+    save: () => Promise<boolean>;
 }
 
 export interface QuestionCardProps {
@@ -189,12 +189,12 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 
         // ── Save ────────────────────────────────────────────────────────────────
 
-        const handleSave = async () => {
+        const handleSave = async (): Promise<boolean> => {
             const error = validate();
             if (error)
             {
                 toast.error(error);
-                throw new Error(error);
+                return false;
             }
 
             setSaving(true);
@@ -213,11 +213,15 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 
                     // MCQ / MSQ
                     options: isOptionsType
-                        ? q.options.filter(o => o.text.trim()).map(o => ({
-                            index: o.index,
-                            text: o.text,
-                            imageUrl: o.imageUrl,
-                        }))
+                        ? q.options
+                            .filter((option) => option.text.trim())
+                            .map((option) => ({
+                                index: option.index,
+                                text: option.text,
+                                ...(option.imageUrl
+                                    ? { imageUrl: option.imageUrl }
+                                    : {}),
+                            }))
                         : [],
                     correctOptions: isOptionsType ? q.correctOptions : [],
 
@@ -256,6 +260,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                     toast.success(`Q${q.number} saved`);
                 }
                 setExpanded(false);
+                return true;
             } catch (err: unknown)
             {
                 const message = err instanceof Error ? err.message : "Unknown error";
@@ -635,12 +640,26 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         <div className="flex justify-end pt-2">
                             <button
                                 type="button"
-                                onClick={handleSave}
-                                disabled={saving}
+                                onClick={() => {
+                                    void handleSave();
+                                }}
+                                disabled={saving || !paperId}
+                                title={
+                                    !paperId
+                                        ? "Create the paper before saving questions"
+                                        : undefined
+                                }
                                 className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50"
                             >
                                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                {saving ? "Saving..." : (q.id ? "Update" : "Save Question")}
+                                {saving
+                                    ? "Saving..."
+                                    : !paperId
+                                        ? "Create Paper First"
+                                        : q.id
+                                            ? "Update"
+                                            : "Save Question"
+                                }
                             </button>
                         </div>
                     </div>
