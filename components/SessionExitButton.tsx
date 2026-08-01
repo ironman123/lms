@@ -23,13 +23,19 @@ import {
 
 const PAPERS_PATH = "/library/paper";
 
-export default function SessionExitButton() {
+export default function SessionExitButton({
+    returnPath = PAPERS_PATH,
+}: {
+    returnPath?: string;
+}) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const router = useRouter();
     const sessionId = searchParams.get("sessionId");
     const isActiveSession =
-        pathname.endsWith("/mock") || pathname.endsWith("/practice");
+        pathname.endsWith("/mock") ||
+        pathname.endsWith("/practice") ||
+        pathname.startsWith("/repair/");
     const [open, setOpen] = useState(false);
     const [confirmingAbandon, setConfirmingAbandon] = useState(false);
     const [pendingAction, setPendingAction] = useState<
@@ -64,7 +70,7 @@ export default function SessionExitButton() {
 
         toast.success("Progress saved. You can resume this session later.");
         setOpen(false);
-        router.push(PAPERS_PATH);
+        router.push(returnPath);
         router.refresh();
     };
 
@@ -84,7 +90,7 @@ export default function SessionExitButton() {
 
         toast.success("Attempt abandoned. It will not count toward your stats.");
         setOpen(false);
-        router.push(PAPERS_PATH);
+        router.push(returnPath);
         router.refresh();
     };
 
@@ -103,7 +109,7 @@ export default function SessionExitButton() {
     if (!isActiveSession || !sessionId) {
         return <Button asChild variant="outline" size="icon" className="h-9 w-9 rounded-xl bg-card shadow-sm">
             <Link
-                href={PAPERS_PATH}
+                href={returnPath}
                 aria-label="Back to papers"
                 title="Back to papers"
             >

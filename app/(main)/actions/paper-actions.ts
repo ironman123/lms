@@ -10,7 +10,9 @@ import { invalidateTag, invalidateKey } from "@/lib/cache";
 import {
     ModerationActionType,
     ModerationCaseStatus,
+    PaperStatus,
 } from "@prisma/client";
+import { getPaperReadiness, paperReadinessMessage } from "@/lib/paper-readiness";
 
 export async function linkPaperToExam(paperId: string, examId: string) {
     await requireAdmin();
@@ -25,16 +27,20 @@ export async function linkPaperToExam(paperId: string, examId: string) {
             }),
             prisma.questionPaper.update({
                 where: { id: paperId },
-                data: { contentRevision: { increment: 1 } },
+                data: { contentRevision: { increment: 1 }, status: PaperStatus.DRAFT },
             }),
         ]);
-        await invalidateTag("exams");
-        await invalidateKey(`paper:${paperId}`);
+        await Promise.all([
+            invalidateTag("exams"),
+            invalidateTag("papers"),
+            invalidateKey(`paper:${paperId}`),
+        ]);
     } catch (error)
     {
         handlePrismaError(error);
     }
     revalidatePath(`/library/exam/${examId}`);
+    revalidatePath("/library/paper");
 }
 
 export async function unlinkPaperFromExam(paperId: string, examId: string) {
@@ -48,16 +54,20 @@ export async function unlinkPaperFromExam(paperId: string, examId: string) {
             }),
             prisma.questionPaper.update({
                 where: { id: paperId },
-                data: { contentRevision: { increment: 1 } },
+                data: { contentRevision: { increment: 1 }, status: PaperStatus.DRAFT },
             }),
         ]);
-        await invalidateTag("exams");
-        await invalidateKey(`paper:${paperId}`);
+        await Promise.all([
+            invalidateTag("exams"),
+            invalidateTag("papers"),
+            invalidateKey(`paper:${paperId}`),
+        ]);
     } catch (error)
     {
         handlePrismaError(error);
     }
     revalidatePath(`/library/exam/${examId}`);
+    revalidatePath("/library/paper");
 }
 
 export async function createQuestionPaper(data: PaperFormInput, examSlug: string) {
@@ -70,6 +80,7 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
                 title: validated.title,
                 year: validated.year || null,
                 type: validated.type,
+                status: PaperStatus.DRAFT,
                 ...(validated.examIds.length > 0 && {
                     examQuestionPaperLinks: {
                         create: validated.examIds.map((id: string) => ({ examId: id })),
@@ -78,14 +89,68 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
             },
         });
 
-        await invalidateTag("exams");
+        await Promise.all([
+            invalidateTag("exams"),
+            invalidateTag("papers"),
+        ]);
+        revalidatePath("/library/paper");
         if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
-        return { success: true, id: paper.id, title: paper.title, year: paper.year };
+        return {
+            success: true,
+            id: paper.id,
+            title: paper.title,
+            year: paper.year,
+            contentRevision: paper.contentRevision,
+            status: paper.status,
+        };
     } catch (error: unknown)
     {
         console.error("❌ CREATE PAPER ERROR:", error);
         handlePrismaError(error);
     }
+}
+
+export async function publishQuestionPaper(paperId: string) {
+    await requireAdmin();
+    const paper = await prisma.questionPaper.findUnique({
+        where: { id: paperId },
+        include: {
+            questions: {
+                where: { isArchived: false },
+                orderBy: { position: "asc" },
+            },
+        },
+    });
+    if (!paper) return { success: false as const, error: "Paper not found." };
+    const readiness = getPaperReadiness(paper.questions);
+    if (!readiness.ready) {
+        return {
+            success: false as const,
+            error:
+                paperReadinessMessage(readiness) ??
+                "The paper is not ready for students.",
+            issues: readiness.issues,
+        };
+    }
+
+    const updated = await prisma.questionPaper.update({
+        where: { id: paperId },
+        data: {
+            status: PaperStatus.PUBLISHED,
+            contentRevision: { increment: 1 },
+        },
+        select: { contentRevision: true },
+    });
+    await Promise.all([
+        invalidateTag("papers"),
+        invalidateTag("exams"),
+        invalidateKey(`paper:${paperId}`),
+    ]);
+    revalidatePath("/library/paper");
+    return {
+        success: true as const,
+        contentRevision: updated.contentRevision,
+    };
 }
 
 export async function updateQuestionPaper(
@@ -97,14 +162,15 @@ export async function updateQuestionPaper(
     if (!paperId) throw new Error("Paper ID is required for update");
     const validated = paperSchema.parse(data);
 
-    await prisma.$transaction(async (tx) => {
-        await tx.questionPaper.update({
+    const updatedPaper = await prisma.$transaction(async (tx) => {
+        const paper = await tx.questionPaper.update({
             where: { id: paperId },
             data: {
                 title: validated.title,
                 year: validated.year ?? null,
                 type: validated.type,
                 contentRevision: { increment: 1 },
+                status: PaperStatus.DRAFT,
                 isArchived: false,
                 archivedAt: null,
                 archiveReason: null,
@@ -120,6 +186,7 @@ export async function updateQuestionPaper(
                     },
                 },
             },
+            select: { contentRevision: true, status: true },
         });
         await tx.examQuestionPaperLink.deleteMany({ where: { paperId } });
         if (validated.examIds?.length > 0) {
@@ -153,11 +220,17 @@ export async function updateQuestionPaper(
                 })),
             });
         }
+        return paper;
     });
 
-    await invalidateTag("exams");
-    await invalidateKey(`paper:${paperId}`);
-    revalidatePath(`/library/exam/${examSlug}`);
+    await Promise.all([
+        invalidateTag("exams"),
+        invalidateTag("papers"),
+        invalidateKey(`paper:${paperId}`),
+    ]);
+    if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
+    revalidatePath("/library/paper");
+    return { success: true, ...updatedPaper };
 }
 
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {
@@ -239,8 +312,11 @@ export async function deleteQuestionPaper(paperId: string, examSlug: string) {
             });
         }
     });
-    await invalidateTag("exams");
-    await invalidateKey(`paper:${paperId}`);
+    await Promise.all([
+        invalidateTag("exams"),
+        invalidateTag("papers"),
+        invalidateKey(`paper:${paperId}`),
+    ]);
 
     if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
     revalidatePath("/library/paper");
@@ -282,20 +358,4 @@ export async function restoreQuestionPaperFromForm(formData: FormData) {
     const paperId = formData.get("paperId");
     if (typeof paperId !== "string") throw new Error("Paper ID is required");
     await restoreQuestionPaper(paperId);
-}
-
-export async function getExamSyllabusEntries(examId: string) {
-    await requireAdmin();
-    if (!examId) throw new Error("Exam ID is required");
-    return prisma.examSyllabusEntry.findMany({
-        where: { examId },
-        select: {
-            id: true,
-            topicPath: true,
-            categoryId: true,
-            category: { select: { name: true } },
-            topicId: true,
-        },
-        orderBy: { topicPath: "asc" },
-    });
 }

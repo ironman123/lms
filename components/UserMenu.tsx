@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, User, Settings, ChevronDown, SlidersHorizontal, ShieldCheck, MessageSquareWarning } from "lucide-react";
+import { LogOut, User, Settings, ChevronDown, SlidersHorizontal, ShieldCheck, MessageSquareWarning, MessageSquarePlus } from "lucide-react";
 import { signOut } from "@/app/actions/auth-actions";
 import Link from "next/link";
 import Image from "next/image";
@@ -81,6 +81,20 @@ export default function UserMenu({ name, email, avatarUrl, role, moderationAtten
                             >
                                 <MessageSquareWarning size={15} className="text-muted-foreground" />
                                 My reports
+                            </Link>
+                            <Link
+                                href="/feedback"
+                                className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+                            >
+                                <MessageSquarePlus size={15} className="text-muted-foreground" />
+                                Send app feedback
+                            </Link>
+                            <Link
+                                href="/settings/feedback"
+                                className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+                            >
+                                <MessageSquareWarning size={15} className="text-muted-foreground" />
+                                My app feedback
                             </Link>
 
                             {role === "ADMIN" && (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, Library, Settings, ShieldCheck } from "lucide-react";
+import { Archive, FilePenLine, Library, MessageSquareMore, Settings, ShieldCheck } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth";
 
 export default async function AdminLayout({
@@ -26,6 +26,13 @@ export default async function AdminLayout({
                         className="flex gap-2 overflow-x-auto"
                     >
                         <Link
+                            href="/admin/feedback"
+                            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold hover:border-primary/40 hover:text-primary"
+                        >
+                            <MessageSquareMore size={16} />
+                            App feedback
+                        </Link>
+                        <Link
                             href="/admin/moderation"
                             className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold hover:border-primary/40 hover:text-primary"
                         >
@@ -38,6 +45,13 @@ export default async function AdminLayout({
                         >
                             <Settings size={16} />
                             Settings
+                        </Link>
+                        <Link
+                            href="/admin/papers/drafts"
+                            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold hover:border-primary/40 hover:text-primary"
+                        >
+                            <FilePenLine size={16} />
+                            Draft papers
                         </Link>
                         <Link
                             href="/admin/papers/archived"

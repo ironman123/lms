@@ -345,6 +345,25 @@ export function useExamTelemetry(
         [getOrInitMetrics, sessionId]
     );
 
+    const handleConfidenceChange = useCallback(
+        (questionId: string, confidenceLevel: number) => {
+            if (isSubmittedRef.current) return;
+            const metrics = getOrInitMetrics(questionId);
+            metrics.confidenceLevel = Math.max(
+                0,
+                Math.min(100, Math.round(confidenceLevel))
+            );
+            if (currentQuestionRef.current === questionId) {
+                setCurrentMetrics({ ...metrics });
+            }
+            logActivity(
+                `CONFIDENCE ${metrics.confidenceLevel}% â†’ ${questionId.slice(-4)}`
+            );
+            persistOfflineSnapshot();
+        },
+        [getOrInitMetrics, logActivity, persistOfflineSnapshot]
+    );
+
     useEffect(() => {
         let cancelled = false;
         const now = Date.now();
@@ -458,6 +477,7 @@ export function useExamTelemetry(
         offlineRecovery,
         handleNavigation,
         handleAnswerSelection,
+        handleConfidenceChange,
         syncAnswers,
         toggleFlag,
         flushAndSubmit,

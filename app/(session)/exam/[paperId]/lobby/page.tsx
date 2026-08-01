@@ -1,6 +1,7 @@
 //lobby/page.tsx
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import StartExamButton from "@/components/StartExamButton";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
@@ -18,10 +19,10 @@ export default async function PaperLobbyPage({
     searchParams,
 }: {
     params: Promise<{ paperId: string }>;
-    searchParams: Promise<{ sessionUnavailable?: string }>;
+    searchParams: Promise<{ sessionUnavailable?: string; examId?: string }>;
 }) {
     const { paperId } = await params;
-    const { sessionUnavailable } = await searchParams;
+    const { sessionUnavailable, examId: requestedExamId } = await searchParams;
 
     const [user, paper] = await Promise.all([
         requireAuth(),
@@ -103,9 +104,21 @@ export default async function PaperLobbyPage({
     const resumeByMode = new Map(
         resumableSessions.map((session) => [session.mode, session.id])
     );
-    const currentExam = paper.examQuestionPaperLinks[0]?.exam;
+    const linkedExams = paper.examQuestionPaperLinks.map((link) => link.exam);
+    const requestedExam = requestedExamId
+        ? linkedExams.find((exam) => exam.id === requestedExamId)
+        : undefined;
+    const currentExam = requestedExamId
+        ? requestedExam
+        : linkedExams.length === 1
+            ? linkedExams[0]
+            : undefined;
+    const selectedExamId = currentExam?.id ?? null;
+    const requiresExamSelection =
+        linkedExams.length > 1 && !selectedExamId;
+    const invalidExamContext = Boolean(requestedExamId && !requestedExam);
 
-    const examDuration = currentExam?.duration || 0;
+    const examDuration = currentExam?.duration ?? 60;
 
     // 1. Dynamic Total Marks Calculation
     const totalMarks = paper.questions.reduce((sum, q) => sum + (q.marks || 0), 0);
@@ -128,6 +141,11 @@ export default async function PaperLobbyPage({
     const readinessMessage = paper.isArchived
         ? "This paper has been archived and cannot start new sessions."
         : paperReadinessMessage(readiness);
+    const launchDisabledReason = invalidExamContext
+        ? "That exam is not linked to this paper."
+        : requiresExamSelection
+            ? "Choose which exam this attempt should count toward."
+            : readinessMessage;
 
     return (
         <div className="min-h-full w-full bg-background py-6 md:py-12">
@@ -251,6 +269,49 @@ export default async function PaperLobbyPage({
                             </div>
                         </div>
 
+                        {(linkedExams.length > 1 || invalidExamContext) && (
+                            <section className="mb-10 rounded-3xl border border-border bg-background p-5">
+                                <div className="mb-4">
+                                    <h2 className="text-sm font-black text-foreground">
+                                        {linkedExams.length > 1
+                                            ? "Choose exam context"
+                                            : "Invalid exam context"}
+                                    </h2>
+                                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                        This paper belongs to more than one exam. Your score will count only toward the exam selected here.
+                                    </p>
+                                    {invalidExamContext && (
+                                        <p role="alert" className="mt-2 text-xs font-semibold text-destructive">
+                                            The requested exam is not linked to this paper. Choose a valid exam below.
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {linkedExams.map((exam) => {
+                                        const selected = exam.id === selectedExamId;
+                                        return (
+                                            <Link
+                                                key={exam.id}
+                                                href={`/exam/${paperId}/lobby?examId=${encodeURIComponent(exam.id)}`}
+                                                aria-current={selected ? "true" : undefined}
+                                                className={`rounded-2xl border px-4 py-3 text-sm font-bold transition-colors ${selected ? "border-primary bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                                            >
+                                                {exam.name}
+                                            </Link>
+                                        );
+                                    })}
+                                    {linkedExams.length === 0 && (
+                                        <Link
+                                            href={`/exam/${paperId}/lobby`}
+                                            className="rounded-2xl border border-border bg-card px-4 py-3 text-sm font-bold text-foreground transition-colors hover:bg-accent"
+                                        >
+                                            Continue as standalone paper
+                                        </Link>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
                         {/* Instructions */}
                         <div className="mb-10 rounded-[2rem] border border-warning/30 bg-warning/10 p-6">
                             <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-foreground">
@@ -285,8 +346,9 @@ export default async function PaperLobbyPage({
                                 disabledReason={
                                     resumeByMode.has(SessionMode.PRACTICE)
                                         ? null
-                                        : readinessMessage
+                                        : launchDisabledReason
                                 }
+                                examId={selectedExamId}
                             />
                             <StartExamButton
                                 paperId={paperId}
@@ -303,8 +365,9 @@ export default async function PaperLobbyPage({
                                 disabledReason={
                                     resumeByMode.has(SessionMode.MOCK)
                                         ? null
-                                        : readinessMessage
+                                        : launchDisabledReason
                                 }
+                                examId={selectedExamId}
                             />
                         </div>
                         {!paper.isArchived && (

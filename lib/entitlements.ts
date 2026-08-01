@@ -6,6 +6,10 @@ import {
     getPaperReadiness,
     type PaperReadiness,
 } from "@/lib/paper-readiness";
+import {
+    resolveSessionExamAttribution,
+    type SessionExamContextSource,
+} from "@/lib/session-attribution";
 
 export type SessionLaunchAccess =
     | { exists: false }
@@ -15,6 +19,8 @@ export type SessionLaunchAccess =
         questions: ResultQuestion[];
         readiness: PaperReadiness;
         durationMinutes: number;
+        examId: string | null;
+        examContextSource: SessionExamContextSource;
         allowed: true;
       }
     | {
@@ -23,6 +29,11 @@ export type SessionLaunchAccess =
         durationMinutes: number;
         allowed: false;
         bundleId: string;
+      }
+    | {
+        exists: true;
+        allowed: false;
+        error: "EXAM_CONTEXT_REQUIRED" | "INVALID_EXAM_CONTEXT";
       };
 
 /**
@@ -34,16 +45,18 @@ export type SessionLaunchAccess =
  */
 export async function getSessionLaunchAccess(
     userId: string,
-    paperId: string
+    paperId: string,
+    requestedExamId?: string | null
 ): Promise<SessionLaunchAccess> {
     const now = new Date();
     const paper = await prisma.questionPaper.findUnique({
         where: { id: paperId },
         select: {
             isArchived: true,
+            status: true,
             questions: {
                 where: { isArchived: false },
-                orderBy: { createdAt: "asc" },
+                orderBy: { position: "asc" },
                 select: {
                     id: true,
                     contentRevision: true,
@@ -65,6 +78,7 @@ export async function getSessionLaunchAccess(
             },
             examQuestionPaperLinks: {
                 select: {
+                    examId: true,
                     exam: {
                         select: {
                             duration: true,
@@ -103,13 +117,37 @@ export async function getSessionLaunchAccess(
         },
     });
 
-    if (!paper || paper.isArchived) return { exists: false };
+    if (!paper || paper.isArchived || paper.status !== "PUBLISHED") {
+        return { exists: false };
+    }
 
-    const bundles = paper.examQuestionPaperLinks.flatMap(
-        (link) => link.exam.bundles
+    const attribution = resolveSessionExamAttribution(
+        paper.examQuestionPaperLinks.map((link) => link.examId),
+        requestedExamId
     );
-    const durationMinutes =
-        paper.examQuestionPaperLinks[0]?.exam.duration ?? 60;
+    if (attribution.status === "requires_selection") {
+        return {
+            exists: true,
+            allowed: false,
+            error: "EXAM_CONTEXT_REQUIRED",
+        };
+    }
+    if (attribution.status === "invalid") {
+        return {
+            exists: true,
+            allowed: false,
+            error: "INVALID_EXAM_CONTEXT",
+        };
+    }
+
+    const selectedLink = attribution.examId
+        ? paper.examQuestionPaperLinks.find(
+            (link) => link.examId === attribution.examId
+        )
+        : null;
+
+    const bundles = selectedLink?.exam.bundles ?? [];
+    const durationMinutes = selectedLink?.exam.duration ?? 60;
     const readiness = getPaperReadiness(paper.questions);
     const uniqueBundles = [...new Map(bundles.map((bundle) => [bundle.id, bundle])).values()];
 
@@ -120,6 +158,8 @@ export async function getSessionLaunchAccess(
             questions: paper.questions,
             readiness,
             durationMinutes,
+            examId: attribution.examId,
+            examContextSource: attribution.source,
             allowed: true,
         };
     }

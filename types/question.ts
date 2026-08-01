@@ -21,8 +21,9 @@ export const questionSchema = z
             .min(0, "Enter as positive number e.g. 0.25")
             .default(0),
         explanation: z.string().optional().nullable(),
-        topicPath: z.string().optional().nullable(),
-        topicId: z.string().optional().nullable(),
+        topicPath: z.string().trim().max(1_000).optional().nullable(),
+        topicId: z.string().uuid().optional().nullable(),
+        syllabusEntryId: z.string().uuid().optional().nullable(),
         isCancelled: z.boolean().default(false),
 
         // MCQ / MSQ

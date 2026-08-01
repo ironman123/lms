@@ -50,6 +50,7 @@ model Exam {
   events             ExamEvent[]
   notifications      Notification[]
   statsContributions SessionStatsContribution[]
+  testSessions       TestSession[]
 }
 
 model Tag {
@@ -130,9 +131,10 @@ model ExamSyllabusEntry {
   weightage  String?
   createdAt  DateTime @default(now())
 
-  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id])
-  topic    Topic?   @relation(fields: [topicId], references: [id])
+  exam      Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  category  Category   @relation(fields: [categoryId], references: [id])
+  topic     Topic?     @relation(fields: [topicId], references: [id])
+  questions Question[]
 
   @@unique([examId, topicPath])
   @@index([examId, categoryId])
@@ -159,7 +161,9 @@ model QuestionPaper {
   type            QuestionPaperType @default(PYQ)
   year            Int?
   contentRevision Int               @default(1)
+  status          PaperStatus       @default(PUBLISHED)
   createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   isArchived      Boolean           @default(false)
   archivedAt      DateTime?
   archiveReason   String?
@@ -170,36 +174,44 @@ model QuestionPaper {
   testSessions           TestSession[]
   examQuestionPaperLinks ExamQuestionPaperLink[]
   moderationCases        ModerationCase[]
+  imports                PaperImport[]
 
   //@@unique([examId, title])
 }
 
 model Question {
-  id                String                @id @default(uuid())
+  id                String                 @id @default(uuid())
   content           String
   type              QuestionType
-  difficulty        Difficulty            @default(MEDIUM)
-  marks             Float                 @default(1.0)
-  negativeMarks     Float                 @default(0.0)
+  difficulty        Difficulty             @default(MEDIUM)
+  marks             Float                  @default(1.0)
+  negativeMarks     Float                  @default(0.0)
   explanation       String?
-  bloomsTaxonomy    Int                   @default(1)
-  isVisual          Boolean               @default(false)
+  bloomsTaxonomy    Int                    @default(1)
+  isVisual          Boolean                @default(false)
   discriminationIdx Float?
-  avgTimeSeconds    Int                   @default(60)
+  avgTimeSeconds    Int                    @default(60)
   //embedding         Unsupported("vector")?
   topicId           String?
   topicPath         String?
+  syllabusEntryId   String?
   paperId           String?
-  createdAt         DateTime              @default(now())
-  isArchived        Boolean               @default(false)
-  isCancelled       Boolean               @default(false)
+  position          Int
+  sourceNumber      Int?
+  importId          String?
+  createdAt         DateTime               @default(now())
+  isArchived        Boolean                @default(false)
+  isCancelled       Boolean                @default(false)
   archivedAt        DateTime?
   archiveReason     String?
-  contentRevision   Int                   @default(1)
-  paper             QuestionPaper?        @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  topic             Topic?                @relation(fields: [topicId], references: [id])
+  contentRevision   Int                    @default(1)
+  paper             QuestionPaper?         @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  topic             Topic?                 @relation(fields: [topicId], references: [id])
+  syllabusEntry     ExamSyllabusEntry?     @relation(fields: [syllabusEntryId], references: [id], onDelete: SetNull)
+  paperImport       PaperImport?           @relation(fields: [importId], references: [id], onDelete: SetNull)
   interactions      QuestionInteraction[]
   moderationCases   ModerationCase[]
+  mistakeEntries    MistakeNotebookEntry[]
 
   // MCQ + MSQ only
   options        Json? // OptionJSON[] | null for NUMERICAL/SUBJECTIVE
@@ -213,10 +225,36 @@ model Question {
   // SUBJECTIVE only
   modelAnswer String? // expected answer text for manual evaluation
 
+  @@unique([paperId, position])
   @@index([paperId])
   @@index([paperId, isArchived])
   @@index([paperId, isArchived, isCancelled])
   @@index([topicId])
+  @@index([syllabusEntryId])
+  @@index([importId])
+}
+
+model PaperImport {
+  id             String            @id @default(uuid())
+  paperId        String
+  createdById    String
+  source         PaperImportSource
+  status         PaperImportStatus @default(COMMITTED)
+  idempotencyKey String
+  sourceFileName String?
+  sourceHash     String?
+  questionCount  Int
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  committedAt    DateTime?
+
+  paper     QuestionPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  createdBy User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  questions Question[]
+
+  @@unique([paperId, idempotencyKey])
+  @@index([paperId, createdAt])
+  @@index([createdById, createdAt])
 }
 
 model QuestionInteraction {
@@ -291,11 +329,41 @@ model User {
   assignedCases      ModerationCase[]           @relation("ModerationCaseAssignee")
   moderationConfigs  ModerationConfig[]         @relation("ModerationConfigUpdatedBy")
   configAudits       ModerationConfigAudit[]
+  paperImports       PaperImport[]
+  appFeedback        AppFeedback[]              @relation("AppFeedbackReporter")
+  assignedFeedback   AppFeedback[]              @relation("AppFeedbackAssignee")
+  mistakeNotebook    MistakeNotebookEntry[]
+}
+
+model AppFeedback {
+  id            String              @id @default(uuid())
+  reporterId    String
+  assignedToId  String?
+  category      AppFeedbackCategory
+  status        AppFeedbackStatus   @default(NEW)
+  priority      AppFeedbackPriority @default(NORMAL)
+  title         String
+  message       String
+  pageUrl       String?
+  userAgent     String?
+  context       Json?
+  adminResponse String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  resolvedAt    DateTime?
+
+  reporter   User  @relation("AppFeedbackReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  assignedTo User? @relation("AppFeedbackAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([status, priority, updatedAt])
+  @@index([reporterId, createdAt])
+  @@index([assignedToId, status])
 }
 
 model TestSession {
   id                  String                    @id @default(uuid())
   mode                SessionMode               @default(PRACTICE)
+  purpose             SessionPurpose            @default(STANDARD)
   status              SessionStatus             @default(ACTIVE)
   startTime           DateTime                  @default(now())
   updatedAt           DateTime                  @updatedAt
@@ -321,17 +389,50 @@ model TestSession {
   completedAt         DateTime?
   userId              String
   paperId             String
+  examId              String?
+  examContextSource   SessionExamContextSource  @default(UNCLASSIFIED)
   activityLogs        ActivityLog[]
   interactions        QuestionInteraction[]
   paper               QuestionPaper             @relation(fields: [paperId], references: [id])
   user                User                      @relation(fields: [userId], references: [id])
+  exam                Exam?                     @relation(fields: [examId], references: [id], onDelete: SetNull)
   statsContribution   SessionStatsContribution?
   contentReports      ContentReport[]
+  mistakeEntries      MistakeNotebookEntry[]
 
   @@index([userId, status, startTime])
   @@index([status, expiresAt])
   @@index([paperId, status])
   @@index([userId, completedAt])
+  @@index([userId, examId, completedAt])
+  @@index([userId, purpose, status, startTime])
+}
+
+model MistakeNotebookEntry {
+  id                       String        @id @default(uuid())
+  userId                   String
+  questionId               String
+  lastSessionId            String?
+  status                   MistakeStatus @default(ACTIVE)
+  wrongCount               Int           @default(1)
+  correctAfterMistakeCount Int           @default(0)
+  firstWrongAt             DateTime
+  lastWrongAt              DateTime
+  lastReviewedAt           DateTime
+  nextReviewAt             DateTime?
+  repairedAt               DateTime?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question    Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  lastSession TestSession? @relation(fields: [lastSessionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, questionId])
+  @@index([userId, status, nextReviewAt])
+  @@index([userId, updatedAt])
+  @@index([questionId])
+  @@index([lastSessionId])
 }
 
 model ModerationConfig {
@@ -664,6 +765,11 @@ enum SessionMode {
   DIAGNOSTIC
 }
 
+enum SessionPurpose {
+  STANDARD
+  DAILY_REPAIR
+}
+
 enum SessionStatus {
   ACTIVE
   PAUSED
@@ -671,6 +777,19 @@ enum SessionStatus {
   ABANDONED
   EXPIRED
   INVALIDATED
+}
+
+enum SessionExamContextSource {
+  EXPLICIT_SELECTION
+  AUTO_SINGLE_LINK
+  STANDALONE
+  HISTORICAL_BACKFILL
+  UNCLASSIFIED
+}
+
+enum MistakeStatus {
+  ACTIVE
+  REPAIRED
 }
 
 enum InteractionGrade {
@@ -684,6 +803,46 @@ enum InteractionGrade {
 enum QuestionPaperType {
   PYQ
   MOCK
+}
+
+enum PaperStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum PaperImportSource {
+  JSON
+  OCR
+  MANUAL
+}
+
+enum PaperImportStatus {
+  COMMITTED
+  FAILED
+}
+
+enum AppFeedbackCategory {
+  BUG
+  UX
+  FEATURE_REQUEST
+  PERFORMANCE
+  ACCESSIBILITY
+  GENERAL
+}
+
+enum AppFeedbackStatus {
+  NEW
+  IN_REVIEW
+  PLANNED
+  RESOLVED
+  CLOSED
+}
+
+enum AppFeedbackPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
 
 enum PlanType {

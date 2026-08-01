@@ -20,6 +20,7 @@ import type {
 } from "@/lib/result-loader";
 import type { ResultGrade } from "@/lib/exam-results";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
+import { confidenceBand } from "@/lib/confidence-calibration";
 
 type Filter = "ALL" | ResultGrade | "FLAGGED";
 
@@ -311,7 +312,23 @@ function ReviewCard({
                     )}
                     {item.wasHinted && <span>Hint viewed</span>}
                     {item.confidenceLevel !== null && (
-                        <span>Confidence {item.confidenceLevel}%</span>
+                        <span
+                            className={cn(
+                                "rounded-full px-2 py-1 font-bold",
+                                item.grade === "INCORRECT" && item.confidenceLevel >= 75
+                                    ? "bg-destructive/10 text-destructive"
+                                    : item.grade === "CORRECT" && item.confidenceLevel <= 50
+                                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                        : "bg-muted text-muted-foreground"
+                            )}
+                        >
+                            {confidenceBand(item.confidenceLevel)} · {item.confidenceLevel}%
+                            {item.grade === "INCORRECT" && item.confidenceLevel >= 75
+                                ? " · confident mistake"
+                                : item.grade === "CORRECT" && item.confidenceLevel <= 50
+                                    ? " · hidden strength"
+                                    : ""}
+                        </span>
                     )}
                 </div>
             </div>

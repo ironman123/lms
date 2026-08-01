@@ -18,6 +18,7 @@ interface StartButtonProps {
     variant?: "default" | "outline";
     resumeSessionId?: string;
     disabledReason?: string | null;
+    examId?: string | null;
 }
 
 export default function StartExamButton({
@@ -27,6 +28,7 @@ export default function StartExamButton({
     variant = "default",
     resumeSessionId,
     disabledReason,
+    examId,
 }: StartButtonProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -54,7 +56,7 @@ export default function StartExamButton({
                 return;
             }
 
-            const result = await createExamSession(paperId, mode);
+            const result = await createExamSession(paperId, mode, examId);
             if (result.success) {
                 router.push(
                     `/exam/${paperId}/${mode.toLowerCase()}?sessionId=${result.sessionId}`

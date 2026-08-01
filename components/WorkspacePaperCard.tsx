@@ -1,9 +1,22 @@
 // components/WorkspacePaperCard.tsx
 "use client";
+import { deleteQuestionPaper } from "@/app/(main)/actions/paper-actions";
 import Link from "next/link";
-import { Clock, Bookmark, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, Clock, Loader2, Pencil, RotateCcw } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface WorkspacePaperCardProps {
     id: string | number;
@@ -12,13 +25,14 @@ interface WorkspacePaperCardProps {
     year?: string;
     pricing: string;
     examId: string;
+    sessionExamId?: string;
     examSlug: string;
     subject: string;
     duration: number;
     shift: string;
     color?: string;
     isAdmin?: boolean;
-    onDelete?: () => Promise<unknown>;
+    status?: "DRAFT" | "PUBLISHED";
     resumableSession?: {
         id: string;
         mode: "PRACTICE" | "MOCK";
@@ -28,67 +42,53 @@ interface WorkspacePaperCardProps {
 const WorkspacePaperCard = ({
     id, title, type, year, pricing,
     subject, duration, shift, color = "#0F172A",
-    isAdmin, onDelete, resumableSession,
+    isAdmin, status, examSlug, resumableSession, sessionExamId,
 }: WorkspacePaperCardProps) => {
 
     const [isPending, startTransition] = useTransition();
+    const router = useRouter();
 
-    const handleDelete = () => {
-        if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    const handleArchive = () => {
         startTransition(async () => {
             try
             {
-                await onDelete?.();
-                toast.success("Paper deleted.");
+                await deleteQuestionPaper(String(id), examSlug);
+                toast.success("Paper archived.", {
+                    description: "It can be restored from Archived Papers.",
+                });
+                router.refresh();
             } catch
             {
-                toast.error("Failed to delete paper.");
+                toast.error("Failed to archive paper.");
             }
         });
     };
 
     return (
         <article
-            className={`group relative w-85 flex flex-col p-6 bg-card border border-border/60 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl hover:border-transparent ${isPending ? "opacity-50 pointer-events-none" : ""}`}
+            className={`group relative flex w-full min-w-0 flex-col rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-border hover:shadow-xl sm:p-6 ${isPending ? "pointer-events-none opacity-60" : ""}`}
             style={{ borderTop: `4px solid ${color}` }}
         >
-            {/* Admin controls */}
-            {isAdmin && (
-                <div className="absolute top-3 right-13 z-30 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Link
-                        href={`/library/paper/${id}/edit`}
-                        onClick={e => e.stopPropagation()}
-                        className="p-1.5 bg-card border border-border rounded-lg text-muted-foreground hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
-                    >
-                        <Pencil size={13} />
-                    </Link>
-                    <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={isPending}
-                        className="p-1.5 bg-card border border-border rounded-lg text-muted-foreground hover:text-red-500 hover:border-red-200 transition-colors shadow-sm"
-                    >
-                        <Trash2 size={13} />
-                    </button>
-                </div>
-            )}
-
             {/* Header */}
-            <div className="flex justify-between items-start mb-5">
+            <div className="mb-5 flex items-start justify-between gap-3">
                 <div className="flex flex-wrap gap-1.5">
                     <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-muted text-muted-foreground">
                         {type}
                     </span>
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-muted text-muted-foreground">
-                        {year}
-                    </span>
-                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md ${pricing === "Free" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                    {year && (
+                        <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            {year}
+                        </span>
+                    )}
+                    <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${pricing === "Free" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-rose-500/10 text-rose-700 dark:text-rose-300"}`}>
                         {pricing}
                     </span>
                 </div>
-                <button className="p-1.5 rounded-full hover:bg-background transition-colors">
-                    <Bookmark size={16} strokeWidth={1.5} className="text-muted-foreground/60 group-hover:text-foreground transition-colors" />
-                </button>
+                {isAdmin && status === "DRAFT" && (
+                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                        Draft
+                    </span>
+                )}
             </div>
 
             {/* Content */}
@@ -102,7 +102,7 @@ const WorkspacePaperCard = ({
             </div>
 
             {/* Meta */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
+            <div className="mt-auto flex items-center justify-between border-t border-border/70 pt-4">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                     <Clock size={14} strokeWidth={1.5} className="opacity-60" />
                     <span className="text-xs font-semibold">{duration} min</span>
@@ -110,24 +110,73 @@ const WorkspacePaperCard = ({
                 <div className="text-xs font-bold text-muted-foreground">{shift}</div>
             </div>
 
-            <Link
-                href={
-                    resumableSession
-                        ? `/exam/${id}/${resumableSession.mode.toLowerCase()}?sessionId=${resumableSession.id}`
-                        : `/exam/${id}/lobby`
-                }
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-90"
-                style={{ backgroundColor: color }}
-            >
-                {resumableSession && <RotateCcw size={14} aria-hidden="true" />}
-                {resumableSession
-                    ? `Resume ${
-                        resumableSession.mode === "PRACTICE"
-                            ? "Practice"
-                            : "Mock"
-                    }`
-                    : "Start Paper"}
-            </Link>
+            {isAdmin && (
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border/70 pt-4">
+                    <Link
+                        href={`/library/paper/${id}/edit`}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`Edit ${title}`}
+                    >
+                        <Pencil size={16} aria-hidden="true" />
+                        Edit
+                    </Link>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <button
+                                type="button"
+                                disabled={isPending}
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/5 px-3 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:opacity-50 dark:text-rose-300"
+                                aria-label={`Archive ${title}`}
+                            >
+                                {isPending ? (
+                                    <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                                ) : (
+                                    <Archive size={16} aria-hidden="true" />
+                                )}
+                                {isPending ? "Archiving" : "Archive"}
+                            </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Archive this paper?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    “{title}” will disappear from the paper library and cannot be used for new sessions. Existing session history is preserved, and an administrator can restore the paper later.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Keep paper</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handleArchive}
+                                    className="bg-rose-600 text-white hover:bg-rose-700"
+                                >
+                                    Archive paper
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            )}
+
+            {!(isAdmin && status === "DRAFT") && (
+                <Link
+                    href={
+                        resumableSession
+                            ? `/exam/${id}/${resumableSession.mode.toLowerCase()}?sessionId=${resumableSession.id}`
+                            : `/exam/${id}/lobby${sessionExamId ? `?examId=${encodeURIComponent(sessionExamId)}` : ""}`
+                    }
+                    className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    style={{ backgroundColor: color }}
+                >
+                    {resumableSession && <RotateCcw size={14} aria-hidden="true" />}
+                    {resumableSession
+                        ? `Resume ${
+                            resumableSession.mode === "PRACTICE"
+                                ? "Practice"
+                                : "Mock"
+                        }`
+                        : "Start Paper"}
+                </Link>
+            )}
         </article>
     );
 };

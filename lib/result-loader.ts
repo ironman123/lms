@@ -50,8 +50,9 @@ export type ResultView = {
     sessionId: string;
     paperId: string;
     paperTitle: string;
-    exam: { name: string; slug: string } | null;
+    exam: { id: string; name: string; slug: string } | null;
     mode: string;
+    purpose: string;
     completedAt: string;
     summary: {
         scorePercent: number;
@@ -120,18 +121,13 @@ export async function loadCompletedResult(
             completedAt: { not: null },
         },
         include: {
+            exam: {
+                select: { id: true, name: true, slug: true },
+            },
             paper: {
                 include: {
                     questions: {
-                        orderBy: { createdAt: "asc" },
-                    },
-                    examQuestionPaperLinks: {
-                        select: {
-                            exam: {
-                                select: { name: true, slug: true },
-                            },
-                        },
-                        take: 1,
+                        orderBy: { position: "asc" },
                     },
                 },
             },
@@ -256,7 +252,7 @@ export async function loadCompletedResult(
     const cancelledCount = review.filter(
         (item) => item.unavailableReason === "CANCELLED"
     ).length;
-    const exam = session.paper.examQuestionPaperLinks[0]?.exam ?? null;
+    const exam = session.exam;
 
     return {
         sessionId: session.id,
@@ -264,6 +260,7 @@ export async function loadCompletedResult(
         paperTitle: session.paper.title,
         exam,
         mode: session.mode,
+        purpose: session.purpose,
         completedAt: (
             session.completedAt ??
             session.endTime ??

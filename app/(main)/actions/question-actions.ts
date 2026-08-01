@@ -12,54 +12,56 @@ import { questionSchema, QuestionFormInput } from "@/types/question";
 import { requireAdmin } from "@/lib/auth";
 import { handlePrismaError } from "@/lib/prisma";
 import { invalidateKey, invalidateTag } from "@/lib/cache";
+import {
+    buildQuestionData,
+    type ResolvedQuestionTopic,
+    type ValidatedQuestion,
+} from "@/lib/question-persistence";
 
-function buildQuestionData(validated: ReturnType<typeof questionSchema.parse>) {
-    const isOptionsType = validated.type === "MCQ" || validated.type === "MSQ";
-    const isNumerical = validated.type === "NUMERICAL";
-    const isSubjective = validated.type === "SUBJECTIVE";
-    const isCancelled = validated.isCancelled;
-
+async function resolveQuestionTopic(
+    tx: Prisma.TransactionClient,
+    paperId: string,
+    question: ValidatedQuestion
+): Promise<ResolvedQuestionTopic> {
+    if (!question.syllabusEntryId) {
+        return {
+            syllabusEntryId: null,
+            topicId: null,
+            topicPath: question.topicPath?.trim() || null,
+        };
+    }
+    const entry = await tx.examSyllabusEntry.findUnique({
+        where: { id: question.syllabusEntryId },
+        select: { id: true, examId: true, topicId: true, topicPath: true },
+    });
+    if (!entry) throw new Error("The selected syllabus topic no longer exists.");
+    const linkedExamCount = await tx.examQuestionPaperLink.count({
+        where: { paperId },
+    });
+    if (linkedExamCount > 0) {
+        const isAllowed = await tx.examQuestionPaperLink.findUnique({
+            where: { examId_paperId: { examId: entry.examId, paperId } },
+            select: { id: true },
+        });
+        if (!isAllowed) {
+            throw new Error("Select a topic belonging to one of this paper's exams.");
+        }
+    }
     return {
-        content: validated.content,
-        type: validated.type,
-        difficulty: validated.difficulty,
-        marks: isCancelled ? 0 : validated.marks,
-        negativeMarks: isCancelled ? 0 : validated.negativeMarks,
-        explanation: validated.explanation ?? null,
-        topicPath: validated.topicPath ?? null,
-        topicId: validated.topicId ?? null,
-        isCancelled,
-        options: isOptionsType
-            ? (validated.options as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-        correctOptions:
-            isCancelled ? [] : isOptionsType ? validated.correctOptions : [],
-        exactAnswer:
-            !isCancelled && isNumerical
-                ? (validated.exactAnswer ?? null)
-                : null,
-        answerMin:
-            !isCancelled && isNumerical
-                ? (validated.answerMin ?? null)
-                : null,
-        answerMax:
-            !isCancelled && isNumerical
-                ? (validated.answerMax ?? null)
-                : null,
-        modelAnswer:
-            !isCancelled && isSubjective
-                ? (validated.modelAnswer ?? null)
-                : null,
+        syllabusEntryId: entry.id,
+        topicId: entry.topicId,
+        topicPath: entry.topicPath,
     };
 }
 
 async function revalidateQuestionPaths(examSlug: string, paperId?: string) {
-    await invalidateTag("exams");
-    if (paperId)
-    {
-        await invalidateKey(`paper:${paperId}`);
-    }
-    revalidatePath(`/library/exam/${examSlug}`);
+    await Promise.all([
+        invalidateTag("exams"),
+        invalidateTag("papers"),
+        ...(paperId ? [invalidateKey(`paper:${paperId}`)] : []),
+    ]);
+    if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
+    revalidatePath("/library/paper");
     if (paperId) revalidatePath(`/library/paper/${paperId}`);
 }
 
@@ -70,140 +72,40 @@ export async function createQuestion(
 ) {
     await requireAdmin();
     const validated = questionSchema.parse(data);
-    let questionId: string;
+    let savedQuestion: { id: string; paperRevision: number } | undefined;
     try
     {
         const question = await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw(
+                Prisma.sql`SELECT "id" FROM "QuestionPaper" WHERE "id" = ${paperId} FOR UPDATE`
+            );
+            const highestPosition = await tx.question.aggregate({
+                where: { paperId },
+                _max: { position: true },
+            });
+            const resolvedTopic = await resolveQuestionTopic(tx, paperId, validated);
             const created = await tx.question.create({
-                data: { ...buildQuestionData(validated), paperId },
+                data: {
+                    ...buildQuestionData(validated, resolvedTopic),
+                    paperId,
+                    position: (highestPosition._max.position ?? -1) + 1,
+                },
                 select: { id: true },
             });
-            await tx.questionPaper.update({
+            const paper = await tx.questionPaper.update({
                 where: { id: paperId },
-                data: { contentRevision: { increment: 1 } },
+                data: { contentRevision: { increment: 1 }, status: "DRAFT" },
+                select: { contentRevision: true },
             });
-            return created;
+            return { id: created.id, paperRevision: paper.contentRevision };
         });
-        questionId = question.id;
+        savedQuestion = question;
     } catch (error)
     {
         handlePrismaError(error);
     }
     await revalidateQuestionPaths(examSlug, paperId);
-    return { success: true, id: questionId! };
-}
-
-export interface CreateQuestionBatchItem {
-    clientId: string;
-    data: QuestionFormInput;
-}
-
-export async function createQuestionBatch(
-    paperId: string,
-    examSlug: string,
-    items: CreateQuestionBatchItem[]
-): Promise<{
-    success: true;
-    questions: Array<{
-        clientId: string;
-        id: string;
-    }>;
-}> {
-    await requireAdmin();
-
-    if (!paperId.trim())
-    {
-        throw new Error("Question paper ID is required.");
-    }
-
-    if (items.length === 0)
-    {
-        return {
-            success: true,
-            questions: [],
-        };
-    }
-
-    if (items.length > 25)
-    {
-        throw new Error(
-            "A question batch cannot contain more than 25 questions."
-        );
-    }
-
-    // Validate every question before opening the transaction.
-    const validatedItems = items.map((item) => ({
-        clientId: item.clientId,
-        data: questionSchema.parse(item.data),
-    }));
-
-    let createdQuestions: Array<{
-        clientId: string;
-        id: string;
-    }> = [];
-
-    try
-    {
-        createdQuestions = await prisma.$transaction(
-            async (tx) => {
-                const created: Array<{
-                    clientId: string;
-                    id: string;
-                }> = [];
-
-                for (const item of validatedItems)
-                {
-                    const question =
-                        await tx.question.create({
-                            data: {
-                                ...buildQuestionData(
-                                    item.data
-                                ),
-                                paperId,
-                            },
-                            select: {
-                                id: true,
-                            },
-                        });
-
-                    created.push({
-                        clientId: item.clientId,
-                        id: question.id,
-                    });
-                }
-
-                // Increment once for the whole batch,
-                // not once per question.
-                await tx.questionPaper.update({
-                    where: {
-                        id: paperId,
-                    },
-                    data: {
-                        contentRevision: {
-                            increment: 1,
-                        },
-                    },
-                });
-
-                return created;
-            }
-        );
-    } catch (error)
-    {
-        handlePrismaError(error);
-        throw error;
-    }
-
-    // Revalidate once for the complete batch.
-    await revalidateQuestionPaths(
-        examSlug,
-        paperId
-    );
-
-    return {
-        success: true,
-        questions: createdQuestions,
-    };
+    return { success: true, ...savedQuestion! };
 }
 
 export async function updateQuestion(
@@ -215,13 +117,15 @@ export async function updateQuestion(
 ) {
     const admin = await requireAdmin();
     const validated = questionSchema.parse(data);
+    let paperRevision: number | undefined;
     try
     {
-        await prisma.$transaction(async (tx) => {
+        paperRevision = await prisma.$transaction(async (tx) => {
+            const resolvedTopic = await resolveQuestionTopic(tx, paperId, validated);
             const question = await tx.question.update({
                 where: { id: questionId, paperId },
                 data: {
-                    ...buildQuestionData(validated),
+                    ...buildQuestionData(validated, resolvedTopic),
                     contentRevision: { increment: 1 },
                     isArchived: false,
                     archivedAt: null,
@@ -229,9 +133,10 @@ export async function updateQuestion(
                 },
                 select: { contentRevision: true },
             });
-            await tx.questionPaper.update({
+            const paper = await tx.questionPaper.update({
                 where: { id: paperId },
-                data: { contentRevision: { increment: 1 } },
+                data: { contentRevision: { increment: 1 }, status: "DRAFT" },
+                select: { contentRevision: true },
             });
             const activeCases = await tx.moderationCase.findMany({
                 where: {
@@ -298,13 +203,14 @@ export async function updateQuestion(
                     },
                 });
             }
+            return paper.contentRevision;
         });
     } catch (error)
     {
         handlePrismaError(error);
     }
     await revalidateQuestionPaths(examSlug, paperId);
-    return { success: true };
+    return { success: true, paperRevision: paperRevision! };
 }
 
 export async function deleteQuestion(
@@ -313,11 +219,12 @@ export async function deleteQuestion(
     examSlug: string
 ) {
     const admin = await requireAdmin();
+    let paperRevision: number | undefined;
     try
     {
         // Keep the row because active and completed sessions can reference it.
         // New attempts and the paper builder exclude archived questions.
-        await prisma.$transaction(async (tx) => {
+        paperRevision = await prisma.$transaction(async (tx) => {
             const archivedAt = new Date();
             await tx.question.update({
                 where: { id: questionId, paperId },
@@ -328,9 +235,10 @@ export async function deleteQuestion(
                     contentRevision: { increment: 1 },
                 },
             });
-            await tx.questionPaper.update({
+            const paper = await tx.questionPaper.update({
                 where: { id: paperId },
-                data: { contentRevision: { increment: 1 } },
+                data: { contentRevision: { increment: 1 }, status: "DRAFT" },
+                select: { contentRevision: true },
             });
             const activeCases = await tx.moderationCase.findMany({
                 where: {
@@ -376,11 +284,12 @@ export async function deleteQuestion(
                     ]),
                 });
             }
+            return paper.contentRevision;
         });
     } catch (error)
     {
         handlePrismaError(error);
     }
     await revalidateQuestionPaths(examSlug, paperId);
-    return { success: true };
+    return { success: true, paperRevision: paperRevision! };
 }

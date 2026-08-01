@@ -26,23 +26,10 @@ export default async function NewPaperPage({ params }: PageProps) {
     //     select: { id: true, name: true, slug: true }
     // });
 
-    const [exam, syllabusEntries] = await Promise.all([
-        prisma.exam.findUnique({
+    const exam = await prisma.exam.findUnique({
             where: { slug: examSlug },
             select: { id: true, name: true, slug: true }
-        }),
-        prisma.examSyllabusEntry.findMany({
-            where: { exam: { slug: examSlug } },
-            select: {
-                id: true,
-                topicPath: true,
-                categoryId: true,
-                category: { select: { name: true } },
-                topicId: true,
-            },
-            orderBy: { topicPath: "asc" },
-        }),
-    ]);
+        });
 
     if (!exam) notFound();
 
@@ -62,7 +49,6 @@ export default async function NewPaperPage({ params }: PageProps) {
             <PaperBuilder
                 examId={exam.id}
                 examSlug={exam.slug}
-                syllabusEntries={syllabusEntries}
                 exams={allExams}
             />
         </div >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle, memo } from "react";
 import { toast } from "sonner";
 import {
     Loader2, Plus, Trash2, CheckCircle2, Circle, X,
@@ -29,6 +29,7 @@ export interface QuestionCardProps {
     onUpdate: (updated: Question) => void;
     onDelete: () => void;
     onOpenTopicPicker: (clientId: string) => void;
+    onPaperRevisionChange?: (revision: number) => void;
     wrapperRef?: (el: HTMLDivElement | null) => void;
     moderationCaseId?: string;
 }
@@ -89,6 +90,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         onUpdate,
         onDelete,
         onOpenTopicPicker,
+        onPaperRevisionChange,
         wrapperRef,
         moderationCaseId,
     }, ref) => {
@@ -209,6 +211,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                     explanation: q.explanation ?? null,
                     topicPath: q.topicPath || null,
                     topicId: q.topicId || null,
+                    syllabusEntryId: q.syllabusEntryId || null,
                     isCancelled: q.isCancelled,
 
                     // MCQ / MSQ
@@ -236,13 +239,14 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 
                 if (q.id)
                 {
-                    await updateQuestion(
+                    const result = await updateQuestion(
                         q.id,
                         paperId!,
                         examSlug,
                         payload,
                         moderationCaseId
                     );
+                    onPaperRevisionChange?.(result.paperRevision);
                     onUpdate({ ...q, saved: true });
                     toast.success(
                         moderationCaseId
@@ -256,6 +260,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         examSlug,
                         payload
                     );
+                    onPaperRevisionChange?.(result.paperRevision);
                     onUpdate({ ...q, id: result.id, saved: true });
                     toast.success(`Q${q.number} saved`);
                 }
@@ -280,7 +285,8 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                 if (!confirm(`Delete question ${q.number}?`)) return;
                 try
                 {
-                    await deleteQuestion(q.id, paperId as string, examSlug);
+                    const result = await deleteQuestion(q.id, paperId as string, examSlug);
+                    onPaperRevisionChange?.(result.paperRevision);
                 } catch
                 {
                     toast.error("Failed to delete");
@@ -670,4 +676,13 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 );
 
 QuestionCard.displayName = "QuestionCard";
-export default QuestionCard;
+const MemoizedQuestionCard = memo(
+    QuestionCard,
+    (previous, next) =>
+        previous.q === next.q &&
+        previous.paperId === next.paperId &&
+        previous.examSlug === next.examSlug &&
+        previous.moderationCaseId === next.moderationCaseId
+);
+MemoizedQuestionCard.displayName = "MemoizedQuestionCard";
+export default MemoizedQuestionCard;

@@ -1110,6 +1110,7 @@ async function seedQuestionPapers() {
             questionsToInsert.push({
                 id: questionId,
                 paperId,
+                position: questionsToInsert.length,
                 content: q.content.trim(),
                 type: qType,
                 explanation: q.explanation ?? null,

@@ -19,7 +19,7 @@ const sessionPaperInclude = {
     },
     questions: {
         where: { isArchived: false },
-        orderBy: { createdAt: "asc" },
+        orderBy: { position: "asc" },
     },
 } satisfies Prisma.QuestionPaperInclude;
 

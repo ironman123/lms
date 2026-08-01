@@ -26,7 +26,7 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
             include: {
                 questions: {
                     where: { isArchived: false },
-                    orderBy: { createdAt: "asc" },
+                    orderBy: { position: "asc" },
                 },
                 examQuestionPaperLinks: {
                     include: { exam: true },
@@ -49,20 +49,6 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
 
     const linkedExamIds = paper.examQuestionPaperLinks.map(l => l.examId);
 
-    const syllabusEntries = currentExam
-        ? await prisma.examSyllabusEntry.findMany({
-            where: { examId: currentExam.id },
-            select: {
-                id: true,
-                topicPath: true,
-                categoryId: true,
-                category: { select: { name: true } },
-                topicId: true,
-            },
-            orderBy: { topicPath: "asc" },
-        })
-        : [];
-
     // Questions belong to QuestionPaper directly — not through the link table
     const initialQuestions: Question[] = paper.questions.map((q, i) => {
         const options = (q.options ?? []) as OptionJSON[];
@@ -80,6 +66,7 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
             isCancelled: q.isCancelled,
             topicPath: q.topicPath ?? "",
             topicId: q.topicId ?? "",
+            syllabusEntryId: q.syllabusEntryId ?? "",
             categoryId: "",
             saved: true,
 
@@ -123,9 +110,8 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
             <PaperBuilder
                 examId={currentExam?.id}
                 examSlug={currentExam?.slug ?? ""}
-                syllabusEntries={syllabusEntries}
                 exams={allExams}
-                initialPaper={{ id: paper.id, title: paper.title, year: paper.year, type: paper.type }}
+                initialPaper={{ id: paper.id, title: paper.title, year: paper.year, type: paper.type, contentRevision: paper.contentRevision, status: paper.status }}
                 initialQuestions={initialQuestions}
                 linkedExamIds={linkedExamIds}
                 moderationCaseId={moderationCaseId}

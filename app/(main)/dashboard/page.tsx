@@ -2,7 +2,7 @@
 import { getDashboardOverview } from "@/app/(main)/actions/dashboard-actions";
 import StatCard from "@/components/StatCard";
 import ExamPerformanceCard from "@/components/ExamPerformanceCard";
-import { Target, Trophy, Zap, BookOpen, Clock, ArrowRight, Flame } from "lucide-react";
+import { Target, Trophy, Zap, BookOpen, Clock, ArrowRight, Flame, NotebookTabs, Wrench, Gauge } from "lucide-react";
 import Link from "next/link";
 
 
@@ -31,7 +31,8 @@ export default async function DashboardPage() {
 
     const { totalTests, totalQuestions, avgScore, accuracy, examStats,
         timeSpentStr, recentActivity, weakSubject, currentStreak,
-        typeStats, diffStats, heatmapData
+        typeStats, diffStats, heatmapData, activeMistakes, dueRepairs,
+        confidenceCalibration
     } = await getDashboardOverview();
 
     return (
@@ -72,6 +73,102 @@ export default async function DashboardPage() {
                     <StatCard icon={BookOpen} label="Questions Solved" value={totalQuestions} badge="Count" color="orange" />
                     <StatCard icon={Clock} label="Time Studied" value={timeSpentStr} badge="Total" color="rose" />
                 </div>
+
+                <Link
+                    href="/dashboard/repair"
+                    className="group flex flex-col gap-5 rounded-3xl border border-violet-500/25 bg-gradient-to-br from-violet-500/10 via-card to-card p-6 shadow-sm transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div className="flex items-start gap-4">
+                        <div className="rounded-2xl bg-violet-500/15 p-3 text-violet-600 dark:text-violet-300">
+                            <Wrench size={24} aria-hidden="true" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest text-violet-600 dark:text-violet-300">Today’s Repair</p>
+                            <h2 className="mt-1 text-xl font-black text-foreground">
+                                {dueRepairs === 0 ? "You’re caught up" : `${dueRepairs} question${dueRepairs === 1 ? "" : "s"} due today`}
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">Focused sets of up to 10 due mistakes, scheduled with spaced follow-ups.</p>
+                        </div>
+                    </div>
+                    <span className="inline-flex items-center gap-2 self-start rounded-xl bg-foreground px-4 py-2 text-sm font-bold text-background sm:self-auto">
+                        Open repair queue <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                    </span>
+                </Link>
+
+                <Link
+                    href="/dashboard/mistakes"
+                    className="group flex flex-col gap-5 rounded-3xl border border-rose-500/25 bg-gradient-to-br from-rose-500/10 via-card to-card p-6 shadow-sm transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div className="flex items-start gap-4">
+                        <div className="rounded-2xl bg-rose-500/15 p-3 text-rose-600 dark:text-rose-300">
+                            <NotebookTabs size={24} aria-hidden="true" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest text-rose-600 dark:text-rose-300">
+                                Automatic Mistake Notebook
+                            </p>
+                            <h2 className="mt-1 text-xl font-black text-foreground">
+                                {activeMistakes === 0
+                                    ? "No active mistakes"
+                                    : `${activeMistakes} question${activeMistakes === 1 ? "" : "s"} to repair`}
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Wrong answers are captured automatically and leave the active list after two later correct attempts.
+                            </p>
+                        </div>
+                    </div>
+                    <span className="inline-flex items-center gap-2 self-start rounded-xl bg-foreground px-4 py-2 text-sm font-bold text-background sm:self-auto">
+                        Open notebook <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                    </span>
+                </Link>
+
+                <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                    <div className="flex items-start gap-4">
+                        <div className="rounded-2xl bg-sky-500/15 p-3 text-sky-600 dark:text-sky-300">
+                            <Gauge size={24} aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-black uppercase tracking-widest text-sky-600 dark:text-sky-300">Confidence calibration</p>
+                            {!confidenceCalibration ? (
+                                <>
+                                    <h2 className="mt-1 text-xl font-black text-foreground">No confidence data yet</h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">Use Guess, Unsure, Sure, or Certain while answering. Your dashboard will compare belief with actual accuracy.</p>
+                                </>
+                            ) : (
+                                <>
+                                    <h2 className="mt-1 text-xl font-black text-foreground">
+                                        {confidenceCalibration.status === "CALIBRATED"
+                                            ? "Your confidence is well calibrated"
+                                            : confidenceCalibration.status === "OVERCONFIDENT"
+                                                ? "Confidence is running ahead of accuracy"
+                                                : "You know more than you think"}
+                                    </h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Based on {confidenceCalibration.sampleCount} rated answers. Average confidence {Math.round(confidenceCalibration.averageConfidence)}%; actual accuracy {Math.round(confidenceCalibration.accuracy)}%.
+                                    </p>
+                                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        <div className="rounded-xl bg-background p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Gap</p>
+                                            <p className="mt-1 text-lg font-black text-foreground">{confidenceCalibration.calibrationGap > 0 ? "+" : ""}{Math.round(confidenceCalibration.calibrationGap)} pts</p>
+                                        </div>
+                                        <div className="rounded-xl bg-background p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Confident mistakes</p>
+                                            <p className="mt-1 text-lg font-black text-rose-600 dark:text-rose-300">{confidenceCalibration.highConfidenceWrong}</p>
+                                        </div>
+                                        <div className="rounded-xl bg-background p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Hidden strengths</p>
+                                            <p className="mt-1 text-lg font-black text-emerald-700 dark:text-emerald-300">{confidenceCalibration.lowConfidenceCorrect}</p>
+                                        </div>
+                                        <div className="rounded-xl bg-background p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Rated</p>
+                                            <p className="mt-1 text-lg font-black text-foreground">{confidenceCalibration.sampleCount}</p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </section>
 
                 {/* 🔥 NEW: 30-Day Consistency Heatmap */}
                 <div className="bg-card border border-border rounded-3xl p-6">

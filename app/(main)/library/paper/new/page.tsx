@@ -12,17 +12,6 @@ export default async function NewPaperPage() {
         select: { id: true, name: true },
         orderBy: { createdAt: 'desc' }
     });
-    const globalSyllabus = await prisma.examSyllabusEntry.findMany({
-        distinct: ['topicPath'],
-        select: {
-            id: true,
-            topicPath: true,
-            categoryId: true,
-            category: { select: { name: true } },
-            topicId: true,
-        },
-        orderBy: { topicPath: "asc" },
-    });
 
     return (
         <div className="min-h-screen w-full bg-background" >
@@ -38,7 +27,6 @@ export default async function NewPaperPage() {
 
             {/* Use the validated data from the database query to feed your builder */}
             <PaperBuilder
-                syllabusEntries={globalSyllabus}
                 exams={allExams}
             />
         </div >

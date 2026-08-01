@@ -9,6 +9,7 @@ import {
     getEffectiveStreak,
     toAppDateKey,
 } from "@/lib/date-utils";
+import { calculateConfidenceCalibration } from "@/lib/confidence-calibration";
 
 type AccMap = Record<string, { c: number; t: number }>;
 
@@ -27,6 +28,9 @@ export async function getDashboardOverview() {
         heatmapSessions,
         sessionSummary,
         gradeSummary,
+        activeMistakes,
+        dueRepairs,
+        confidenceBuckets,
     ] =
         await Promise.all([
             // 1. Scalar aggregates + JSON breakdowns — 1 row
@@ -43,19 +47,16 @@ export async function getDashboardOverview() {
 
             // 3. Last 3 sessions for "Recent Activity" — title, score, date only
             prisma.testSession.findMany({
-                where: { userId: user.id, status: "COMPLETED" },
+                where: { userId: user.id, status: "COMPLETED", purpose: "STANDARD" },
                 select: {
                     id: true,
                     paperId: true,
                     startTime: true,
                     totalScore: true,
+                    exam: { select: { slug: true } },
                     paper: {
                         select: {
                             title: true,
-                            examQuestionPaperLinks: {
-                                select: { exam: { select: { slug: true } } },
-                                take: 1,
-                            },
                         },
                     },
                 },
@@ -68,6 +69,7 @@ export async function getDashboardOverview() {
                 where: {
                     userId: user.id,
                     status: "COMPLETED",
+                    purpose: "STANDARD",
                     startTime: { gte: thirtyDaysAgo },
                 },
                 select: {
@@ -79,7 +81,7 @@ export async function getDashboardOverview() {
             }),
 
             prisma.testSession.aggregate({
-                where: { userId: user.id, status: "COMPLETED" },
+                where: { userId: user.id, status: "COMPLETED", purpose: "STANDARD" },
                 _count: { _all: true },
                 _sum: {
                     totalScore: true,
@@ -91,8 +93,35 @@ export async function getDashboardOverview() {
                 by: ["grade"],
                 where: {
                     userId: user.id,
-                    session: { status: "COMPLETED" },
+                    session: { status: "COMPLETED", purpose: "STANDARD" },
                     grade: { in: ["CORRECT", "INCORRECT"] },
+                },
+                _count: { _all: true },
+            }),
+            prisma.mistakeNotebookEntry.count({
+                where: { userId: user.id, status: "ACTIVE" },
+            }),
+            prisma.mistakeNotebookEntry.count({
+                where: {
+                    userId: user.id,
+                    status: "ACTIVE",
+                    nextReviewAt: { lte: new Date() },
+                    question: {
+                        isArchived: false,
+                        isCancelled: false,
+                        paper: {
+                            is: { isArchived: false, status: "PUBLISHED" },
+                        },
+                    },
+                },
+            }),
+            prisma.questionInteraction.groupBy({
+                by: ["confidenceLevel", "isCorrect"],
+                where: {
+                    userId: user.id,
+                    confidenceLevel: { not: null },
+                    grade: { in: ["CORRECT", "INCORRECT"] },
+                    session: { status: "COMPLETED" },
                 },
                 _count: { _all: true },
             }),
@@ -120,6 +149,17 @@ export async function getDashboardOverview() {
                 stats?.lastActiveDate
             )
             : 0;
+    const confidenceCalibration = calculateConfidenceCalibration(
+        confidenceBuckets.flatMap((bucket) =>
+            bucket.confidenceLevel === null
+                ? []
+                : [{
+                    confidenceLevel: bucket.confidenceLevel,
+                    isCorrect: bucket.isCorrect,
+                    count: bucket._count._all,
+                }]
+        )
+    );
 
     const totalSecs = sessionSummary._sum.timeTakenSecs ?? 0;
     const totalHours = Math.floor(totalSecs / 3600);
@@ -155,7 +195,7 @@ export async function getDashboardOverview() {
         id: s.id,
         paperId: s.paperId,
         title: s.paper.title,
-        examSlug: s.paper.examQuestionPaperLinks[0]?.exam?.slug,
+        examSlug: s.exam?.slug,
         date: s.startTime.toLocaleDateString("en-IN", {
             timeZone: APP_TIME_ZONE,
             month: "short",
@@ -214,6 +254,9 @@ export async function getDashboardOverview() {
         heatmapData,
         typeStats,
         diffStats,
+        activeMistakes,
+        dueRepairs,
+        confidenceCalibration,
     };
 }
 
@@ -228,7 +271,7 @@ export async function getExamDashboard(examId: string) {
             where: {
                 userId: user.id,
                 status: "COMPLETED",
-                paper: { examQuestionPaperLinks: { some: { examId } } },
+                examId,
             },
             select: {
                 id: true,

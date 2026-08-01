@@ -5,15 +5,15 @@ import {
     useState,
     useTransition,
     useRef,
+    useEffect,
 } from "react";
 import {
     Sparkles, Loader2, Plus, CheckCircle2,
     FileText, BookOpen, AlertCircle, Save, Search, X, FileJson, Download
 } from "lucide-react";
 import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-paper";
-import { createQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
-import { createQuestionBatch } from "@/app/(main)/actions/question-actions";
-import type { QuestionFormInput } from "@/types/question";
+import { createQuestionPaper, publishQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
+import { commitPaperImportAction } from "@/app/(main)/actions/paper-import-actions";
 import { toast } from "sonner";
 import { QuestionPaperType } from "@prisma/client";
 import QuestionCard, { type QuestionCardHandle } from "./QuestionCard";
@@ -46,7 +46,10 @@ export interface Question {
     saved: boolean;
     topicId: string;
     topicPath: string;
+    syllabusEntryId: string;
     categoryId: string;
+    importSource?: "JSON" | "OCR" | "MANUAL";
+    sourceNumber?: number;
 
     // MCQ / MSQ
     options: Option[];
@@ -73,9 +76,8 @@ export interface PaperBuilderProps {
     examId?: string;
     examSlug?: string;
     categories?: { id: string; name: string }[];
-    syllabusEntries?: SyllabusEntry[];
     exams?: { id: string; name: string }[];
-    initialPaper?: { id: string; title: string; year: number | null; type: QuestionPaperType };
+    initialPaper?: { id: string; title: string; year: number | null; type: QuestionPaperType; contentRevision?: number; status?: "DRAFT" | "PUBLISHED" };
     initialQuestions?: Question[];
     linkedExamIds?: string[];
     moderationCaseId?: string;
@@ -119,6 +121,8 @@ function questionToSavePayload(
             question.topicPath || null,
         topicId:
             question.topicId || null,
+        syllabusEntryId:
+            question.syllabusEntryId || null,
         isCancelled:
             question.isCancelled,
 
@@ -175,7 +179,10 @@ function emptyQuestion(number: number): Question {
         saved: false,
         topicId: "",
         topicPath: "",
+        syllabusEntryId: "",
         categoryId: "",
+        importSource: "MANUAL",
+        sourceNumber: number,
         options: [
             { index: 0, label: "A", text: "" },
             { index: 1, label: "B", text: "" },
@@ -222,7 +229,10 @@ function parsedToQuestion(pq: ParsedQuestion, index: number): Question {
         isCancelled: false,
         topicId: "",
         topicPath: "",
+        syllabusEntryId: "",
         categoryId: "",
+        importSource: "OCR",
+        sourceNumber: pq.number || index + 1,
         saved: false,
 
         options,
@@ -334,53 +344,83 @@ function ExamPicker({
 
 function SharedTopicPicker({
     question,
-    entries,
+    examIds,
+    matchingQuestionCount,
     onSelect,
     onClose,
 }: {
     question: Question;
-    entries: SyllabusEntry[];
+    examIds: string[];
+    matchingQuestionCount: number;
     onSelect: (
+        syllabusEntryId: string,
         topicId: string,
         topicPath: string,
-        categoryId: string
+        categoryId: string,
+        applyToMatching: boolean
     ) => void;
     onClose: () => void;
 }) {
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState(
+        question.topicPath.split(">").pop()?.trim() ?? ""
+    );
+    const [applyToMatching, setApplyToMatching] = useState(
+        matchingQuestionCount > 1
+    );
+    const [filteredTopics, setFilteredTopics] = useState<SyllabusEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
 
     const normalizedQuery = query.trim().toLowerCase();
 
-    const filteredTopics = useMemo(() => {
-        if (normalizedQuery.length < 2)
-        {
-            return [];
+    useEffect(() => {
+        if (normalizedQuery.length < 2) {
+            return;
         }
-
-        const matches: SyllabusEntry[] = [];
-
-        for (const entry of entries)
-        {
-            if (
-                entry.topicPath
-                    .toLowerCase()
-                    .includes(normalizedQuery)
-            )
-            {
-                matches.push(entry);
-
-                if (matches.length >= 30)
-                {
-                    break;
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setIsLoading(true);
+            setSearchError(null);
+            const params = new URLSearchParams({ q: query.trim() });
+            examIds.forEach((examId) => params.append("examId", examId));
+            try {
+                const response = await fetch(`/api/admin/topics/search?${params}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) throw new Error("Topic search failed.");
+                const payload = (await response.json()) as {
+                    results: SyllabusEntry[];
+                };
+                setFilteredTopics(payload.results);
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    setSearchError(
+                        error instanceof Error ? error.message : "Topic search failed."
+                    );
                 }
+            } finally {
+                if (!controller.signal.aborted) setIsLoading(false);
             }
-        }
+        }, 250);
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [examIds, normalizedQuery, query]);
 
-        return matches;
-    }, [entries, normalizedQuery]);
+    useEffect(() => {
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", closeOnEscape);
+        return () => window.removeEventListener("keydown", closeOnEscape);
+    }, [onClose]);
 
     return (
         <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="topic-picker-title"
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget)
@@ -392,7 +432,7 @@ function SharedTopicPicker({
             <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
                 <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                     <div className="min-w-0">
-                        <p className="text-sm font-black text-foreground">
+                        <p id="topic-picker-title" className="text-sm font-black text-foreground">
                             Choose Topic
                         </p>
 
@@ -434,9 +474,15 @@ function SharedTopicPicker({
                         <input
                             type="search"
                             value={query}
-                            onChange={(event) =>
-                                setQuery(event.target.value)
-                            }
+                            onChange={(event) => {
+                                const value = event.target.value;
+                                setQuery(value);
+                                if (value.trim().length < 2) {
+                                    setFilteredTopics([]);
+                                    setSearchError(null);
+                                    setIsLoading(false);
+                                }
+                            }}
                             placeholder="Type at least 2 characters..."
                             autoComplete="off"
                             autoFocus
@@ -446,7 +492,12 @@ function SharedTopicPicker({
                         {query && (
                             <button
                                 type="button"
-                                onClick={() => setQuery("")}
+                                onClick={() => {
+                                    setQuery("");
+                                    setFilteredTopics([]);
+                                    setSearchError(null);
+                                    setIsLoading(false);
+                                }}
                                 className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                                 aria-label="Clear topic search"
                             >
@@ -469,11 +520,26 @@ function SharedTopicPicker({
                         )}
 
                         {normalizedQuery.length >= 2 &&
-                            filteredTopics.length === 0 && (
+                            !isLoading &&
+                            filteredTopics.length === 0 &&
+                            !searchError && (
                                 <p className="px-4 py-8 text-center text-xs text-muted-foreground">
                                     No matching topics found.
                                 </p>
                             )}
+
+                        {isLoading && (
+                            <p className="flex items-center justify-center gap-2 px-4 py-8 text-xs text-muted-foreground">
+                                <Loader2 size={14} className="animate-spin" />
+                                Searching the syllabus…
+                            </p>
+                        )}
+
+                        {searchError && (
+                            <p className="px-4 py-8 text-center text-xs text-destructive">
+                                {searchError}
+                            </p>
+                        )}
 
                         {normalizedQuery.length >= 2 &&
                             filteredTopics.map((entry) => (
@@ -483,9 +549,11 @@ function SharedTopicPicker({
                                     data-topic-result
                                     onClick={() =>
                                         onSelect(
+                                            entry.id,
                                             entry.topicId ?? "",
                                             entry.topicPath,
-                                            entry.categoryId
+                                            entry.categoryId,
+                                            applyToMatching
                                         )
                                     }
                                     className="block w-full border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-accent"
@@ -508,11 +576,36 @@ function SharedTopicPicker({
                                     )}
                                 </button>
                             ))}
+
+                        {normalizedQuery.length >= 2 && !isLoading && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    onSelect("", "", query.trim(), "", applyToMatching)
+                                }
+                                className="block w-full border-t border-border bg-muted/35 px-4 py-3 text-left text-xs font-bold text-foreground hover:bg-muted"
+                            >
+                                Use “{query.trim()}” as a custom topic
+                            </button>
+                        )}
                     </div>
 
                     <p className="mt-2 text-[10px] text-muted-foreground">
                         A maximum of 30 matching topics is displayed.
                     </p>
+                    {matchingQuestionCount > 1 && (
+                        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/25 p-3 text-xs text-foreground">
+                            <input
+                                type="checkbox"
+                                checked={applyToMatching}
+                                onChange={(event) => setApplyToMatching(event.target.checked)}
+                                className="mt-0.5 size-4"
+                            />
+                            <span>
+                                Apply this topic to all {matchingQuestionCount} questions that currently use the same imported topic text.
+                            </span>
+                        </label>
+                    )}
                 </div>
             </div>
         </div>
@@ -605,7 +698,6 @@ function QuestionGrid({
 export default function PaperBuilder({
     examId,
     examSlug = "",
-    syllabusEntries = [],
     exams = [],
     initialPaper,
     linkedExamIds,
@@ -614,15 +706,19 @@ export default function PaperBuilder({
     reportedQuestionId,
 }: PaperBuilderProps) {
 
-    console.count("PaperBuilder render");
-
     const [title, setTitle] = useState(initialPaper?.title ?? "");
     const [year, setYear] = useState<number | "">(initialPaper?.year ?? "");
     const [type, setType] = useState<QuestionPaperType>(initialPaper?.type ?? QuestionPaperType.MOCK);
     const [questions, setQuestions] = useState<Question[]>(initialQuestions);
     const [topicPickerQuestionId, setTopicPickerQuestionId,] = useState<string | null>(null);
     const [paperId, setPaperId] = useState<string | null>(initialPaper?.id ?? null);
+    const [paperRevision, setPaperRevision] = useState<number | undefined>(
+        initialPaper?.contentRevision
+    );
     const [paperSaved, setPaperSaved] = useState(!!initialPaper);
+    const [paperStatus, setPaperStatus] = useState<"DRAFT" | "PUBLISHED">(
+        initialPaper?.status ?? "DRAFT"
+    );
     //const [paperSaved, setPaperSaved] = useState(false);
 
     // 🔥 Added the state for our new Multi-Select ExamPicker!
@@ -637,6 +733,7 @@ export default function PaperBuilder({
         details: string[];
     } | null>(null);
     const [isSavingPaper, startSavingPaper] = useTransition();
+    const [isPublishing, startPublishing] = useTransition();
 
     const savedCount = questions.filter(q => q.saved).length;
     const totalCount = questions.length;
@@ -645,6 +742,11 @@ export default function PaperBuilder({
     const cardRefs = useRef(new Map<string, QuestionCardHandle>());
     const scrollRefs = useRef(new Map<string, HTMLDivElement>());
     const [isSavingAll, setIsSavingAll] = useState(false);
+    const [pendingImportFileName, setPendingImportFileName] = useState<string | null>(null);
+    const importAttemptRef = useRef<{
+        signature: string;
+        idempotencyKey: string;
+    } | null>(null);
 
 
     const topicPickerQuestion = useMemo(
@@ -658,6 +760,14 @@ export default function PaperBuilder({
                 : null,
         [questions, topicPickerQuestionId]
     );
+    const topicPickerMatchingCount = useMemo(() => {
+        const path = topicPickerQuestion?.topicPath.trim().toLocaleLowerCase("en");
+        if (!path) return 1;
+        return questions.filter(
+            (question) =>
+                question.topicPath.trim().toLocaleLowerCase("en") === path
+        ).length;
+    }, [questions, topicPickerQuestion]);
 
     const scrollToQuestion = (index: number) => {
         const question = questions[index];
@@ -675,10 +785,6 @@ export default function PaperBuilder({
     const registerScrollRef = (clientId: string, element: HTMLDivElement | null) => {
         if (element) scrollRefs.current.set(clientId, element);
         else scrollRefs.current.delete(clientId);
-    };
-
-    const updatePaperId = (id: string) => {
-        setPaperId(id);
     };
 
     const handleSaveAll = async () => {
@@ -725,86 +831,79 @@ export default function PaperBuilder({
         let failedCount = 0;
         let firstFailedIndex: number | null = null;
 
-        const CHUNK_SIZE = 15;
-
         try
         {
-            // One Server Action request per 15 new questions.
-            for (
-                let start = 0;
-                start < newQuestions.length;
-                start += CHUNK_SIZE
-            )
+            if (newQuestions.length > 0)
             {
-                const chunk = newQuestions.slice(
-                    start,
-                    start + CHUNK_SIZE
+                const importItems = newQuestions.map(
+                    ({ question, index }) => ({
+                        clientId: question.clientId,
+                        sourceNumber: question.sourceNumber ?? question.number,
+                        position: index,
+                        data: questionToSavePayload(question),
+                    })
                 );
-
-                try
+                const signature = JSON.stringify(importItems);
+                if (importAttemptRef.current?.signature !== signature)
                 {
-                    const result =
-                        await createQuestionBatch(
-                            paperId,
-                            examSlug,
-                            chunk.map(
-                                ({ question }) => ({
-                                    clientId:
-                                        question.clientId,
-                                    data:
-                                        questionToSavePayload(
-                                            question
-                                        ),
-                                })
-                            )
-                        );
+                    importAttemptRef.current = {
+                        signature,
+                        idempotencyKey: createClientId(),
+                    };
+                }
 
-                    const createdIds = new Map(
-                        result.questions.map(
-                            (created) => [
-                                created.clientId,
-                                created.id,
-                            ]
-                        )
+                const source = newQuestions.some(
+                    ({ question }) => question.importSource === "JSON"
+                )
+                    ? "JSON"
+                    : newQuestions.some(
+                          ({ question }) => question.importSource === "OCR"
+                      )
+                      ? "OCR"
+                      : "MANUAL";
+                const result = await commitPaperImportAction({
+                    paperId,
+                    expectedRevision: paperRevision,
+                    idempotencyKey:
+                        importAttemptRef.current.idempotencyKey,
+                    source,
+                    sourceFileName: pendingImportFileName,
+                    items: importItems,
+                });
+
+                if (!result.success)
+                {
+                    failedCount += newQuestions.length;
+                    firstFailedIndex = newQuestions[0]?.index ?? null;
+                    const detail = result.issues[0];
+                    toast.error(
+                        detail
+                            ? `${result.error} ${detail.path}: ${detail.message}`
+                            : result.error
                     );
-
-                    // Mark the complete batch saved in one state update.
+                } else
+                {
+                    const createdIds = new Map(
+                        result.questions.map((created) => [
+                            created.clientId,
+                            created.id,
+                        ])
+                    );
                     setQuestions((current) =>
                         current.map((question) => {
-                            const createdId =
-                                createdIds.get(
-                                    question.clientId
-                                );
-
-                            if (!createdId)
-                            {
-                                return question;
-                            }
-
-                            return {
-                                ...question,
-                                id: createdId,
-                                saved: true,
-                            };
+                            const createdId = createdIds.get(question.clientId);
+                            return createdId
+                                ? { ...question, id: createdId, saved: true }
+                                : question;
                         })
                     );
-                } catch (error)
-                {
-                    console.error(
-                        "Question batch failed:",
-                        error
-                    );
-
-                    failedCount += chunk.length;
-
-                    if (
-                        firstFailedIndex === null &&
-                        chunk.length > 0
-                    )
+                    if (result.paperRevision !== null)
                     {
-                        firstFailedIndex =
-                            chunk[0].index;
+                        setPaperRevision(result.paperRevision);
                     }
+                    setPaperStatus("DRAFT");
+                    importAttemptRef.current = null;
+                    setPendingImportFileName(null);
                 }
             }
 
@@ -885,6 +984,8 @@ export default function PaperBuilder({
         const file = e.target.files?.[0];
         if (!file) return;
 
+        setPendingImportFileName(file.name);
+
         setIsScanning(true);
         const toastId = toast.loading("Scanning paper — extracting questions...");
 
@@ -934,6 +1035,8 @@ export default function PaperBuilder({
         const input = event.target;
         const file = input.files?.[0];
         if (!file) return;
+
+        setPendingImportFileName(file.name);
 
         setIsImportingJson(true);
         setJsonImportFeedback(null);
@@ -1000,7 +1103,10 @@ export default function PaperBuilder({
                         ...normalizePaperJsonQuestion(question),
                         saved: false,
                         topicId: "",
+                        syllabusEntryId: "",
                         categoryId: "",
+                        importSource: "JSON" as const,
+                        sourceNumber: question.number,
                     }));
                 return [...current, ...importedQuestions];
             });
@@ -1070,13 +1176,15 @@ export default function PaperBuilder({
                 if (existingId)
                 {
                     // Update existing paper
-                    await updateQuestionPaper(existingId, {
+                    const result = await updateQuestionPaper(existingId, {
                         title: title.trim(),
                         year: year || null,
                         type: type,
                         examIds: selectedExamIds,
                     }, examSlug);
                     setPaperSaved(true);
+                    setPaperStatus("DRAFT");
+                    setPaperRevision(result.contentRevision);
                     toast.success("Paper updated!");
                 } else
                 {
@@ -1096,6 +1204,8 @@ export default function PaperBuilder({
                     }
 
                     setPaperId(result.id);
+                    setPaperRevision(result.contentRevision);
+                    setPaperStatus(result.status);
                     setPaperSaved(true);
                     toast.success("Paper created — now save your questions");
                 }
@@ -1106,12 +1216,39 @@ export default function PaperBuilder({
         });
     };
 
-    const addQuestion = () => setQuestions(prev => [...prev, emptyQuestion(prev.length + 1)]);
-    const updateQuestion_ = (index: number, updated: Question) => setQuestions(prev => prev.map((q, i) => i === index ? updated : q));
-    const deleteQuestion_ = (index: number) => setQuestions(prev => {
+    const handlePublishPaper = () => {
+        if (!paperId) return;
+        if (questions.some((question) => !question.saved)) {
+            toast.error("Save every question before publishing the paper.");
+            return;
+        }
+        startPublishing(async () => {
+            const result = await publishQuestionPaper(paperId);
+            if (!result.success) {
+                toast.error(result.error);
+                return;
+            }
+            setPaperStatus("PUBLISHED");
+            setPaperRevision(result.contentRevision);
+            toast.success("Paper published and available to students.");
+        });
+    };
+
+    const addQuestion = () => {
+        setQuestions(prev => [...prev, emptyQuestion(prev.length + 1)]);
+        setPaperStatus("DRAFT");
+    };
+    const updateQuestion_ = (index: number, updated: Question) => {
+        setQuestions(prev => prev.map((q, i) => i === index ? updated : q));
+        if (!updated.saved) setPaperStatus("DRAFT");
+    };
+    const deleteQuestion_ = (index: number) => {
+        setPaperStatus("DRAFT");
+        setQuestions(prev => {
         const next = prev.filter((_, i) => i !== index);
         return next.map((q, i) => ({ ...q, number: i + 1 }));
-    });
+        });
+    };
 
     const openTopicPicker = (clientId: string) => {
         setTopicPickerQuestionId(clientId);
@@ -1122,29 +1259,40 @@ export default function PaperBuilder({
     };
 
     const selectTopicForQuestion = (
+        syllabusEntryId: string,
         topicId: string,
         topicPath: string,
-        categoryId: string
+        categoryId: string,
+        applyToMatching: boolean
     ) => {
         if (!topicPickerQuestionId)
         {
             return;
         }
 
-        setQuestions((current) =>
-            current.map((question) =>
-                question.clientId ===
-                    topicPickerQuestionId
+        setQuestions((current) => {
+            const selectedQuestion = current.find(
+                (question) => question.clientId === topicPickerQuestionId
+            );
+            const previousPath = selectedQuestion?.topicPath
+                .trim()
+                .toLocaleLowerCase("en");
+            return current.map((question) =>
+                question.clientId === topicPickerQuestionId ||
+                (applyToMatching &&
+                    Boolean(previousPath) &&
+                    question.topicPath.trim().toLocaleLowerCase("en") === previousPath)
                     ? {
                         ...question,
+                        syllabusEntryId,
                         topicId,
                         topicPath,
                         categoryId,
                         saved: false,
                     }
                     : question
-            )
-        );
+            );
+        });
 
         setTopicPickerQuestionId(null);
     };
@@ -1330,6 +1478,17 @@ export default function PaperBuilder({
                                 : (paperId ? "Save Changes" : "Create Paper")
                             }
                         </button>
+                        {paperId && paperStatus === "DRAFT" && (
+                            <button
+                                type="button"
+                                onClick={handlePublishPaper}
+                                disabled={isPublishing || questions.length === 0}
+                                className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-2.5 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-500/15 disabled:opacity-50 dark:text-emerald-300"
+                            >
+                                {isPublishing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                                {isPublishing ? "Checking…" : "Publish"}
+                            </button>
+                        )}
                         {paperSaved && (
                             <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
                                 <CheckCircle2 size={14} />
@@ -1379,6 +1538,7 @@ export default function PaperBuilder({
                                 paperId={paperId}
                                 examSlug={examSlug}
                                 onOpenTopicPicker={openTopicPicker}
+                                onPaperRevisionChange={setPaperRevision}
                                 onUpdate={updated => updateQuestion_(i, updated)}
                                 onDelete={() => deleteQuestion_(i)}
                                 moderationCaseId={
@@ -1413,7 +1573,8 @@ export default function PaperBuilder({
                 <SharedTopicPicker
                     key={topicPickerQuestion.clientId}
                     question={topicPickerQuestion}
-                    entries={syllabusEntries}
+                    examIds={selectedExamIds}
+                    matchingQuestionCount={topicPickerMatchingCount}
                     onSelect={selectTopicForQuestion}
                     onClose={closeTopicPicker}
                 />

@@ -28,6 +28,7 @@ export interface Paper {
     shift: string;
     pricing: string;
     subject: string;
+    status?: "DRAFT" | "PUBLISHED";
 }
 
 export interface FilterOptions {
@@ -182,6 +183,7 @@ export default function ExamWorkspace({ examId, examSlug, papers = [], tabs = []
                                     {...paper}
                                     isAdmin={isAdmin}
                                     examId={examId}
+                                    sessionExamId={examId}
                                     examSlug={examSlug}
                                 />
                             ))

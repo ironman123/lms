@@ -37,6 +37,7 @@ export default async function ResultsPage({
     if (!result) notFound();
 
     const { summary } = result;
+    const isRepair = result.purpose === "DAILY_REPAIR";
     const safePercent = Math.max(0, Math.min(100, summary.scorePercent));
     const completedLabel = new Intl.DateTimeFormat("en-IN", {
         day: "numeric",
@@ -53,7 +54,7 @@ export default async function ResultsPage({
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-                                {result.mode} result
+                                {isRepair ? "Today’s Repair" : `${result.mode} result`}
                             </span>
                             <span className="text-xs text-muted-foreground">
                                 {completedLabel}
@@ -71,18 +72,18 @@ export default async function ResultsPage({
 
                     <div className="flex shrink-0 gap-2">
                         <Link
-                            href="/library/paper"
+                            href={isRepair ? "/dashboard/repair" : "/library/paper"}
                             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground transition-colors hover:bg-accent"
                         >
                             <ArrowLeft size={16} />
-                            Papers
+                            {isRepair ? "Repair queue" : "Papers"}
                         </Link>
                         <Link
-                            href={`/exam/${result.paperId}/lobby`}
+                            href={isRepair ? "/dashboard/repair" : `/exam/${result.paperId}/lobby${result.exam ? `?examId=${encodeURIComponent(result.exam.id)}` : ""}`}
                             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
                         >
                             <RotateCcw size={16} />
-                            Retake
+                            {isRepair ? "Continue repair" : "Retake"}
                         </Link>
                     </div>
                 </header>
@@ -280,10 +281,10 @@ export default async function ResultsPage({
 
                 <footer className="mt-8 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row">
                     <Link
-                        href="/library/paper"
+                        href={isRepair ? "/dashboard/mistakes" : "/library/paper"}
                         className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-2xl border border-border bg-card px-5 text-sm font-bold text-foreground transition-colors hover:bg-accent sm:w-auto sm:flex-1"
                     >
-                        Back to papers
+                        {isRepair ? "Open mistake notebook" : "Back to papers"}
                     </Link>
                     {result.exam && (
                         <Link
@@ -294,10 +295,10 @@ export default async function ResultsPage({
                         </Link>
                     )}
                     <Link
-                        href={`/exam/${result.paperId}/lobby`}
+                        href={isRepair ? "/dashboard/repair" : `/exam/${result.paperId}/lobby${result.exam ? `?examId=${encodeURIComponent(result.exam.id)}` : ""}`}
                         className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-2xl bg-primary px-5 text-center text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto sm:flex-1"
                     >
-                        Try this paper again
+                        {isRepair ? "Continue today’s repair" : "Try this paper again"}
                     </Link>
                 </footer>
             </div>

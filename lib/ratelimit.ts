@@ -36,3 +36,10 @@ export const contentReportRatelimit = new Ratelimit({
     analytics: true,
     prefix: "rl:content-report",
 });
+
+export const appFeedbackRatelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(3, "10 m"),
+    analytics: true,
+    prefix: "rl:app-feedback",
+});

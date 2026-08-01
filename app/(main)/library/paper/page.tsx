@@ -5,10 +5,9 @@ import Link from "next/link";
 import { Search, Plus } from "lucide-react";
 import SearchFilter from "@/components/SearchFilter";
 import PaginationPrefetch from "@/components/PaginationPrefetch";
-import { deleteQuestionPaper } from "../../actions/paper-actions";
 import { getOptionalUser } from "@/lib/auth";
 import { withCache } from "@/lib/cache";
-import { SessionMode, SessionStatus } from "@prisma/client";
+import { Prisma, SessionMode, SessionStatus } from "@prisma/client";
 import { RESUMABLE_SESSION_STATUSES } from "@/lib/session-policy";
 import { redirect } from "next/navigation";
 
@@ -25,27 +24,28 @@ function paperPageHref(query: string, page: number) {
     return `?${params.toString()}`;
 }
 
-async function getPapersData(query: string, page: number) {
+async function getPapersData(query: string, page: number, includeDrafts: boolean) {
     const normalizedQuery = normalizeQuery(query);
     const cacheKey =
-        `papers:v2:q:${normalizedQuery.toLowerCase()}:p:${page}`;
+        `papers:v3:audience:${includeDrafts ? "admin" : "public"}:q:${normalizedQuery.toLowerCase()}:p:${page}`;
     return withCache(
         cacheKey,
         3600,
         async () => {
-            const where = normalizedQuery
-                ? {
-                    isArchived: false,
-                    OR: [
+            const where: Prisma.QuestionPaperWhereInput = {
+                isArchived: false,
+                ...(includeDrafts ? {} : { status: "PUBLISHED" as const }),
+                ...(normalizedQuery
+                    ? { OR: [
                         { title: { contains: normalizedQuery, mode: "insensitive" as const } },
                         {
                             examQuestionPaperLinks: {
                                 some: { exam: { name: { contains: normalizedQuery, mode: "insensitive" as const } } },
                             },
                         },
-                    ],
-                }
-                : { isArchived: false };
+                    ] }
+                    : {}),
+            };
 
             const [papers, total] = await Promise.all([
                 prisma.questionPaper.findMany({
@@ -88,14 +88,16 @@ export default async function PaperLibraryPage({
     const { q = "", page = "0" } = await searchParams;
     const query = normalizeQuery(q);
     const currentPage = Math.max(0, parseInt(page, 10) || 0);
-    const [{ papers, total, totalPages }, user] = await Promise.all([
-        getPapersData(query, currentPage),
-        getOptionalUser(),
-    ]);
+    const user = await getOptionalUser();
+    const isAdmin = user?.role === "ADMIN";
+    const { papers, total, totalPages } = await getPapersData(
+        query,
+        currentPage,
+        isAdmin
+    );
     if (currentPage > 0 && currentPage >= Math.max(totalPages, 1)) {
         redirect(paperPageHref(query, Math.max(0, totalPages - 1)));
     }
-    const isAdmin = user?.role === "ADMIN";
     const resumableByPaper = new Map<
         string,
         { id: string; mode: "PRACTICE" | "MOCK" }
@@ -178,17 +180,16 @@ export default async function PaperLibraryPage({
                         <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-6">
                             Previous Year Papers · {pyq.length}
                         </h2>
-                        <div className="flex flex-wrap gap-6">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                             {pyq.map((p) => {
                                 const exam = p.examQuestionPaperLinks[0]?.exam;
-                                const boundDelete = deleteQuestionPaper.bind(null, p.id, "");
                                 return (
                                     <WorkspacePaperCard
                                         key={p.id}
                                         id={p.id}
                                         title={p.title}
-                                        onDelete={boundDelete}
                                         isAdmin={isAdmin}
+                                        status={p.status}
                                         type="PYQ"
                                         year={p.year?.toString() ?? ""}
                                         pricing="Free"
@@ -213,17 +214,16 @@ export default async function PaperLibraryPage({
                         <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-6">
                             Mock / Practice Papers · {mock.length}
                         </h2>
-                        <div className="flex flex-wrap gap-6">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                             {mock.map((p) => {
                                 const exam = p.examQuestionPaperLinks[0]?.exam;
-                                const boundDelete = deleteQuestionPaper.bind(null, p.id, "");
                                 return (
                                     <WorkspacePaperCard
                                         key={p.id}
                                         id={p.id}
                                         title={p.title}
                                         isAdmin={isAdmin}
-                                        onDelete={boundDelete}
+                                        status={p.status}
                                         type="Mock"
                                         pricing="Free"
                                         examId={exam?.id ?? ""}

@@ -30,7 +30,11 @@ import {
 } from "@/lib/session-stats";
 import { elapsedMs, logExamEvent } from "@/lib/observability";
 
-export async function createExamSession(paperId: string, mode: SessionMode) {
+export async function createExamSession(
+    paperId: string,
+    mode: SessionMode,
+    requestedExamId?: string | null
+) {
     const startedAt = performance.now();
     const operationId = crypto.randomUUID();
     const user = await requireAuth();
@@ -91,7 +95,11 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
         };
     }
 
-    const launchAccess = await getSessionLaunchAccess(user.id, paperId);
+    const launchAccess = await getSessionLaunchAccess(
+        user.id,
+        paperId,
+        requestedExamId
+    );
 
     if (!launchAccess.exists)
     {
@@ -99,6 +107,15 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
     }
     if (!launchAccess.allowed)
     {
+        if ("error" in launchAccess) {
+            return {
+                success: false,
+                error:
+                    launchAccess.error === "EXAM_CONTEXT_REQUIRED"
+                        ? "Choose which exam this attempt should count toward."
+                        : "That exam is not linked to this paper.",
+            };
+        }
         return {
             success: false,
             error: "PAYMENT_REQUIRED",
@@ -137,6 +154,8 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
             data: {
                 userId: user.id,
                 paperId,
+                examId: launchAccess.examId,
+                examContextSource: launchAccess.examContextSource,
                 mode,
                 status: SessionStatus.ACTIVE,
                 expiresAt: getSessionExpiry(
@@ -159,6 +178,8 @@ export async function createExamSession(paperId: string, mode: SessionMode) {
             paperId,
             mode,
             questionCount: launchAccess.questionCount,
+            examId: launchAccess.examId,
+            examContextSource: launchAccess.examContextSource,
             durationMs: elapsedMs(startedAt),
         });
         return { success: true, sessionId: session.id, resumed: false };
@@ -394,13 +415,8 @@ export async function completeExamSession(
             include: {
                 paper: {
                     include: {
-                        // Take the first linked exam so we can update UserExamStats
-                        examQuestionPaperLinks: {
-                            select: { examId: true },
-                            take: 1,
-                        },
                         questions: {
-                            orderBy: { createdAt: "asc" },
+                            orderBy: { position: "asc" },
                             select: {
                                 id: true,
                                 content: true,
@@ -479,8 +495,9 @@ export async function completeExamSession(
                 topicPath: snapshot.topicPath,
             };
         });
-        const examId =
-            session.paper.examQuestionPaperLinks[0]?.examId ?? null;
+        // Attribution is frozen when the session is created. Paper links may
+        // be edited later and must never rewrite historical exam analytics.
+        const examId = session.examId;
 
         // ── Persist session ───────────────────────────────────────────────────
         await prisma.$transaction(async (tx) => {

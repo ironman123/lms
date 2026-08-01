@@ -35,6 +35,13 @@ import ReportIssueDialog from "@/components/ReportIssueDialog";
 
 type SessionQuestion = ActiveSessionPaper["questions"][number];
 
+const CONFIDENCE_CHOICES = [
+    { value: 25, label: "Guess" },
+    { value: 50, label: "Unsure" },
+    { value: 75, label: "Sure" },
+    { value: 100, label: "Certain" },
+] as const;
+
 export default function ActiveSessionClient({
     paper,
     mode,
@@ -52,6 +59,7 @@ export default function ActiveSessionClient({
     restoredInteractions: RestoredInteraction[];
     reportIdsByQuestion: Record<string, string>;
 }) {
+    const isPracticeStyle = mode !== SessionMode.MOCK;
     // ── UI State ──────────────────────────────────────────────────────────────
     const restoredAnswers = useMemo(() => {
         const questionTypes = new Map(
@@ -128,6 +136,7 @@ export default function ActiveSessionClient({
         offlineRecovery,
         handleNavigation,
         handleAnswerSelection,
+        handleConfidenceChange,
         syncAnswers,
         flushAndSubmit,
         toggleFlag: telemetryToggleFlag,
@@ -224,7 +233,7 @@ export default function ActiveSessionClient({
         } else {
             // MCQ — single index string
             const isCorrect =
-                mode === SessionMode.PRACTICE
+                isPracticeStyle
                     ? currentQuestion.correctOptions?.[0] === optionIndex
                     : false; // mock: never reveal on client
 
@@ -430,11 +439,11 @@ export default function ActiveSessionClient({
                                                                 ? "border-primary bg-primary text-primary-foreground shadow-sm"
                                                                 : "border-border bg-background hover:border-primary/50 hover:bg-accent/40",
                                                             // Practice-only reveals
-                                                            mode === SessionMode.PRACTICE &&
+                                                            isPracticeStyle &&
                                                             showAnswer &&
                                                             isCorrectOption &&
                                                             "border-success/50 bg-success/10 text-foreground",
-                                                            mode === SessionMode.PRACTICE &&
+                                                            isPracticeStyle &&
                                                             showAnswer &&
                                                             isSelected &&
                                                             !isCorrectOption &&
@@ -483,7 +492,7 @@ export default function ActiveSessionClient({
                                                 isLocked && "pointer-events-none bg-muted opacity-70"
                                             )}
                                         />
-                                        {mode === SessionMode.PRACTICE && showAnswer && (
+                                        {isPracticeStyle && showAnswer && (
                                             <div className="rounded-xl border border-success/30 bg-success/10 p-4">
                                                 <p className="text-sm font-bold text-success">
                                                     Correct Answer: {numericalCorrectLabel(currentQuestion)}
@@ -516,7 +525,7 @@ export default function ActiveSessionClient({
                                                 isLocked && "pointer-events-none bg-muted opacity-70"
                                             )}
                                         />
-                                        {mode === SessionMode.PRACTICE &&
+                                        {isPracticeStyle &&
                                             showAnswer &&
                                             currentQuestion.modelAnswer && (
                                                 <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
@@ -528,6 +537,40 @@ export default function ActiveSessionClient({
                                                     </p>
                                                 </div>
                                             )}
+                                    </div>
+                                )}
+
+                                {!currentQuestion.isCancelled && (
+                                    <div className="mt-6 rounded-2xl border border-border bg-muted/25 p-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <p className="text-xs font-black uppercase tracking-widest text-foreground">How sure are you?</p>
+                                                <p className="mt-1 text-[11px] text-muted-foreground">Optional, but useful for spotting confident mistakes and hidden strengths.</p>
+                                            </div>
+                                            <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Answer confidence">
+                                                {CONFIDENCE_CHOICES.map((choice) => {
+                                                    const selected = currentMetrics.confidenceLevel === choice.value;
+                                                    return (
+                                                        <button
+                                                            key={choice.value}
+                                                            type="button"
+                                                            disabled={isLocked}
+                                                            aria-pressed={selected}
+                                                            onClick={() => handleConfidenceChange(currentQuestion.id, choice.value)}
+                                                            className={cn(
+                                                                "rounded-xl border px-2 py-2 text-[10px] font-black transition-colors sm:px-3",
+                                                                selected
+                                                                    ? "border-violet-500 bg-violet-500 text-white"
+                                                                    : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                                                                isLocked && "cursor-not-allowed opacity-60"
+                                                            )}
+                                                        >
+                                                            {choice.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </CardContent>
@@ -668,7 +711,7 @@ export default function ActiveSessionClient({
                     </div>
 
                     <div className="col-span-3 grid grid-cols-2 gap-2 md:flex">
-                        {mode === SessionMode.PRACTICE &&
+                        {isPracticeStyle &&
                             !currentQuestion.isCancelled && (
                             <Button
                                 disabled={isLocked || showAnswer}
@@ -699,7 +742,7 @@ export default function ActiveSessionClient({
                                 disabled={isLocked}
                                 className={cn(
                                     "h-10 rounded-xl px-5 text-[9px] font-black md:h-9 md:px-8 md:text-[10px]",
-                                    mode !== SessionMode.PRACTICE &&
+                                    !isPracticeStyle &&
                                         "col-span-2 md:col-span-1"
                                 )}
                                 onClick={() => onNavigate(currentIndex + 1)}

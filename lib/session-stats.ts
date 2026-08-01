@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, SessionPurpose } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import {
     aggregateFromStored,
@@ -7,6 +7,7 @@ import {
     statsContributionPayloadSchema,
     type StatsContributionPayload,
 } from "@/lib/stats-aggregation";
+import { projectSessionMistakes } from "@/lib/mistake-notebook";
 
 function errorMessage(error: unknown) {
     return (error instanceof Error ? error.message : String(error)).slice(
@@ -27,6 +28,7 @@ async function processedPayloadsForUser(
     const rows = await tx.sessionStatsContribution.findMany({
         where: {
             userId,
+            session: { purpose: SessionPurpose.STANDARD },
             OR: [{ processedAt: { not: null } }, { id: currentId }],
         },
         select: { payload: true },
@@ -75,6 +77,9 @@ export async function processSessionStatsContribution(sessionId: string) {
             const contribution =
                 await tx.sessionStatsContribution.findUnique({
                     where: { sessionId },
+                    include: {
+                        session: { select: { purpose: true } },
+                    },
                 });
             if (!contribution) return { status: "not_found" as const };
             if (contribution.processedAt) {
@@ -82,6 +87,7 @@ export async function processSessionStatsContribution(sessionId: string) {
             }
 
             const payload = parsePayload(contribution.payload);
+            if (contribution.session.purpose === SessionPurpose.STANDARD) {
             const [stored, processedCount] = await Promise.all([
                 tx.userStats.findUnique({
                     where: { userId: contribution.userId },
@@ -90,6 +96,7 @@ export async function processSessionStatsContribution(sessionId: string) {
                     where: {
                         userId: contribution.userId,
                         processedAt: { not: null },
+                        session: { purpose: SessionPurpose.STANDARD },
                     },
                 }),
             ]);
@@ -192,6 +199,15 @@ export async function processSessionStatsContribution(sessionId: string) {
                     update: examAggregate,
                 });
             }
+            }
+
+            await projectSessionMistakes(
+                tx,
+                contribution.userId,
+                sessionId,
+                new Date(payload.completedAt),
+                contribution.session.purpose
+            );
 
             await tx.sessionStatsContribution.update({
                 where: { id: contribution.id },
