@@ -15,7 +15,11 @@ export const paperSchema = z.object({
         .or(z.literal(""))
         .transform(val => val === "" ? undefined : Number(val)),
     type: z.nativeEnum(QuestionPaperType).default(QuestionPaperType.PYQ),
-    examIds: z.array(z.string()).optional().default([]),
+    examIds: z
+        .array(z.string().uuid("A selected exam is invalid"))
+        .optional()
+        .default([])
+        .transform((ids) => [...new Set(ids)]),
 });
 
 export type PaperFormValues = z.infer<typeof paperSchema>;

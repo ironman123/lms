@@ -7,9 +7,14 @@ import {
     createExamSession,
     resumeExamSession,
 } from "@/app/(main)/actions/session-actions";
-import { Loader2 } from "lucide-react";
+import { BellRing, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SessionMode } from "@prisma/client";
+import {
+    MAX_PRACTICE_REMINDER_MINUTES,
+    normalizePracticeReminderMinutes,
+    setPracticeReminder,
+} from "@/lib/practice-reminder";
 
 interface StartButtonProps {
     paperId: string;
@@ -33,9 +38,26 @@ export default function StartExamButton({
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
+    const [reminderMinutes, setReminderMinutes] = useState("");
+
+    const readReminderMinutes = () => {
+        if (mode !== SessionMode.PRACTICE) return null;
+        try {
+            return normalizePracticeReminderMinutes(reminderMinutes);
+        } catch (validationError) {
+            setError(
+                validationError instanceof Error
+                    ? validationError.message
+                    : "Practice reminder is invalid."
+            );
+            return undefined;
+        }
+    };
 
     const handleStart = async () => {
         setError(null);
+        const practiceReminderMinutes = readReminderMinutes();
+        if (practiceReminderMinutes === undefined) return;
         startTransition(async () => {
             if (resumeSessionId) {
                 const result = await resumeExamSession(resumeSessionId);
@@ -45,6 +67,9 @@ export default function StartExamButton({
                     result.mode &&
                     result.sessionId
                 ) {
+                    if (practiceReminderMinutes !== null) {
+                        setPracticeReminder(result.sessionId, practiceReminderMinutes);
+                    }
                     router.push(
                         `/exam/${result.paperId}/${result.mode.toLowerCase()}?sessionId=${result.sessionId}`
                     );
@@ -57,7 +82,10 @@ export default function StartExamButton({
             }
 
             const result = await createExamSession(paperId, mode, examId);
-            if (result.success) {
+            if (result.success && result.sessionId) {
+                if (practiceReminderMinutes !== null) {
+                    setPracticeReminder(result.sessionId, practiceReminderMinutes);
+                }
                 router.push(
                     `/exam/${paperId}/${mode.toLowerCase()}?sessionId=${result.sessionId}`
                 );
@@ -75,6 +103,25 @@ export default function StartExamButton({
 
     return (
         <div className="flex flex-1 flex-col gap-2">
+            {mode === SessionMode.PRACTICE && (
+                <label className="flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-3 text-xs font-bold text-muted-foreground">
+                    <BellRing size={15} className="shrink-0 text-primary" />
+                    <span className="shrink-0">Optional reminder</span>
+                    <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={MAX_PRACTICE_REMINDER_MINUTES}
+                        step={1}
+                        value={reminderMinutes}
+                        onChange={(event) => setReminderMinutes(event.target.value)}
+                        placeholder="Minutes"
+                        aria-label="Practice reminder in minutes"
+                        className="min-w-0 flex-1 bg-transparent text-right font-black text-foreground outline-none placeholder:text-muted-foreground/70"
+                    />
+                    <span>min</span>
+                </label>
+            )}
             <Button
                 onClick={handleStart}
                 disabled={isPending || Boolean(disabledReason)}

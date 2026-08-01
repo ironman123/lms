@@ -7,11 +7,19 @@ import { requireAdmin, requireAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { appFeedbackRatelimit } from "@/lib/ratelimit";
 import {
+    appFeedbackAcknowledgeSchema,
     appFeedbackAdminUpdateSchema,
     appFeedbackInputSchema,
     type AppFeedbackAdminUpdate,
     type AppFeedbackInput,
 } from "@/lib/feedback/schemas";
+
+function revalidateFeedbackViews() {
+    revalidatePath("/feedback");
+    revalidatePath("/settings/feedback");
+    revalidatePath("/admin/feedback");
+    revalidatePath("/", "layout");
+}
 
 export async function submitAppFeedback(input: AppFeedbackInput) {
     const user = await requireAuth();
@@ -61,13 +69,12 @@ export async function submitAppFeedback(input: AppFeedbackInput) {
         },
         select: { id: true },
     });
-    revalidatePath("/settings/feedback");
-    revalidatePath("/admin/feedback");
+    revalidateFeedbackViews();
     return { success: true as const, feedbackId: feedback.id };
 }
 
 export async function updateAppFeedback(input: AppFeedbackAdminUpdate) {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const parsed = appFeedbackAdminUpdateSchema.safeParse(input);
     if (!parsed.success) {
         return {
@@ -87,6 +94,17 @@ export async function updateAppFeedback(input: AppFeedbackAdminUpdate) {
             return { success: false as const, error: "Invalid assignee." };
         }
     }
+    const existing = await prisma.appFeedback.findUnique({
+        where: { id: parsed.data.feedbackId },
+        select: { acknowledgedAt: true },
+    });
+    if (!existing) {
+        return { success: false as const, error: "Feedback ticket not found." };
+    }
+
+    const acknowledgesTicket =
+        parsed.data.status !== "NEW" && !existing.acknowledgedAt;
+
     await prisma.appFeedback.update({
         where: { id: parsed.data.feedbackId },
         data: {
@@ -94,13 +112,50 @@ export async function updateAppFeedback(input: AppFeedbackAdminUpdate) {
             priority: parsed.data.priority,
             assignedToId: parsed.data.assignedToId,
             adminResponse: parsed.data.adminResponse || null,
+            acknowledgedAt: acknowledgesTicket ? new Date() : undefined,
+            acknowledgedById: acknowledgesTicket ? admin.id : undefined,
             resolvedAt:
                 parsed.data.status === "RESOLVED" || parsed.data.status === "CLOSED"
                     ? new Date()
                     : null,
         },
     });
-    revalidatePath("/admin/feedback");
-    revalidatePath("/settings/feedback");
+    revalidateFeedbackViews();
     return { success: true as const };
+}
+
+export async function acknowledgeAppFeedback(input: { feedbackId: string }) {
+    const admin = await requireAdmin();
+    const parsed = appFeedbackAcknowledgeSchema.safeParse(input);
+    if (!parsed.success) {
+        return { success: false as const, error: "Invalid feedback ticket." };
+    }
+
+    const existing = await prisma.appFeedback.findUnique({
+        where: { id: parsed.data.feedbackId },
+        select: {
+            status: true,
+            assignedToId: true,
+            acknowledgedAt: true,
+        },
+    });
+    if (!existing) {
+        return { success: false as const, error: "Feedback ticket not found." };
+    }
+    if (existing.status !== "NEW") {
+        return { success: true as const, alreadyAcknowledged: true };
+    }
+
+    await prisma.appFeedback.update({
+        where: { id: parsed.data.feedbackId },
+        data: {
+            status: "ACKNOWLEDGED",
+            acknowledgedAt: existing.acknowledgedAt ?? new Date(),
+            acknowledgedById: admin.id,
+            assignedToId: existing.assignedToId ?? admin.id,
+        },
+    });
+
+    revalidateFeedbackViews();
+    return { success: true as const, alreadyAcknowledged: false };
 }

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Loader2, MessageSquarePlus } from "lucide-react";
+import { CheckCircle2, Loader2, MessageSquarePlus } from "lucide-react";
 import { toast } from "sonner";
 import { submitAppFeedback } from "@/app/(main)/actions/feedback-actions";
 import {
@@ -10,9 +11,11 @@ import {
 } from "@/lib/feedback/schemas";
 
 export default function AppFeedbackForm() {
-    const [category, setCategory] = useState<(typeof APP_FEEDBACK_CATEGORIES)[number]>("BUG");
+    const [category, setCategory] =
+        useState<(typeof APP_FEEDBACK_CATEGORIES)[number]>("BUG");
     const [title, setTitle] = useState("");
     const [message, setMessage] = useState("");
+    const [submittedId, setSubmittedId] = useState<string | null>(null);
     const [pending, startTransition] = useTransition();
 
     function submit(event: React.FormEvent) {
@@ -34,20 +37,60 @@ export default function AppFeedbackForm() {
             }
             setTitle("");
             setMessage("");
+            setSubmittedId(result.feedbackId);
             toast.success("Thanks — your feedback was sent to the team.");
         });
     }
 
+    if (submittedId) {
+        return (
+            <section className="rounded-3xl border border-success/30 bg-success/8 p-6 shadow-sm sm:p-8">
+                <CheckCircle2 className="text-success" size={30} />
+                <h2 className="mt-4 text-xl font-black text-foreground">
+                    Feedback sent
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    It is now in the admin feedback inbox. You can track when it
+                    is acknowledged, reviewed, planned, or resolved from your
+                    feedback history.
+                </p>
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                    <Link
+                        href={`/settings/feedback#feedback-${submittedId}`}
+                        className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-black text-primary-foreground"
+                    >
+                        View my feedback
+                    </Link>
+                    <button
+                        type="button"
+                        onClick={() => setSubmittedId(null)}
+                        className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground"
+                    >
+                        Send another
+                    </button>
+                </div>
+            </section>
+        );
+    }
+
     return (
-        <form onSubmit={submit} className="space-y-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+        <form
+            onSubmit={submit}
+            className="space-y-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7"
+        >
             <div>
-                <label htmlFor="feedback-category" className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                <label
+                    htmlFor="feedback-category"
+                    className="text-xs font-black uppercase tracking-wider text-muted-foreground"
+                >
                     Feedback type
                 </label>
                 <select
                     id="feedback-category"
                     value={category}
-                    onChange={(event) => setCategory(event.target.value as typeof category)}
+                    onChange={(event) =>
+                        setCategory(event.target.value as typeof category)
+                    }
                     className="mt-2 h-12 w-full rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/30"
                 >
                     {APP_FEEDBACK_CATEGORIES.map((value) => (
@@ -58,7 +101,10 @@ export default function AppFeedbackForm() {
                 </select>
             </div>
             <div>
-                <label htmlFor="feedback-title" className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                <label
+                    htmlFor="feedback-title"
+                    className="text-xs font-black uppercase tracking-wider text-muted-foreground"
+                >
                     Short summary
                 </label>
                 <input
@@ -74,10 +120,15 @@ export default function AppFeedbackForm() {
             </div>
             <div>
                 <div className="flex items-center justify-between gap-3">
-                    <label htmlFor="feedback-message" className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                    <label
+                        htmlFor="feedback-message"
+                        className="text-xs font-black uppercase tracking-wider text-muted-foreground"
+                    >
                         Details
                     </label>
-                    <span className="text-[10px] text-muted-foreground">{message.length}/5000</span>
+                    <span className="text-[10px] text-muted-foreground">
+                        {message.length}/5000
+                    </span>
                 </div>
                 <textarea
                     id="feedback-message"
@@ -96,7 +147,11 @@ export default function AppFeedbackForm() {
                 disabled={pending}
                 className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-                {pending ? <Loader2 size={17} className="animate-spin" /> : <MessageSquarePlus size={17} />}
+                {pending ? (
+                    <Loader2 size={17} className="animate-spin" />
+                ) : (
+                    <MessageSquarePlus size={17} />
+                )}
                 {pending ? "Sending…" : "Send feedback"}
             </button>
         </form>

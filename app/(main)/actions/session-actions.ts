@@ -509,7 +509,10 @@ export async function completeExamSession(
                         in: [SessionStatus.ACTIVE, SessionStatus.EXPIRED],
                     },
                     endTime: null,
-                    expiresAt: { gt: expiryGraceCutoff },
+                    OR: [
+                        { expiresAt: null },
+                        { expiresAt: { gt: expiryGraceCutoff } },
+                    ],
                 },
                 data: {
                     endTime: now,

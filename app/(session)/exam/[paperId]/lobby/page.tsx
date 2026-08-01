@@ -324,7 +324,7 @@ export default async function PaperLobbyPage({
                                 </div>
                                 <div className="text-xs font-medium leading-relaxed text-muted-foreground">
                                     <span className="font-black underline block mb-1">Practice Mode</span>
-                                    Learning focused. No timer pressure. You can view correct answers and detailed explanations after every question.
+                                    Learning focused. Add an optional reminder if you want a time goal. It only notifies you and never submits or changes your attempt.
                                 </div>
                             </div>
                         </div>

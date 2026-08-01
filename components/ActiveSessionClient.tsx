@@ -32,6 +32,8 @@ import { OptionJSON } from "@/types/question";
 import type { RestoredInteraction } from "@/lib/session-interactions";
 import type { ActiveSessionPaper } from "@/lib/session-loader";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
+import PracticeReminderTimer from "@/components/PracticeReminderTimer";
+import { clearPracticeReminder } from "@/lib/practice-reminder";
 
 type SessionQuestion = ActiveSessionPaper["questions"][number];
 
@@ -273,7 +275,10 @@ export default function ActiveSessionClient({
 
         await flushAndSubmit(
             answers,
-            () => window.location.replace(`/results/${sessionId}`),
+            () => {
+                clearPracticeReminder(sessionId);
+                window.location.replace(`/results/${sessionId}`);
+            },
             () => {
                 submissionStartedRef.current = false;
                 toast.error("Failed to submit. Please try again.");
@@ -339,6 +344,11 @@ export default function ActiveSessionClient({
                         expiresAt={sessionExpiresAt}
                         onExpire={() => void submitSession(true)}
                     />
+                </div>
+            )}
+            {mode === SessionMode.PRACTICE && (
+                <div className="fixed right-4 top-3 z-50 md:right-6">
+                    <PracticeReminderTimer sessionId={sessionId} />
                 </div>
             )}
 

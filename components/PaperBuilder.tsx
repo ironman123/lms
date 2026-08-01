@@ -1196,11 +1196,9 @@ export default function PaperBuilder({
                         examIds: selectedExamIds,
                     }, examSlug);
 
-                    if (!result?.id)
-                    {
-                        throw new Error(
-                            "Paper creation succeeded but no paper ID was returned."
-                        );
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
                     }
 
                     setPaperId(result.id);

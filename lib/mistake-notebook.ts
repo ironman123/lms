@@ -58,13 +58,13 @@ export async function projectSessionMistakes(
             'ACTIVE'::"MistakeStatus",
             1,
             0,
-            ${occurredAt},
-            ${occurredAt},
-            ${occurredAt},
-            ${wrongReviewAt},
+            ${occurredAt}::timestamp(3),
+            ${occurredAt}::timestamp(3),
+            ${occurredAt}::timestamp(3),
+            ${wrongReviewAt}::timestamp(3),
             NULL,
-            ${now},
-            ${now}
+            ${now}::timestamp(3),
+            ${now}::timestamp(3)
         )`);
 
         await tx.$executeRaw(Prisma.sql`
@@ -111,18 +111,18 @@ export async function projectSessionMistakes(
                         THEN 'REPAIRED'::"MistakeStatus"
                     ELSE 'ACTIVE'::"MistakeStatus"
                 END,
-                "lastReviewedAt" = ${occurredAt},
+                "lastReviewedAt" = ${occurredAt}::timestamp(3),
                 "nextReviewAt" = CASE
                     WHEN "correctAfterMistakeCount" + 1 >= ${MISTAKE_REPAIR_CORRECT_STREAK}
                         THEN NULL
-                    ELSE ${correctReviewAt}
+                    ELSE ${correctReviewAt}::timestamp(3)
                 END,
                 "repairedAt" = CASE
                     WHEN "correctAfterMistakeCount" + 1 >= ${MISTAKE_REPAIR_CORRECT_STREAK}
-                        THEN ${occurredAt}
+                        THEN ${occurredAt}::timestamp(3)
                     ELSE NULL
                 END,
-                "updatedAt" = ${now}
+                "updatedAt" = ${now}::timestamp(3)
             WHERE "userId" = ${userId}
               AND "questionId" IN (${Prisma.join(correctQuestionIds)})
               AND "status" = 'ACTIVE'::"MistakeStatus"

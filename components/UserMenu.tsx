@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, User, Settings, ChevronDown, SlidersHorizontal, ShieldCheck, MessageSquareWarning, MessageSquarePlus } from "lucide-react";
+import { LogOut, User, Settings, ChevronDown, SlidersHorizontal, ShieldCheck, MessageSquareWarning, MessagesSquare } from "lucide-react";
 import { signOut } from "@/app/actions/auth-actions";
 import Link from "next/link";
 import Image from "next/image";
@@ -13,9 +13,10 @@ interface Props {
     avatarUrl: string | null;
     role: string;
     moderationAttentionCount?: number;
+    newFeedbackCount?: number;
 }
 
-export default function UserMenu({ name, email, avatarUrl, role, moderationAttentionCount = 0 }: Props) {
+export default function UserMenu({ name, email, avatarUrl, role, moderationAttentionCount = 0, newFeedbackCount = 0 }: Props) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -86,15 +87,8 @@ export default function UserMenu({ name, email, avatarUrl, role, moderationAtten
                                 href="/feedback"
                                 className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
                             >
-                                <MessageSquarePlus size={15} className="text-muted-foreground" />
-                                Send app feedback
-                            </Link>
-                            <Link
-                                href="/settings/feedback"
-                                className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
-                            >
-                                <MessageSquareWarning size={15} className="text-muted-foreground" />
-                                My app feedback
+                                <MessagesSquare size={15} className="text-muted-foreground" />
+                                Feedback & support
                             </Link>
 
                             {role === "ADMIN" && (
@@ -109,6 +103,17 @@ export default function UserMenu({ name, email, avatarUrl, role, moderationAtten
                                                 {moderationAttentionCount > 99
                                                     ? "99+"
                                                     : moderationAttentionCount}
+                                            </span>
+                                        )}
+                                    </Link>
+                                    <Link href="/admin/feedback"
+                                        className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+                                    >
+                                        <MessagesSquare size={15} className="text-muted-foreground" />
+                                        Feedback inbox
+                                        {newFeedbackCount > 0 && (
+                                            <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-[10px] font-black text-primary-foreground">
+                                                {newFeedbackCount > 99 ? "99+" : newFeedbackCount}
                                             </span>
                                         )}
                                     </Link>

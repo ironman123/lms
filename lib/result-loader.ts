@@ -15,6 +15,7 @@ import {
     type ResultGrade,
     type ResultQuestion,
 } from "@/lib/exam-results";
+import { parseInteractionArchive } from "@/lib/interaction-retention-policy";
 
 export type ResultReviewItem = {
     id: string;
@@ -146,8 +147,20 @@ export async function loadCompletedResult(
 
     if (!session) return null;
 
+    const archivedInteractions = parseInteractionArchive(
+        session.interactionArchive
+    )?.interactions;
+    const usingArchive =
+        session.interactions.length === 0 && Boolean(archivedInteractions);
+    const interactionRows = usingArchive
+        ? archivedInteractions!.map((interaction) => ({
+            ...interaction,
+            isCorrect: interaction.grade === "CORRECT",
+            questionSnapshot: null,
+        }))
+        : session.interactions;
     const interactionByQuestion = new Map(
-        session.interactions.map((interaction) => [
+        interactionRows.map((interaction) => [
             interaction.questionId,
             interaction,
         ])
@@ -168,7 +181,8 @@ export async function loadCompletedResult(
             ? evaluateAnswer(fallbackQuestion, selectedAnswer)
             : null;
         const hasFinalSnapshot = Boolean(
-            interaction && isQuestionSnapshot(interaction.questionSnapshot)
+            interaction &&
+            (usingArchive || isQuestionSnapshot(interaction.questionSnapshot))
         );
         const grade: ResultGrade = !interaction
             ? "UNAVAILABLE"

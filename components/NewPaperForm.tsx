@@ -81,7 +81,14 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
                     toast.success("Paper updated successfully!");
                 } else
                 {
-                    await createQuestionPaper({ ...data, examIds: examId ? [examId] : [] }, examSlug);
+                    const result = await createQuestionPaper(
+                        { ...data, examIds: examId ? [examId] : [] },
+                        examSlug
+                    );
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                    }
                     toast.success("Paper created! Now add your questions.");
                 }
             } catch

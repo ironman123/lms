@@ -13,6 +13,7 @@ import {
     PaperStatus,
 } from "@prisma/client";
 import { getPaperReadiness, paperReadinessMessage } from "@/lib/paper-readiness";
+import { actionErrorMessage } from "@/lib/action-errors";
 
 export async function linkPaperToExam(paperId: string, examId: string) {
     await requireAdmin();
@@ -77,7 +78,7 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
         const validated = paperSchema.parse(data);
         const paper = await prisma.questionPaper.create({
             data: {
-                title: validated.title,
+                title: validated.title.trim(),
                 year: validated.year || null,
                 type: validated.type,
                 status: PaperStatus.DRAFT,
@@ -96,7 +97,7 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
         revalidatePath("/library/paper");
         if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
         return {
-            success: true,
+            success: true as const,
             id: paper.id,
             title: paper.title,
             year: paper.year,
@@ -106,7 +107,10 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
     } catch (error: unknown)
     {
         console.error("❌ CREATE PAPER ERROR:", error);
-        handlePrismaError(error);
+        return {
+            success: false as const,
+            error: actionErrorMessage(error, "Unable to create this paper."),
+        };
     }
 }
 

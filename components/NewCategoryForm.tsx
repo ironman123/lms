@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { categorySchema, CategoryFormValues, CategoryFormInput } from "@/types/category";
+import { useRouter } from "next/navigation";
 
 interface NewCategoryFormProps {
     initialData?: CategoryFormValues & { id: string };
@@ -23,6 +24,7 @@ interface NewCategoryFormProps {
 export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
     const [isPending, startTransition] = useTransition();
     const [isDeleting, setIsDeleting] = useState(false);
+    const router = useRouter();
     const isEditing = !!initialData;
 
     const form = useForm<CategoryFormInput, undefined, CategoryFormValues>({
@@ -62,13 +64,21 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
                     toast.success("Category updated successfully!");
                 } else
                 {
-                    await createCategory(data);
+                    const result = await createCategory(data);
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                    }
                     toast.success("Category created successfully!");
-                    form.reset();
+                    router.push(`/library/category/${result.slug}`);
                 }
-            } catch
+            } catch (error)
             {
-                toast.error("Something went wrong. Please try again.");
+                toast.error(
+                    error instanceof Error
+                        ? error.message
+                        : "Something went wrong. Please try again."
+                );
             }
         });
     }

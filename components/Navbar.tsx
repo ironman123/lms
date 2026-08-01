@@ -10,21 +10,25 @@ import {
 } from "@/app/(main)/actions/notification-actions";
 import { ThemeToggle } from "./ThemeToggle";
 import { getOpenModerationAttentionCount } from "@/lib/moderation/admin-service";
+import { getNewAppFeedbackCount } from "@/lib/feedback/admin-service";
 
 //import { Show, SignInButton, UserButton } from '@clerk/nextjs'
 
 const Navbar = async () => {
     const user = await getOptionalUser();
 
-    const [notifications, seenAt, moderationAttentionCount] = user
+    const [notifications, seenAt, moderationAttentionCount, newFeedbackCount] = user
         ? await Promise.all([
             getRecentNotifications(),
             getNotificationSeenAt(user.id),
             user.role === "ADMIN"
                 ? getOpenModerationAttentionCount()
                 : Promise.resolve(0),
+            user.role === "ADMIN"
+                ? getNewAppFeedbackCount()
+                : Promise.resolve(0),
         ])
-        : [[], null, 0];
+        : [[], null, 0, 0];
 
 
     return (
@@ -62,6 +66,7 @@ const Navbar = async () => {
                             moderationAttentionCount={
                                 moderationAttentionCount
                             }
+                            newFeedbackCount={newFeedbackCount}
                         />
                     </>
                 ) : (

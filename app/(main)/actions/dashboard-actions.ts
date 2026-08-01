@@ -10,6 +10,11 @@ import {
     toAppDateKey,
 } from "@/lib/date-utils";
 import { calculateConfidenceCalibration } from "@/lib/confidence-calibration";
+import {
+    archivedConfidenceBuckets,
+    parseInteractionArchive,
+} from "@/lib/interaction-retention-policy";
+import { parseQuestionSetSnapshot } from "@/lib/exam-results";
 
 type AccMap = Record<string, { c: number; t: number }>;
 
@@ -31,6 +36,7 @@ export async function getDashboardOverview() {
         activeMistakes,
         dueRepairs,
         confidenceBuckets,
+        archivedInteractionStats,
     ] =
         await Promise.all([
             // 1. Scalar aggregates + JSON breakdowns — 1 row
@@ -125,14 +131,19 @@ export async function getDashboardOverview() {
                 },
                 _count: { _all: true },
             }),
+            prisma.userInteractionArchiveStats.findUnique({
+                where: { userId: user.id },
+            }),
         ]);
 
     // ── Scalar totals ─────────────────────────────────────────────────────────
     const totalTests = sessionSummary._count._all;
     const correctQuestions =
-        gradeSummary.find((row) => row.grade === "CORRECT")?._count._all ?? 0;
+        (gradeSummary.find((row) => row.grade === "CORRECT")?._count._all ?? 0) +
+        (archivedInteractionStats?.correctCount ?? 0);
     const incorrectQuestions =
-        gradeSummary.find((row) => row.grade === "INCORRECT")?._count._all ?? 0;
+        (gradeSummary.find((row) => row.grade === "INCORRECT")?._count._all ?? 0) +
+        (archivedInteractionStats?.incorrectCount ?? 0);
     const totalQuestions = correctQuestions + incorrectQuestions;
     const avgScore =
         totalTests > 0
@@ -150,15 +161,20 @@ export async function getDashboardOverview() {
             )
             : 0;
     const confidenceCalibration = calculateConfidenceCalibration(
-        confidenceBuckets.flatMap((bucket) =>
-            bucket.confidenceLevel === null
-                ? []
-                : [{
-                    confidenceLevel: bucket.confidenceLevel,
-                    isCorrect: bucket.isCorrect,
-                    count: bucket._count._all,
-                }]
-        )
+        [
+            ...confidenceBuckets.flatMap((bucket) =>
+                bucket.confidenceLevel === null
+                    ? []
+                    : [{
+                        confidenceLevel: bucket.confidenceLevel,
+                        isCorrect: bucket.isCorrect,
+                        count: bucket._count._all,
+                    }]
+            ),
+            ...archivedConfidenceBuckets(
+                archivedInteractionStats?.confidenceBuckets
+            ),
+        ]
     );
 
     const totalSecs = sessionSummary._sum.timeTakenSecs ?? 0;
@@ -283,6 +299,8 @@ export async function getExamDashboard(examId: string) {
                 totalQuestions: true,
                 accuracy: true,
                 timeTakenSecs: true,
+                interactionArchive: true,
+                questionSetSnapshot: true,
                 paper: { select: { title: true } },
                 interactions: {
                     select: {
@@ -305,6 +323,33 @@ export async function getExamDashboard(examId: string) {
         }),
     ]);
 
+    const sessionsWithAnalytics = sessions.map((session) => {
+        if (session.interactions.length > 0) {
+            return { ...session, analyticsInteractions: session.interactions };
+        }
+        const questions = new Map(
+            (parseQuestionSetSnapshot(session.questionSetSnapshot) ?? []).map(
+                (question) => [question.id, question]
+            )
+        );
+        const archived = parseInteractionArchive(
+            session.interactionArchive
+        )?.interactions ?? [];
+        return {
+            ...session,
+            analyticsInteractions: archived.map((interaction) => ({
+                isCorrect: interaction.grade === "CORRECT",
+                grade: interaction.grade,
+                totalDwellTime: interaction.totalDwellTime,
+                hesitationCount: interaction.hesitationCount,
+                question: {
+                    topicPath:
+                        questions.get(interaction.questionId)?.topicPath ?? null,
+                },
+            })),
+        };
+    });
+
     // ── Score trend — uses stored values ──────────────────────────────────────
     const trend = sessions.map((s) => ({
         date: s.startTime.toLocaleDateString("en-IN", {
@@ -319,9 +364,9 @@ export async function getExamDashboard(examId: string) {
     // ── Subject breakdown ─────────────────────────────────────────────────────
     const subjectMap = new Map<string, { correct: number; total: number }>();
 
-    for (const session of sessions)
+    for (const session of sessionsWithAnalytics)
     {
-        for (const i of session.interactions)
+        for (const i of session.analyticsInteractions)
         {
             if (i.grade !== "CORRECT" && i.grade !== "INCORRECT") {
                 continue;
@@ -354,8 +399,8 @@ export async function getExamDashboard(examId: string) {
         changedQuestionCount = 0,
         correctAfterHesitation = 0;
 
-    sessions.forEach((s) =>
-        s.interactions.forEach((i) => {
+    sessionsWithAnalytics.forEach((s) =>
+        s.analyticsInteractions.forEach((i) => {
             const isObjectivelyGraded =
                 i.grade === "CORRECT" || i.grade === "INCORRECT";
             if (isObjectivelyGraded && i.totalDwellTime > 0)

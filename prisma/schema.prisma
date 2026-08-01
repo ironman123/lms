@@ -320,85 +320,94 @@ model User {
   userStats UserStats?
   examStats UserExamStats[]
 
-  purchases          UserPurchase[]
-  pushSubs           PushSubscription[]
-  notifLogs          NotificationLog[]
-  statsContributions SessionStatsContribution[]
-  contentReports     ContentReport[]
-  moderationActions  ModerationAction[]         @relation("ModerationActionActor")
-  assignedCases      ModerationCase[]           @relation("ModerationCaseAssignee")
-  moderationConfigs  ModerationConfig[]         @relation("ModerationConfigUpdatedBy")
-  configAudits       ModerationConfigAudit[]
-  paperImports       PaperImport[]
-  appFeedback        AppFeedback[]              @relation("AppFeedbackReporter")
-  assignedFeedback   AppFeedback[]              @relation("AppFeedbackAssignee")
-  mistakeNotebook    MistakeNotebookEntry[]
+  purchases               UserPurchase[]
+  pushSubs                PushSubscription[]
+  notifLogs               NotificationLog[]
+  statsContributions      SessionStatsContribution[]
+  contentReports          ContentReport[]
+  moderationActions       ModerationAction[]           @relation("ModerationActionActor")
+  assignedCases           ModerationCase[]             @relation("ModerationCaseAssignee")
+  moderationConfigs       ModerationConfig[]           @relation("ModerationConfigUpdatedBy")
+  configAudits            ModerationConfigAudit[]
+  paperImports            PaperImport[]
+  appFeedback             AppFeedback[]                @relation("AppFeedbackReporter")
+  assignedFeedback        AppFeedback[]                @relation("AppFeedbackAssignee")
+  acknowledgedFeedback    AppFeedback[]                @relation("AppFeedbackAcknowledgedBy")
+  mistakeNotebook         MistakeNotebookEntry[]
+  interactionArchiveStats UserInteractionArchiveStats?
+  retentionConfigsUpdated InteractionRetentionConfig[] @relation("InteractionRetentionConfigUpdatedBy")
 }
 
 model AppFeedback {
-  id            String              @id @default(uuid())
-  reporterId    String
-  assignedToId  String?
-  category      AppFeedbackCategory
-  status        AppFeedbackStatus   @default(NEW)
-  priority      AppFeedbackPriority @default(NORMAL)
-  title         String
-  message       String
-  pageUrl       String?
-  userAgent     String?
-  context       Json?
-  adminResponse String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  resolvedAt    DateTime?
+  id               String              @id @default(uuid())
+  reporterId       String
+  assignedToId     String?
+  acknowledgedById String?
+  category         AppFeedbackCategory
+  status           AppFeedbackStatus   @default(NEW)
+  priority         AppFeedbackPriority @default(NORMAL)
+  title            String
+  message          String
+  pageUrl          String?
+  userAgent        String?
+  context          Json?
+  adminResponse    String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  acknowledgedAt   DateTime?
+  resolvedAt       DateTime?
 
-  reporter   User  @relation("AppFeedbackReporter", fields: [reporterId], references: [id], onDelete: Restrict)
-  assignedTo User? @relation("AppFeedbackAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  reporter       User  @relation("AppFeedbackReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  assignedTo     User? @relation("AppFeedbackAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  acknowledgedBy User? @relation("AppFeedbackAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
 
   @@index([status, priority, updatedAt])
   @@index([reporterId, createdAt])
   @@index([assignedToId, status])
+  @@index([acknowledgedById, acknowledgedAt])
 }
 
 model TestSession {
-  id                  String                    @id @default(uuid())
-  mode                SessionMode               @default(PRACTICE)
-  purpose             SessionPurpose            @default(STANDARD)
-  status              SessionStatus             @default(ACTIVE)
-  startTime           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
-  endTime             DateTime?
-  lastCheckpointAt    DateTime?
-  pausedAt            DateTime?
-  abandonedAt         DateTime?
-  abandonReason       String?
-  expiresAt           DateTime?
-  totalScore          Float?
-  earnedMarks         Float?
-  maximumMarks        Float?
-  penaltyMarks        Float                     @default(0.0)
-  pendingReviewCount  Int                       @default(0)
-  questionSetSnapshot Json?
-  totalQuestions      Int                       @default(0)
-  correctCount        Int                       @default(0)
-  accuracy            Float? // correctCount / totalQuestions
-  timeTakenSecs       Int? // actual wall time
-  pausedDurationSecs  Int                       @default(0)
-  avgTimePerQ         Float?
-  attemptedCount      Int                       @default(0) // not everyone answers all Qs
-  completedAt         DateTime?
-  userId              String
-  paperId             String
-  examId              String?
-  examContextSource   SessionExamContextSource  @default(UNCLASSIFIED)
-  activityLogs        ActivityLog[]
-  interactions        QuestionInteraction[]
-  paper               QuestionPaper             @relation(fields: [paperId], references: [id])
-  user                User                      @relation(fields: [userId], references: [id])
-  exam                Exam?                     @relation(fields: [examId], references: [id], onDelete: SetNull)
-  statsContribution   SessionStatsContribution?
-  contentReports      ContentReport[]
-  mistakeEntries      MistakeNotebookEntry[]
+  id                   String                    @id @default(uuid())
+  mode                 SessionMode               @default(PRACTICE)
+  purpose              SessionPurpose            @default(STANDARD)
+  status               SessionStatus             @default(ACTIVE)
+  startTime            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  endTime              DateTime?
+  lastCheckpointAt     DateTime?
+  pausedAt             DateTime?
+  abandonedAt          DateTime?
+  abandonReason        String?
+  expiresAt            DateTime?
+  totalScore           Float?
+  earnedMarks          Float?
+  maximumMarks         Float?
+  penaltyMarks         Float                     @default(0.0)
+  pendingReviewCount   Int                       @default(0)
+  questionSetSnapshot  Json?
+  interactionArchive   Json?
+  interactionsPurgedAt DateTime?
+  totalQuestions       Int                       @default(0)
+  correctCount         Int                       @default(0)
+  accuracy             Float? // correctCount / totalQuestions
+  timeTakenSecs        Int? // actual wall time
+  pausedDurationSecs   Int                       @default(0)
+  avgTimePerQ          Float?
+  attemptedCount       Int                       @default(0) // not everyone answers all Qs
+  completedAt          DateTime?
+  userId               String
+  paperId              String
+  examId               String?
+  examContextSource    SessionExamContextSource  @default(UNCLASSIFIED)
+  activityLogs         ActivityLog[]
+  interactions         QuestionInteraction[]
+  paper                QuestionPaper             @relation(fields: [paperId], references: [id])
+  user                 User                      @relation(fields: [userId], references: [id])
+  exam                 Exam?                     @relation(fields: [examId], references: [id], onDelete: SetNull)
+  statsContribution    SessionStatsContribution?
+  contentReports       ContentReport[]
+  mistakeEntries       MistakeNotebookEntry[]
 
   @@index([userId, status, startTime])
   @@index([status, expiresAt])
@@ -406,6 +415,43 @@ model TestSession {
   @@index([userId, completedAt])
   @@index([userId, examId, completedAt])
   @@index([userId, purpose, status, startTime])
+  @@index([status, interactionsPurgedAt, completedAt])
+}
+
+model InteractionRetentionConfig {
+  id                         String   @id @default("global")
+  enabled                    Boolean  @default(false)
+  retentionDays              Int      @default(180)
+  maxDetailedSessionsPerUser Int      @default(50)
+  batchSize                  Int      @default(25)
+  updatedAt                  DateTime @updatedAt
+  updatedById                String?
+  updatedBy                  User?    @relation("InteractionRetentionConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedById])
+}
+
+model UserInteractionArchiveStats {
+  userId            String   @id
+  correctCount      Int      @default(0)
+  incorrectCount    Int      @default(0)
+  confidenceBuckets Json     @default("{}")
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InteractionRetentionRun {
+  id                  String    @id @default(uuid())
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+  dryRun              Boolean   @default(false)
+  examinedSessions    Int       @default(0)
+  archivedSessions    Int       @default(0)
+  deletedInteractions Int       @default(0)
+  skippedSessions     Int       @default(0)
+  error               String?
+
+  @@index([startedAt])
 }
 
 model MistakeNotebookEntry {
@@ -832,6 +878,7 @@ enum AppFeedbackCategory {
 
 enum AppFeedbackStatus {
   NEW
+  ACKNOWLEDGED
   IN_REVIEW
   PLANNED
   RESOLVED

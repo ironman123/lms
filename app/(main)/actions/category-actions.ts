@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { CategoryFormValues, categorySchema } from "@/types/category";
 import { requireAdmin } from "@/lib/auth";
 import { invalidateTag } from "@/lib/cache";
+import { actionErrorMessage } from "@/lib/action-errors";
 
 function makeSlug(name: string) {
     return name
@@ -21,29 +22,34 @@ function makeSlug(name: string) {
 
 export async function createCategory(values: CategoryFormValues) {
     await requireAdmin();
-    const slug = makeSlug(values.name);
-
-    try
-    {
-        await prisma.examCategory.create({
+    try {
+        const validated = categorySchema.parse(values);
+        const slug = makeSlug(validated.name);
+        if (!slug) {
+            return { success: false as const, error: "Category name must contain letters or numbers." };
+        }
+        const category = await prisma.examCategory.create({
             data: {
-                name: values.name,
+                name: validated.name.trim(),
                 slug,
-                description: values.description,
-                icon: values.icon,
-                color: values.color,
-                image: values.image,
+                description: validated.description.trim(),
+                icon: validated.icon.trim(),
+                color: validated.color,
+                image: validated.image,
             },
+            select: { id: true, slug: true },
         });
-    } catch (error)
-    {
-        console.error("Database Error:", error);
-        throw new Error("Failed to create category.");
+        await invalidateTag("examCategories");
+        revalidatePath("/library/category");
+        revalidatePath(`/library/category/${category.slug}`);
+        return { success: true as const, ...category };
+    } catch (error) {
+        console.error("Category creation failed", error);
+        return {
+            success: false as const,
+            error: actionErrorMessage(error, "Unable to create this category."),
+        };
     }
-
-    await invalidateTag("examCategories");
-    revalidatePath("/library/category");
-    redirect("/library/category");
 }
 
 export async function updateCategory(categoryId: string, data: CategoryFormValues) {

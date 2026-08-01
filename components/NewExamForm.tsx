@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import ExamCarouselCard from './ExamCarouselCard';
 import { parseSyllabusPDF } from "@/app/(main)/actions/ocr-syllabus";
+import { useRouter } from "next/navigation";
 
 interface NewExamFormProps {
     categories: { id: string; name: string; color: string | null | undefined }[];
@@ -26,6 +27,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
 
     const [isPending, startTransition] = useTransition();
     const [isScanning, setIsScanning] = useState(false);
+    const router = useRouter();
 
     const isEditing = !!initialData;
 
@@ -113,13 +115,21 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
                     toast.success("Exam updated successfully!");
                 } else
                 {
-                    await createExam(data);
+                    const result = await createExam(data);
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                    }
                     toast.success("Exam published successfully!");
-                    form.reset();
+                    router.push(`/library/exam/${result.slug}`);
                 }
-            } catch
+            } catch (error)
             {
-                toast.error("Failed to create exam.");
+                toast.error(
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to create exam."
+                );
             }
         });
     };
