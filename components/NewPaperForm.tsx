@@ -77,7 +77,11 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
             {
                 if (isEditing)
                 {
-                    await updateQuestionPaper(initialData!.id, { ...data, examIds: examId ? [examId] : [] }, examSlug);
+                    const result = await updateQuestionPaper(initialData!.id, { ...data, examIds: examId ? [examId] : [] }, examSlug);
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                    }
                     toast.success("Paper updated successfully!");
                 } else
                 {
@@ -91,9 +95,9 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
                     }
                     toast.success("Paper created! Now add your questions.");
                 }
-            } catch
+            } catch (error)
             {
-                toast.error("Failed to save paper.");
+                toast.error(error instanceof Error ? error.message : "Failed to save paper.");
             }
         });
     };

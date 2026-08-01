@@ -22,6 +22,7 @@ import {
     normalizePaperJsonQuestion,
     parsePaperJsonImport,
 } from "@/lib/paper-json-import";
+import type { PaperReadinessIssue } from "@/lib/paper-readiness";
 
 // ── Shared Types ──────────────────────────────────────────────────────────────
 
@@ -747,6 +748,10 @@ export default function PaperBuilder({
         signature: string;
         idempotencyKey: string;
     } | null>(null);
+    const [publishFeedback, setPublishFeedback] = useState<{
+        message: string;
+        issues: PaperReadinessIssue[];
+    } | null>(null);
 
 
     const topicPickerQuestion = useMemo(
@@ -1182,6 +1187,10 @@ export default function PaperBuilder({
                         type: type,
                         examIds: selectedExamIds,
                     }, examSlug);
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                    }
                     setPaperSaved(true);
                     setPaperStatus("DRAFT");
                     setPaperRevision(result.contentRevision);
@@ -1215,20 +1224,34 @@ export default function PaperBuilder({
     };
 
     const handlePublishPaper = () => {
-        if (!paperId) return;
+        if (!paperId) {
+            toast.error("Save the paper before publishing it.");
+            return;
+        }
         if (questions.some((question) => !question.saved)) {
             toast.error("Save every question before publishing the paper.");
             return;
         }
         startPublishing(async () => {
-            const result = await publishQuestionPaper(paperId);
-            if (!result.success) {
-                toast.error(result.error);
-                return;
+            try {
+                const result = await publishQuestionPaper(paperId);
+                if (!result.success) {
+                    setPublishFeedback({
+                        message: result.error,
+                        issues: result.issues,
+                    });
+                    toast.error(result.error);
+                    return;
+                }
+                setPublishFeedback(null);
+                setPaperStatus("PUBLISHED");
+                setPaperRevision(result.contentRevision);
+                toast.success("Paper published and available to students.");
+            } catch (error) {
+                const message = getErrorMessage(error);
+                setPublishFeedback({ message, issues: [] });
+                toast.error(`Unable to publish: ${message}`);
             }
-            setPaperStatus("PUBLISHED");
-            setPaperRevision(result.contentRevision);
-            toast.success("Paper published and available to students.");
         });
     };
 
@@ -1398,6 +1421,41 @@ export default function PaperBuilder({
                                 onClick={() => setJsonImportFeedback(null)}
                                 className="rounded-lg p-1 text-current/70 transition-colors hover:bg-background/60 hover:text-current"
                                 aria-label="Dismiss JSON import result"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {publishFeedback && (
+                    <div
+                        role="alert"
+                        className="rounded-2xl border border-amber-500/35 bg-amber-500/10 p-4 text-foreground"
+                    >
+                        <div className="flex items-start gap-3">
+                            <AlertCircle className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-black">Publishing needs attention</p>
+                                <p className="mt-1 text-sm text-muted-foreground">{publishFeedback.message}</p>
+                                {publishFeedback.issues.length > 0 && (
+                                    <ul className="mt-3 list-disc space-y-1 pl-5 text-xs font-medium text-foreground/80">
+                                        {publishFeedback.issues.map((issue) => (
+                                            <li key={`${issue.questionId}-${issue.code}`}>{issue.message}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {publishFeedback.issues.some((issue) => issue.code === "SUBJECTIVE_REQUIRES_MANUAL_GRADING") && (
+                                    <p className="mt-3 text-xs font-semibold text-amber-800 dark:text-amber-200">
+                                        Subjective questions can be saved, but must stay draft until manual grading is implemented. Convert those questions to objective or numerical questions to publish today.
+                                    </p>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setPublishFeedback(null)}
+                                className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground"
+                                aria-label="Dismiss publishing feedback"
                             >
                                 <X className="size-4" />
                             </button>

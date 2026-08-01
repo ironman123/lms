@@ -307,15 +307,20 @@ export default function QuestionForm({ paperId, examSlug, initialData, onSaved, 
 
                 {/* SUBJECTIVE Field */}
                 {watchedType === 'SUBJECTIVE' && (
-                    <FormField control={form.control} name="modelAnswer" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel className="font-bold">Model Answer</FormLabel>
-                            <FormControl>
-                                <Textarea {...field} value={field.value ?? ""} placeholder="Enter the expected model answer or key grading points..." className="min-h-[100px] resize-none" />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
+                    <div className="space-y-2">
+                        <FormField control={form.control} name="modelAnswer" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="font-bold">Model Answer</FormLabel>
+                                <FormControl>
+                                    <Textarea {...field} value={field.value ?? ""} placeholder="Enter the expected model answer or key grading points..." className="min-h-[100px] resize-none" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-200">
+                            Manual grading is not available yet. This question can be saved, but the paper cannot be published while it is subjective.
+                        </p>
+                    </div>
                 )}
 
                 {/* Explanation */}

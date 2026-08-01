@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { Prisma } from "@prisma/client";
+import { actionErrorMessage } from "../lib/action-errors";
 import { categorySchema } from "../types/category";
 import { examSchema } from "../types/exam";
 import { paperSchema } from "../types/paper";
@@ -87,4 +89,37 @@ test("exam creation is one transaction and removes the broken search trigger", (
     assert.match(examAction, /prisma\.\$transaction\(async \(tx\)/);
     assert.match(triggerMigration, /DROP TRIGGER IF EXISTS "exam_search_update"/);
     assert.match(triggerMigration, /DROP FUNCTION IF EXISTS "exam_search_vector_update"/);
+});
+
+test("duplicate category codes are reported without a silent generic failure", () => {
+    const error = new Prisma.PrismaClientKnownRequestError("duplicate", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["Exam_categoryNumber_key"] },
+    });
+
+    assert.equal(
+        actionErrorMessage(error, "fallback"),
+        "That category code is already assigned to another exam."
+    );
+});
+
+test("content actions return structured failures and the builder keeps publish blockers visible", () => {
+    assert.match(examAction, /Exam update failed/);
+    assert.match(categoryAction, /Category update failed/);
+    assert.match(paperAction, /Paper publish failed/);
+    assert.match(paperAction, /Paper update failed/);
+
+    const paperBuilder = readFileSync(
+        new URL("../components/PaperBuilder.tsx", import.meta.url),
+        "utf8"
+    );
+    assert.match(paperBuilder, /Publishing needs attention/);
+    assert.match(paperBuilder, /SUBJECTIVE_REQUIRES_MANUAL_GRADING/);
+
+    const questionCard = readFileSync(
+        new URL("../components/QuestionCard.tsx", import.meta.url),
+        "utf8"
+    );
+    assert.match(questionCard, /Manual grading is not available yet/);
 });

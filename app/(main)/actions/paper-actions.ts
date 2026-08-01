@@ -116,45 +116,57 @@ export async function createQuestionPaper(data: PaperFormInput, examSlug: string
 
 export async function publishQuestionPaper(paperId: string) {
     await requireAdmin();
-    const paper = await prisma.questionPaper.findUnique({
-        where: { id: paperId },
-        include: {
-            questions: {
-                where: { isArchived: false },
-                orderBy: { position: "asc" },
+    try {
+        if (!paperId) {
+            return { success: false as const, error: "Paper ID is required.", issues: [] };
+        }
+        const paper = await prisma.questionPaper.findUnique({
+            where: { id: paperId },
+            include: {
+                questions: {
+                    where: { isArchived: false },
+                    orderBy: { position: "asc" },
+                },
             },
-        },
-    });
-    if (!paper) return { success: false as const, error: "Paper not found." };
-    const readiness = getPaperReadiness(paper.questions);
-    if (!readiness.ready) {
+        });
+        if (!paper) return { success: false as const, error: "Paper not found.", issues: [] };
+        const readiness = getPaperReadiness(paper.questions);
+        if (!readiness.ready) {
+            return {
+                success: false as const,
+                error:
+                    paperReadinessMessage(readiness) ??
+                    "The paper is not ready for students.",
+                issues: readiness.issues,
+            };
+        }
+
+        const updated = await prisma.questionPaper.update({
+            where: { id: paperId },
+            data: {
+                status: PaperStatus.PUBLISHED,
+                contentRevision: { increment: 1 },
+            },
+            select: { contentRevision: true },
+        });
+        await Promise.all([
+            invalidateTag("papers"),
+            invalidateTag("exams"),
+            invalidateKey(`paper:${paperId}`),
+        ]);
+        revalidatePath("/library/paper");
+        return {
+            success: true as const,
+            contentRevision: updated.contentRevision,
+        };
+    } catch (error) {
+        console.error("Paper publish failed", error);
         return {
             success: false as const,
-            error:
-                paperReadinessMessage(readiness) ??
-                "The paper is not ready for students.",
-            issues: readiness.issues,
+            error: actionErrorMessage(error, "Unable to publish this paper. Please try again."),
+            issues: [],
         };
     }
-
-    const updated = await prisma.questionPaper.update({
-        where: { id: paperId },
-        data: {
-            status: PaperStatus.PUBLISHED,
-            contentRevision: { increment: 1 },
-        },
-        select: { contentRevision: true },
-    });
-    await Promise.all([
-        invalidateTag("papers"),
-        invalidateTag("exams"),
-        invalidateKey(`paper:${paperId}`),
-    ]);
-    revalidatePath("/library/paper");
-    return {
-        success: true as const,
-        contentRevision: updated.contentRevision,
-    };
 }
 
 export async function updateQuestionPaper(
@@ -163,10 +175,11 @@ export async function updateQuestionPaper(
     examSlug: string
 ) {
     const admin = await requireAdmin();
-    if (!paperId) throw new Error("Paper ID is required for update");
-    const validated = paperSchema.parse(data);
+    try {
+        if (!paperId) return { success: false as const, error: "Paper ID is required for update." };
+        const validated = paperSchema.parse(data);
 
-    const updatedPaper = await prisma.$transaction(async (tx) => {
+        const updatedPaper = await prisma.$transaction(async (tx) => {
         const paper = await tx.questionPaper.update({
             where: { id: paperId },
             data: {
@@ -225,16 +238,23 @@ export async function updateQuestionPaper(
             });
         }
         return paper;
-    });
+        });
 
-    await Promise.all([
-        invalidateTag("exams"),
-        invalidateTag("papers"),
-        invalidateKey(`paper:${paperId}`),
-    ]);
-    if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
-    revalidatePath("/library/paper");
-    return { success: true, ...updatedPaper };
+        await Promise.all([
+            invalidateTag("exams"),
+            invalidateTag("papers"),
+            invalidateKey(`paper:${paperId}`),
+        ]);
+        if (examSlug) revalidatePath(`/library/exam/${examSlug}`);
+        revalidatePath("/library/paper");
+        return { success: true as const, ...updatedPaper };
+    } catch (error) {
+        console.error("Paper update failed", error);
+        return {
+            success: false as const,
+            error: actionErrorMessage(error, "Unable to update this paper."),
+        };
+    }
 }
 
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {

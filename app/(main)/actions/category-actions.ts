@@ -54,23 +54,36 @@ export async function createCategory(values: CategoryFormValues) {
 
 export async function updateCategory(categoryId: string, data: CategoryFormValues) {
     await requireAdmin();
-    const validated = categorySchema.parse(data);
-    const slug = makeSlug(validated.name);
+    try {
+        const validated = categorySchema.parse(data);
+        const slug = makeSlug(validated.name);
+        if (!slug) {
+            return { success: false as const, error: "Category name must contain letters or numbers." };
+        }
 
-    await prisma.examCategory.update({
-        where: { id: categoryId },
-        data: {
-            name: validated.name,
-            description: validated.description,
-            icon: validated.icon,
-            color: validated.color,
-            image: validated.image,
-            slug,
-        },
-    });
+        await prisma.examCategory.update({
+            where: { id: categoryId },
+            data: {
+                name: validated.name.trim(),
+                description: validated.description.trim(),
+                icon: validated.icon.trim(),
+                color: validated.color,
+                image: validated.image,
+                slug,
+            },
+        });
 
-    await invalidateTag("examCategories");
-    redirect(`/library/category/${slug}`);
+        await invalidateTag("examCategories");
+        revalidatePath("/library/category");
+        revalidatePath(`/library/category/${slug}`);
+        return { success: true as const, slug };
+    } catch (error) {
+        console.error("Category update failed", error);
+        return {
+            success: false as const,
+            error: actionErrorMessage(error, "Unable to update this category."),
+        };
+    }
 }
 
 export async function deleteCategory(categoryId: string) {

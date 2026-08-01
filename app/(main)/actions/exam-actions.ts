@@ -152,83 +152,100 @@ export async function createExam(data: ExamFormInput) {
 
 export async function updateExam(id: string, data: ExamFormInput) {
     await requireAdmin();
-    if (!id) throw new Error("Exam ID required");
-    const validated = examSchema.parse(data);
-    const slug = makeSlug(validated.name);
+    try {
+        if (!id) return { success: false as const, error: "Exam ID is required." };
+        const validated = examSchema.parse(data);
+        const slug = makeSlug(validated.name);
+        if (!slug) {
+            return { success: false as const, error: "Exam name must contain letters or numbers." };
+        }
 
-    const categoryNames = [
-        ...new Set((validated.syllabus ?? []).map((item) => item.category.trim())),
-    ] as string[];
+        const categoryNames = [
+            ...new Set((validated.syllabus ?? []).map((item) => item.category.trim())),
+        ] as string[];
 
-    const categoryMap = new Map<string, string>();
-    if (categoryNames.length > 0)
-    {
-        const results = await prisma.$transaction(
-            categoryNames.map((name) =>
-                prisma.category.upsert({
+        await prisma.$transaction(async (tx) => {
+            const categoryMap = new Map<string, string>();
+            for (const name of categoryNames) {
+                const category = await tx.category.upsert({
                     where: { name },
                     update: {},
                     create: { name },
                     select: { id: true, name: true },
-                })
-            )
-        );
-        results.forEach((r) => categoryMap.set(r.name, r.id));
-    }
+                });
+                categoryMap.set(category.name, category.id);
+            }
 
-    await prisma.$transaction(async (tx) => {
-        await tx.exam.update({
-            where: { id },
-            data: {
-                name: validated.name.trim(),
-                slug,
-                description: validated.description?.trim(),
-                duration: validated.duration,
-                totalMarks: validated.totalMarks,
-                examCategoryId: validated.examCategoryId,
-                categoryNumber: validated.categoryNumber ?? null,
-            },
+            await tx.exam.update({
+                where: { id },
+                data: {
+                    name: validated.name.trim(),
+                    slug,
+                    description: validated.description.trim(),
+                    duration: validated.duration,
+                    totalMarks: validated.totalMarks,
+                    examCategoryId: validated.examCategoryId,
+                    categoryNumber: validated.categoryNumber?.trim() || null,
+                },
+            });
+
+            await tx.examsTagsLink.deleteMany({ where: { examId: id } });
+            const tagNames = [
+                ...new Set(validated.tags.map((tag) => tag.trim()).filter(Boolean)),
+            ];
+            if (tagNames.length > 0)
+            {
+                const tags = await Promise.all(
+                    tagNames.map((name) =>
+                        tx.tag.upsert({
+                            where: { name },
+                            update: {},
+                            create: { name },
+                            select: { id: true },
+                        })
+                    )
+                );
+                await tx.examsTagsLink.createMany({
+                    data: tags.map((tag) => ({ examId: id, tagId: tag.id })),
+                    skipDuplicates: true,
+                });
+            }
+
+            await tx.examSyllabusEntry.deleteMany({ where: { examId: id } });
+            const syllabusRows = [
+                ...new Map(
+                    validated.syllabus.flatMap((item) => {
+                        const categoryId = categoryMap.get(item.category.trim());
+                        if (!categoryId) return [];
+                        return item.topics
+                            .map((topicPath) => topicPath.trim())
+                            .filter(Boolean)
+                            .map((topicPath) => [
+                                topicPath,
+                                { examId: id, categoryId, topicPath },
+                            ] as const);
+                    })
+                ).values(),
+            ];
+            if (syllabusRows.length > 0) {
+                await tx.examSyllabusEntry.createMany({
+                    data: syllabusRows,
+                    skipDuplicates: true,
+                });
+            }
         });
 
-        await tx.examsTagsLink.deleteMany({ where: { examId: id } });
-        if (validated.tags?.length > 0)
-        {
-            const tags = await Promise.all(
-                validated.tags.map((tagName: string) =>
-                    tx.tag.upsert({
-                        where: { name: tagName.trim() },
-                        update: {},
-                        create: { name: tagName.trim() },
-                        select: { id: true },
-                    })
-                )
-            );
-            await tx.examsTagsLink.createMany({
-                data: tags.map((tag) => ({ examId: id, tagId: tag.id })),
-                skipDuplicates: true,
-            });
-        }
-
-        await tx.examSyllabusEntry.deleteMany({ where: { examId: id } });
-        const syllabusRows = [];
-        for (const item of validated.syllabus ?? [])
-        {
-            const catId = categoryMap.get(item.category.trim())!;
-            for (const topicPath of item.topics)
-            {
-                const path = topicPath.trim();
-                if (!path) continue;
-                syllabusRows.push({ examId: id, categoryId: catId, topicPath: path });
-            }
-        }
-        if (syllabusRows.length > 0)
-            await tx.examSyllabusEntry.createMany({ data: syllabusRows, skipDuplicates: true });
-    });
-
-    await invalidateTag("exams");
-    revalidatePath("/library/exam");
-    revalidatePath(`/library/exam/${slug}`);
-    return { success: true };
+        await invalidateTag("exams");
+        revalidatePath("/library/exam");
+        revalidatePath(`/library/exam/${slug}`);
+        return { success: true as const, slug };
+    } catch (error) {
+        console.error("Exam update failed", error);
+        return {
+            success: false as const,
+            error: actionErrorMessage(error, "Unable to update this exam."),
+        };
+    }
 }
 
 export async function deleteExam(id: string) {

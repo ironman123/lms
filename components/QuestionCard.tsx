@@ -553,7 +553,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 
                         {/* SUBJECTIVE */}
                         {!q.isCancelled && isSubjective && (
-                            <div>
+                            <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">
                                     Model Answer
                                 </label>
@@ -564,6 +564,9 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                     rows={3}
                                     className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-card outline-none focus:ring-2 focus:ring-ring resize-none"
                                 />
+                                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-200">
+                                    Manual grading is not available yet. This question can be saved, but the paper cannot be published while it is subjective.
+                                </p>
                             </div>
                         )}
 

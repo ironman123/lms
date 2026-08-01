@@ -60,8 +60,13 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
             {
                 if (isEditing)
                 {
-                    await updateCategory(initialData!.id, data);
+                    const result = await updateCategory(initialData!.id, data);
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                    }
                     toast.success("Category updated successfully!");
+                    router.push(`/library/category/${result.slug}`);
                 } else
                 {
                     const result = await createCategory(data);

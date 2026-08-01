@@ -111,8 +111,13 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
             {
                 if (isEditing)
                 {
-                    await updateExam(initialData!.id, data);
+                    const result = await updateExam(initialData!.id, data);
+                    if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                    }
                     toast.success("Exam updated successfully!");
+                    router.push(`/library/exam/${result.slug}`);
                 } else
                 {
                     const result = await createExam(data);
