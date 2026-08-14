@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, User, Settings, ChevronDown, SlidersHorizontal, ShieldCheck, MessageSquareWarning, MessagesSquare } from "lucide-react";
+import { LogOut, User, Settings, ChevronDown, SlidersHorizontal, ShieldCheck, MessageSquareWarning, MessagesSquare, Bookmark } from "lucide-react";
 import { signOut } from "@/app/actions/auth-actions";
 import Link from "next/link";
 import Image from "next/image";
@@ -82,6 +82,10 @@ export default function UserMenu({ name, email, avatarUrl, role, moderationAtten
                             >
                                 <MessageSquareWarning size={15} className="text-muted-foreground" />
                                 My reports
+                            </Link>
+                            <Link href="/bookmarks" className="flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 dark:text-slate-200 hover:bg-background dark:hover:bg-slate-800 rounded-xl transition-colors font-medium">
+                                <Bookmark size={15} className="text-muted-foreground" />
+                                Saved questions
                             </Link>
                             <Link
                                 href="/feedback"

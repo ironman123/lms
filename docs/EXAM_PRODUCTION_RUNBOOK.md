@@ -73,3 +73,6 @@ Before deployment:
 6. dry-run the legacy question archive audit
 7. manually complete one mock attempt with correct, incorrect, skipped, and
    flagged answers in the deployment environment
+8. confirm **Admin → System operations** has no missing required services
+9. run the controlled checkpoint probe in `docs/LOAD_TESTING.md` against
+   staging before a material traffic increase

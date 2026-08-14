@@ -8,7 +8,8 @@
     "start": "prisma generate && next start",
     "lint": "eslint",
     "test": "node --import tsx --test tests/**/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "load:checkpoint": "tsx scripts/load-checkpoint.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.4",

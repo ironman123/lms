@@ -34,16 +34,19 @@ async function ensureDeliveries(notificationId: string) {
     if (!notification) return null;
 
     const subscriptions = await prisma.pushSubscription.findMany({
-        where: notification.examId
-            ? {
-                user: {
+        where: {
+            user: {
+                notificationPreferences: { is: { pushEnabled: true } },
+                ...(notification.examId
+                    ? {
                     OR: [
                         { targetExams: { has: notification.examId } },
                         { purchases: { some: { status: "PAID", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }], bundle: { examId: notification.examId } } } },
                     ],
-                },
-            }
-            : {},
+                    }
+                    : {}),
+            },
+        },
         select: { id: true, endpoint: true },
     });
 

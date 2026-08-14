@@ -213,6 +213,7 @@ model Question {
   moderationCases   ModerationCase[]
   mistakeEntries    MistakeNotebookEntry[]
   analyticsDaily    QuestionAnalyticsDaily[]
+  bookmarks         UserQuestionBookmark[]
 
   // MCQ + MSQ only
   options        Json? // OptionJSON[] | null for NUMERICAL/SUBJECTIVE
@@ -335,6 +336,8 @@ model User {
   assignedFeedback        AppFeedback[]                @relation("AppFeedbackAssignee")
   acknowledgedFeedback    AppFeedback[]                @relation("AppFeedbackAcknowledgedBy")
   mistakeNotebook         MistakeNotebookEntry[]
+  bookmarks               UserQuestionBookmark[]
+  notificationPreferences UserNotificationPreference?
   interactionArchiveStats UserInteractionArchiveStats?
   retentionConfigsUpdated InteractionRetentionConfig[] @relation("InteractionRetentionConfigUpdatedBy")
 }
@@ -849,6 +852,38 @@ model NotificationLog {
 
   @@index([notificationId])
   @@index([userId])
+}
+
+/// Student-controlled delivery choices. In-app messages are retained unless a
+/// student opts out; push is always opt-in and additionally requires a device
+/// subscription.
+model UserNotificationPreference {
+  userId                 String   @id
+  inAppEnabled           Boolean  @default(true)
+  pushEnabled            Boolean  @default(false)
+  examUpdatesEnabled     Boolean  @default(true)
+  practiceUpdatesEnabled Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A durable save-for-later marker, intentionally distinct from an in-session
+/// flag. Flags belong to one attempt; bookmarks belong to the student.
+model UserQuestionBookmark {
+  id         String   @id @default(uuid())
+  userId     String
+  questionId String
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, updatedAt])
+  @@index([questionId])
 }
 
 // ── Exam Calendar (admin-entered) ─────────────────────────────────────────────

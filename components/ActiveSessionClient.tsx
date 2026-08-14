@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import {
     Ban,
+    Bookmark,
     ChevronLeft,
     ChevronRight,
     Flag,
@@ -34,6 +35,7 @@ import type { ActiveSessionPaper } from "@/lib/session-loader";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
 import PracticeReminderTimer from "@/components/PracticeReminderTimer";
 import { clearPracticeReminder } from "@/lib/practice-reminder";
+import { toggleQuestionBookmark } from "@/app/(main)/actions/bookmark-actions";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 type SessionQuestion = ActiveSessionPaper["questions"][number];
@@ -132,6 +134,7 @@ export default function ActiveSessionClient({
                 : 0,
         [answers, paper.questions, totalQuestions]
     );
+    const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
 
     // ── Telemetry ─────────────────────────────────────────────────────────────
     const {
@@ -315,6 +318,22 @@ export default function ActiveSessionClient({
             return next;
         });
         telemetryToggleFlag(currentQuestion.id);
+    };
+
+    const onToggleBookmark = () => {
+        void toggleQuestionBookmark(currentQuestion.id).then((result) => {
+            if (!result.success) {
+                toast.error(result.error ?? "Could not update saved questions.");
+                return;
+            }
+            setBookmarked((previous) => {
+                const next = new Set(previous);
+                if (result.bookmarked) next.add(currentQuestion.id);
+                else next.delete(currentQuestion.id);
+                return next;
+            });
+            toast.success(result.bookmarked ? "Question saved." : "Question removed from saved questions.");
+        });
     };
 
     // ── Guard ─────────────────────────────────────────────────────────────────
@@ -608,7 +627,7 @@ export default function ActiveSessionClient({
                 </ScrollArea>
 
                 {/* ── Bottom toolbar ────────────────────────────────────────── */}
-                <div className="mx-1 mb-2 grid shrink-0 grid-cols-3 gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm md:mx-4 md:flex md:h-16 md:items-center md:justify-between md:rounded-3xl md:px-6 md:py-0">
+                <div className="mx-1 mb-2 grid shrink-0 grid-cols-4 gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm md:mx-4 md:flex md:h-16 md:items-center md:justify-between md:rounded-3xl md:px-6 md:py-0">
                     <div className="contents md:flex md:gap-2">
                         <Button
                             variant="ghost"
@@ -637,6 +656,16 @@ export default function ActiveSessionClient({
                                 )}
                             />
                             FLAG
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn("h-10 min-w-0 rounded-xl px-2 text-[9px] font-black md:h-9 md:text-[10px]", bookmarked.has(currentQuestion.id) && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary")}
+                            onClick={onToggleBookmark}
+                            aria-label={bookmarked.has(currentQuestion.id) ? "Remove question bookmark" : "Save question for later"}
+                        >
+                            <Bookmark className={cn("mr-0.5 h-3 w-3", bookmarked.has(currentQuestion.id) && "fill-current")} />
+                            SAVE
                         </Button>
 
                         {/* Mobile-only: open question navigator sheet */}
@@ -739,7 +768,7 @@ export default function ActiveSessionClient({
                         </Sheet>
                     </div>
 
-                    <div className="col-span-3 grid grid-cols-2 gap-2 md:flex">
+                    <div className="col-span-4 grid grid-cols-2 gap-2 md:flex">
                         {isPracticeStyle &&
                             !currentQuestion.isCancelled && (
                             <Button

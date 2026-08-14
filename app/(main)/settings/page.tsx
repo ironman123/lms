@@ -2,10 +2,15 @@
 import { requireAuth } from "@/lib/auth";
 import { getExamsForPicker } from "@/app/(main)/actions/onboarding-actions";
 import SettingsForm from "@/components/SettingForm";
+import NotificationPreferencesForm from "@/components/NotificationPreferencesForm";
+import { getNotificationPreferences } from "@/app/(main)/actions/notification-actions";
 
 export default async function SettingsPage() {
     const user = await requireAuth();
-    const exams = await getExamsForPicker();
+    const [exams, notificationPreferences] = await Promise.all([
+        getExamsForPicker(),
+        getNotificationPreferences(),
+    ]);
 
     return (
         <div className="min-h-screen bg-background">
@@ -27,6 +32,14 @@ export default async function SettingsPage() {
                         region: user.region ?? "",
                     }}
                 />
+                <div className="mt-6">
+                    <NotificationPreferencesForm initial={{
+                        inAppEnabled: notificationPreferences?.inAppEnabled ?? true,
+                        pushEnabled: notificationPreferences?.pushEnabled ?? false,
+                        examUpdatesEnabled: notificationPreferences?.examUpdatesEnabled ?? true,
+                        practiceUpdatesEnabled: notificationPreferences?.practiceUpdatesEnabled ?? true,
+                    }} />
+                </div>
             </main>
         </div>
     );

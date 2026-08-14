@@ -7,8 +7,8 @@ import { redis } from "@/lib/redis";
 import { withCache, invalidateTag } from "@/lib/cache";
 import { revalidatePath } from "next/cache";
 import { enqueueNotificationDelivery } from "@/lib/notification-delivery";
+import { NotificationType } from "@prisma/client";
 
-const NOTIF_CACHE_KEY = "notifications:recent";
 const NOTIF_TTL = 3600; // 1 hour
 const SEEN_KEY = (userId: string) => `notif:seen:${userId}`;
 const SEEN_TTL = 60 * 60 * 24 * 30; // 30 days
@@ -48,12 +48,30 @@ export async function sendNotification(data: {
 // Returns the 10 most recent notifications — used by the bell dropdown.
 // Cached in Redis for 1 hour, tagged "notifications" so sendNotification busts it.
 export async function getRecentNotifications() {
+    const user = await requireAuth();
+    const preferences = await prisma.userNotificationPreference.findUnique({
+        where: { userId: user.id },
+        select: { inAppEnabled: true, examUpdatesEnabled: true, practiceUpdatesEnabled: true },
+    });
+    if (preferences && !preferences.inAppEnabled) return [];
+    const mutedTypes: NotificationType[] = [
+        ...(preferences?.examUpdatesEnabled === false ? [NotificationType.EXAM_DATE] : []),
+        ...(preferences?.practiceUpdatesEnabled === false ? [NotificationType.NEW_MOCK] : []),
+    ];
+
     return withCache(
-        NOTIF_CACHE_KEY,
+        `notifications:recent:${user.id}`,
         NOTIF_TTL,
         () =>
             prisma.notification.findMany({
-                where: { status: "COMPLETED" },
+                where: {
+                    status: "COMPLETED",
+                    OR: [
+                        { examId: null },
+                        { examId: { in: user.targetExams } },
+                    ],
+                    ...(mutedTypes.length > 0 ? { type: { notIn: mutedTypes } } : {}),
+                },
                 orderBy: { createdAt: "desc" },
                 take: 10,
                 select: {
@@ -66,8 +84,30 @@ export async function getRecentNotifications() {
                     examId: true,
                 },
             }),
-        ["notifications"]
+        ["notifications", `notifications:user:${user.id}`]
     );
+}
+
+export async function getNotificationPreferences() {
+    const user = await requireAuth();
+    return prisma.userNotificationPreference.findUnique({ where: { userId: user.id } });
+}
+
+export async function updateNotificationPreferences(input: {
+    inAppEnabled: boolean;
+    pushEnabled: boolean;
+    examUpdatesEnabled: boolean;
+    practiceUpdatesEnabled: boolean;
+}) {
+    const user = await requireAuth();
+    await prisma.userNotificationPreference.upsert({
+        where: { userId: user.id },
+        create: { userId: user.id, ...input },
+        update: input,
+    });
+    await invalidateTag(`notifications:user:${user.id}`);
+    revalidatePath("/settings");
+    return { success: true };
 }
 
 // ── Bell: mark all notifications seen for this user ───────────────────────────

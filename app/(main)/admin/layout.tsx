@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, BarChart3, Database, FilePenLine, Library, MessageSquareMore, Settings, ShieldCheck } from "lucide-react";
+import { Archive, BarChart3, Database, FilePenLine, Library, MessageSquareMore, Settings, ShieldCheck, Activity } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth";
 
 export default async function AdminLayout({
@@ -59,6 +59,10 @@ export default async function AdminLayout({
                         >
                             <Database size={16} />
                             Retention
+                        </Link>
+                        <Link href="/admin/operations" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold hover:border-primary/40 hover:text-primary">
+                            <Activity size={16} />
+                            Operations
                         </Link>
                         <Link
                             href="/admin/papers/drafts"

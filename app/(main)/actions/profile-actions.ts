@@ -4,7 +4,7 @@
 
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { invalidateKey } from "@/lib/cache";
+import { invalidateKey, invalidateTag } from "@/lib/cache";
 import { revalidatePath } from "next/cache";
 
 export async function updateProfile(data: {
@@ -32,6 +32,7 @@ export async function updateProfile(data: {
 
     // Bust cached user so navbar and requireAuth pick up changes immediately
     await invalidateKey(`user:${user.supabaseId}`);
+    await invalidateTag(`notifications:user:${user.id}`);
     revalidatePath("/settings");
 
     return { success: true };
