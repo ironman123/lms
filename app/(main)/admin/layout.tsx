@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, Database, FilePenLine, Library, MessageSquareMore, Settings, ShieldCheck } from "lucide-react";
+import { Archive, BarChart3, Database, FilePenLine, Library, MessageSquareMore, Settings, ShieldCheck } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth";
 
 export default async function AdminLayout({
@@ -38,6 +38,13 @@ export default async function AdminLayout({
                         >
                             <ShieldCheck size={16} />
                             Moderation
+                        </Link>
+                        <Link
+                            href="/admin/content-health"
+                            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold hover:border-primary/40 hover:text-primary"
+                        >
+                            <BarChart3 size={16} />
+                            Content health
                         </Link>
                         <Link
                             href="/admin/settings/moderation"

@@ -22,6 +22,12 @@ import {
     type ModerationCaseMergeInput,
     type ModerationConfigInput,
 } from "@/lib/moderation/schemas";
+import {
+    buildContentPerformance,
+    buildExamContentHealth,
+    buildPaperContentHealth,
+} from "@/lib/moderation/content-health";
+import { buildQuestionQualityQueue } from "@/lib/moderation/question-quality";
 
 const CONFIG_SELECT = {
     questionReportThreshold: true,
@@ -184,6 +190,344 @@ export async function getModerationQueue(filters: ModerationQueueFilters) {
         page,
         totalPages: Math.max(1, Math.ceil(total / pageSize)),
         counts: { needsAttention, belowThreshold, inReview },
+    };
+}
+
+async function getContentHealthInputs() {
+    const cases = await prisma.moderationCase.findMany({
+        where: {
+            status: {
+                in: [
+                    ModerationCaseStatus.OPEN,
+                    ModerationCaseStatus.IN_REVIEW,
+                ],
+            },
+        },
+        select: {
+            id: true,
+            targetType: true,
+            isEscalated: true,
+            updatedAt: true,
+            question: {
+                select: {
+                    id: true,
+                    paper: {
+                        select: {
+                            id: true,
+                            title: true,
+                            examQuestionPaperLinks: {
+                                select: {
+                                    exam: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            slug: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            paper: {
+                select: {
+                    id: true,
+                    title: true,
+                    examQuestionPaperLinks: {
+                        select: {
+                            exam: {
+                                select: { id: true, name: true, slug: true },
+                            },
+                        },
+                    },
+                },
+            },
+            reports: {
+                where: { withdrawnAt: null },
+                select: { reporterId: true, category: true, updatedAt: true },
+            },
+        },
+    });
+
+    const normalizedCases = cases.flatMap((moderationCase) => {
+        const paper = moderationCase.question?.paper ?? moderationCase.paper;
+        if (!paper) return [];
+        return [
+            {
+                id: moderationCase.id,
+                paper: {
+                    id: paper.id,
+                    title: paper.title,
+                    exams: paper.examQuestionPaperLinks.map(({ exam }) => exam),
+                },
+                questionId: moderationCase.question?.id ?? null,
+                isEscalated: moderationCase.isEscalated,
+                updatedAt: moderationCase.updatedAt,
+                reports: moderationCase.reports,
+            },
+        ];
+    });
+    const paperIds = [...new Set(normalizedCases.map((row) => row.paper.id))];
+    const completedAttemptCounts =
+        paperIds.length === 0
+            ? []
+            : await prisma.testSession.groupBy({
+                  by: ["paperId"],
+                  where: {
+                      paperId: { in: paperIds },
+                      status: "COMPLETED",
+                      purpose: "STANDARD",
+                  },
+                  _count: { _all: true },
+              });
+
+    return { normalizedCases, completedAttemptCounts };
+}
+
+export async function getPaperContentHealth() {
+    const { normalizedCases, completedAttemptCounts } =
+        await getContentHealthInputs();
+    return buildPaperContentHealth(
+        normalizedCases,
+        new Map(
+            completedAttemptCounts.map((row) => [row.paperId, row._count._all])
+        )
+    );
+}
+
+export async function getExamContentHealth() {
+    const { normalizedCases, completedAttemptCounts } =
+        await getContentHealthInputs();
+    const paperAttempts = new Map(
+        completedAttemptCounts.map((row) => [row.paperId, row._count._all])
+    );
+    const papers = buildPaperContentHealth(normalizedCases, paperAttempts);
+    const examIds = [...new Set(papers.flatMap((paper) => paper.exams.map((exam) => exam.id)))];
+    const completedAttemptCountsByExam =
+        examIds.length === 0
+            ? []
+            : await prisma.testSession.groupBy({
+                  by: ["examId"],
+                  where: {
+                      examId: { in: examIds },
+                      status: "COMPLETED",
+                      purpose: "STANDARD",
+                  },
+                  _count: { _all: true },
+              });
+    const reporterIdsByPaper = new Map<string, Set<string>>();
+    const questionIdsByPaper = new Map<string, Set<string>>();
+    for (const moderationCase of normalizedCases) {
+        const reporters = reporterIdsByPaper.get(moderationCase.paper.id) ?? new Set<string>();
+        moderationCase.reports.forEach((report) => reporters.add(report.reporterId));
+        reporterIdsByPaper.set(moderationCase.paper.id, reporters);
+        if (moderationCase.questionId) {
+            const questionIds = questionIdsByPaper.get(moderationCase.paper.id) ?? new Set<string>();
+            questionIds.add(moderationCase.questionId);
+            questionIdsByPaper.set(moderationCase.paper.id, questionIds);
+        }
+    }
+    return buildExamContentHealth(
+        papers,
+        new Map(
+            completedAttemptCountsByExam
+                .filter((row): row is typeof row & { examId: string } => row.examId !== null)
+                .map((row) => [row.examId, row._count._all])
+        ),
+        reporterIdsByPaper,
+        questionIdsByPaper
+    );
+}
+
+export async function getPaperContentPerformance(paperIds: string[]) {
+    if (paperIds.length === 0) return new Map();
+    const [statusCounts, completedMetrics] = await Promise.all([
+        prisma.testSession.groupBy({
+            by: ["paperId", "status"],
+            where: { paperId: { in: paperIds }, purpose: "STANDARD" },
+            _count: { _all: true },
+        }),
+        prisma.testSession.groupBy({
+            by: ["paperId"],
+            where: {
+                paperId: { in: paperIds },
+                purpose: "STANDARD",
+                status: "COMPLETED",
+            },
+            _count: { _all: true },
+            _avg: {
+                totalScore: true,
+                accuracy: true,
+                timeTakenSecs: true,
+            },
+        }),
+    ]);
+    const statusesByPaper = new Map<string, Map<string, number>>();
+    for (const row of statusCounts) {
+        const statuses = statusesByPaper.get(row.paperId) ?? new Map<string, number>();
+        statuses.set(row.status, row._count._all);
+        statusesByPaper.set(row.paperId, statuses);
+    }
+    const completedByPaper = new Map(
+        completedMetrics.map((row) => [row.paperId, row])
+    );
+    return new Map(
+        paperIds.map((paperId) => {
+            const completed = completedByPaper.get(paperId);
+            return [
+                paperId,
+                buildContentPerformance(statusesByPaper.get(paperId) ?? new Map(), {
+                    completedSessionCount: completed?._count._all ?? 0,
+                    averageScore: completed?._avg.totalScore ?? null,
+                    averageAccuracy: completed?._avg.accuracy ?? null,
+                    averageTimeTakenSecs: completed?._avg.timeTakenSecs ?? null,
+                }),
+            ] as const;
+        })
+    );
+}
+
+export async function getQuestionQualityQueue(filters?: { paperId?: string }) {
+    const cases = await prisma.moderationCase.findMany({
+        where: {
+            targetType: "QUESTION",
+            status: {
+                in: [
+                    ModerationCaseStatus.OPEN,
+                    ModerationCaseStatus.IN_REVIEW,
+                ],
+            },
+            questionId: { not: null },
+            question: filters?.paperId
+                ? { is: { paperId: filters.paperId } }
+                : undefined,
+        },
+        select: {
+            id: true,
+            questionId: true,
+            isEscalated: true,
+            updatedAt: true,
+            question: {
+                select: {
+                    content: true,
+                    paper: { select: { id: true, title: true } },
+                },
+            },
+            reports: {
+                where: { withdrawnAt: null },
+                select: { reporterId: true, category: true, updatedAt: true },
+            },
+        },
+    });
+    const normalizedCases = cases.flatMap((moderationCase) => {
+        if (!moderationCase.questionId || !moderationCase.question) return [];
+        return [
+            {
+                caseId: moderationCase.id,
+                questionId: moderationCase.questionId,
+                content: moderationCase.question.content,
+                paper: moderationCase.question.paper,
+                isEscalated: moderationCase.isEscalated,
+                updatedAt: moderationCase.updatedAt,
+                reports: moderationCase.reports,
+            },
+        ];
+    });
+    const questionIds = [...new Set(normalizedCases.map((item) => item.questionId))];
+    if (questionIds.length === 0) return [];
+    const [grades, dwell] = await Promise.all([
+        prisma.questionInteraction.groupBy({
+            by: ["questionId", "grade"],
+            where: {
+                questionId: { in: questionIds },
+                session: { status: "COMPLETED", purpose: "STANDARD" },
+            },
+            _count: { _all: true },
+        }),
+        prisma.questionInteraction.groupBy({
+            by: ["questionId"],
+            where: {
+                questionId: { in: questionIds },
+                session: { status: "COMPLETED", purpose: "STANDARD" },
+            },
+            _avg: { totalDwellTime: true },
+        }),
+    ]);
+    const metricsByQuestion = new Map(
+        questionIds.map((questionId) => [
+            questionId,
+            {
+                questionId,
+                correctCount: 0,
+                incorrectCount: 0,
+                skippedCount: 0,
+                averageDwellSeconds: null as number | null,
+            },
+        ])
+    );
+    for (const row of grades) {
+        const metrics = metricsByQuestion.get(row.questionId);
+        if (!metrics) continue;
+        if (row.grade === "CORRECT") metrics.correctCount += row._count._all;
+        if (row.grade === "INCORRECT") metrics.incorrectCount += row._count._all;
+        if (row.grade === "SKIPPED") metrics.skippedCount += row._count._all;
+    }
+    for (const row of dwell) {
+        const metrics = metricsByQuestion.get(row.questionId);
+        if (metrics) metrics.averageDwellSeconds = row._avg.totalDwellTime;
+    }
+    return buildQuestionQualityQueue(normalizedCases, metricsByQuestion);
+}
+
+export async function getPaperContentHealthDetail(paperId: string) {
+    const paper = await prisma.questionPaper.findUnique({
+        where: { id: paperId },
+        select: {
+            id: true,
+            title: true,
+            status: true,
+            isArchived: true,
+            examQuestionPaperLinks: {
+                select: {
+                    exam: { select: { id: true, name: true, slug: true } },
+                },
+            },
+        },
+    });
+    if (!paper) return null;
+    const cases = await prisma.moderationCase.findMany({
+        where: {
+            OR: [
+                { paperId },
+                { question: { is: { paperId } } },
+            ],
+        },
+        select: {
+            id: true,
+            targetType: true,
+            status: true,
+            isEscalated: true,
+            updatedAt: true,
+            reports: {
+                where: { withdrawnAt: null },
+                orderBy: { updatedAt: "desc" },
+                select: { id: true, category: true, comment: true, updatedAt: true },
+            },
+        },
+        orderBy: { updatedAt: "desc" },
+    });
+    const [health, performance, questions] = await Promise.all([
+        getPaperContentHealth(),
+        getPaperContentPerformance([paperId]),
+        getQuestionQualityQueue({ paperId }),
+    ]);
+    return {
+        paper,
+        health: health.find((entry) => entry.paperId === paperId) ?? null,
+        performance: performance.get(paperId) ?? null,
+        questions,
+        cases,
     };
 }
 
