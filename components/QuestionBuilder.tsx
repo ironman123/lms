@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import QuestionForm from './QuestionForm';
 import { deleteQuestion } from '@/app/(main)/actions/question-actions';
 import { toast } from 'sonner';
+import ConfirmDialog from './ConfirmDialog';
 
 interface Option {
     id?: string;
@@ -49,6 +50,7 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
 
     const handleSaved = () => {
         setShowForm(false);
@@ -56,11 +58,11 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
     };
 
     const handleDelete = async (questionId: string) => {
-        if (!confirm("Delete this question?")) return;
         try
         {
             await deleteQuestion(questionId, paperId, examSlug);
             toast.success("Question deleted.");
+            setDeleteQuestionId(null);
         } catch
         {
             toast.error("Failed to delete.");
@@ -102,7 +104,7 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
                                 <Pencil size={15} />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500"
-                                onClick={() => handleDelete(q.id)}>
+                                onClick={() => setDeleteQuestionId(q.id)} aria-label={`Delete question ${i + 1}`}>
                                 <Trash2 size={15} />
                             </Button>
                         </div>
@@ -176,6 +178,7 @@ export default function QuestionBuilder({ paperId, examSlug, initialQuestions }:
                     <Plus className="w-4 h-4 mr-2" /> Add Question
                 </Button>
             )}
+            <ConfirmDialog open={deleteQuestionId !== null} onOpenChange={(open) => !open && setDeleteQuestionId(null)} title="Delete this question?" description="This permanently removes the question from this paper. This cannot be undone." onConfirm={() => { if (deleteQuestionId) void handleDelete(deleteQuestionId); }} />
         </div>
     );
 }

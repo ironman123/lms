@@ -138,7 +138,7 @@ export default function InteractionRetentionSettingsForm({
                 </label>
             ))}
 
-            <div className="sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] grid gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur sm:grid-cols-[1fr_auto_auto]">
+            <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] grid gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur md:bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:grid-cols-[1fr_auto_auto]">
                 <button
                     type="button"
                     onClick={save}

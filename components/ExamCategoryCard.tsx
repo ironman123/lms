@@ -4,8 +4,9 @@ import Link from "next/link";
 import { CldImage } from "next-cloudinary";
 import * as Icons from "lucide-react";
 import { Trash2, Edit } from "lucide-react";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface DynamicIconProps {
     name: string;
@@ -42,14 +43,15 @@ export default function ExamCategoryCard({
     onDelete,
 }: ExamCategoryCardProps) {
     const [isPending, startTransition] = useTransition();
+    const [deleteOpen, setDeleteOpen] = useState(false);
 
     const handleDelete = () => {
-        if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
         startTransition(async () => {
             try
             {
                 await onDelete?.();
                 toast.success(`"${name}" deleted.`);
+                setDeleteOpen(false);
             } catch
             {
                 toast.error("Failed to delete category.");
@@ -98,24 +100,27 @@ export default function ExamCategoryCard({
 
             {/* Admin controls — outside the Link so clicks don't navigate */}
             {isAdmin && (
-                <div className="absolute top-3 right-3 z-30 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-3 right-3 z-30 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
                     <Link
                         href={`/library/category/${slug}/edit`}
                         onClick={e => e.stopPropagation()}
                         className="p-1.5 bg-card dark:bg-slate-800 border border-border dark:border-slate-700 rounded-lg text-muted-foreground dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800 transition-colors shadow-sm"
+                        aria-label={`Edit ${name}`}
                     >
                         <Edit size={13} />
                     </Link>
                     <button
                         type="button"
-                        onClick={handleDelete}
+                        onClick={() => setDeleteOpen(true)}
                         disabled={isPending}
                         className="p-1.5 bg-card dark:bg-slate-800 border border-border dark:border-slate-700 rounded-lg text-muted-foreground dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-800 transition-colors shadow-sm"
+                        aria-label={`Delete ${name}`}
                     >
                         <Trash2 size={13} />
                     </button>
                 </div>
             )}
+            <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title={`Delete ${name}?`} description="This permanently removes the category. This cannot be undone." pending={isPending} onConfirm={handleDelete} />
         </div>
     );
 }

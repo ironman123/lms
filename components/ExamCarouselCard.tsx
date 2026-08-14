@@ -83,7 +83,7 @@ const ExamCarouselCard = ({
 
                 {/* 2. ADMIN ACTIONS (z-30 to stay above the link) */}
                 {isAdmin && !isPreview && (
-                    <div className="absolute top-4 right-4 z-30 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute top-4 right-4 z-30 flex gap-2 opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
                         <button
                             onClick={(e) => {
                                 e.preventDefault();
@@ -91,6 +91,7 @@ const ExamCarouselCard = ({
                                 if (id) router.push(`/library/exam/${id}/edit`);
                             }}
                             className="p-2 bg-card/90 dark:bg-slate-800/90 text-foreground/80 dark:text-slate-300 rounded-full hover:bg-blue-500 hover:text-white transition-colors shadow-sm"
+                            aria-label={`Edit ${name}`}
                         >
                             <Edit size={16} />
                         </button>
@@ -101,6 +102,7 @@ const ExamCarouselCard = ({
                                 setShowDeleteDialog(true);
                             }}
                             className="p-2 bg-card/90 dark:bg-slate-800/90 text-foreground/80 dark:text-slate-300 rounded-full hover:bg-red-500 hover:text-white transition-colors shadow-sm"
+                            aria-label={`Delete ${name}`}
                         >
                             <Trash2 size={16} />
                         </button>

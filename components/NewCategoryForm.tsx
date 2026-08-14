@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { categorySchema, CategoryFormValues, CategoryFormInput } from "@/types/category";
 import { useRouter } from "next/navigation";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface NewCategoryFormProps {
     initialData?: CategoryFormValues & { id: string };
@@ -24,6 +25,7 @@ interface NewCategoryFormProps {
 export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
     const [isPending, startTransition] = useTransition();
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
     const router = useRouter();
     const isEditing = !!initialData;
 
@@ -42,7 +44,6 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
     const watchedValues = useWatch({ control: form.control });
 
     const handleDelete = async () => {
-        if (!confirm(`Delete "${initialData?.name}"? This cannot be undone.`)) return;
         setIsDeleting(true);
         try
         {
@@ -246,7 +247,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
                                     type="button"
                                     variant="outline"
                                     className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 h-13 rounded-xl px-6"
-                                    onClick={handleDelete}
+                                    onClick={() => setDeleteOpen(true)}
                                     disabled={isDeleting}
                                 >
                                     {isDeleting ? "Deleting..." : "Delete"}
@@ -255,6 +256,7 @@ export default function NewCategoryForm({ initialData }: NewCategoryFormProps) {
                         </div>
                     </form>
                 </Form>
+                {isEditing && <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title={`Delete ${initialData?.name}?`} description="This permanently removes the category. This cannot be undone." pending={isDeleting} onConfirm={handleDelete} />}
             </div>
 
             {/* Preview */}

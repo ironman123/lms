@@ -10,6 +10,7 @@ import { createQuestion, updateQuestion, deleteQuestion } from "@/app/(main)/act
 import type { Question, Option } from "./PaperBuilder";
 import QuestionQualityIndicator from "./QuestionQualityIndicator";
 import type { QuestionQualityIndicator as QuestionQualityIndicatorData } from "@/lib/moderation/question-quality";
+import ConfirmDialog from "./ConfirmDialog";
 
 const DIFFICULTIES = ["EASY", "MEDIUM", "HARD"] as const;
 const TYPES = ["MCQ", "MSQ", "NUMERICAL", "SUBJECTIVE"] as const;
@@ -103,6 +104,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         const [expanded, setExpanded] = useState(!q.saved);
         const [saving, setSaving] = useState(false);
         const [deleting, setDeleting] = useState(false);
+        const [deleteOpen, setDeleteOpen] = useState(false);
 
         const isOptionsType = q.type === "MCQ" || q.type === "MSQ";
         const isNumerical = q.type === "NUMERICAL";
@@ -294,7 +296,6 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
             if (deleting) return;
             if (q.id)
             {
-                if (!confirm(`Delete question ${q.number}?`)) return;
                 setDeleting(true);
                 try
                 {
@@ -401,7 +402,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         </button>
                         <button
                             type="button"
-                            onClick={handleDelete}
+                            onClick={() => q.id ? setDeleteOpen(true) : void handleDelete()}
                             disabled={deleting}
                             aria-label={`Delete question ${q.number}`}
                             className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -694,6 +695,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         </div>
                     </div>
                 )}
+                <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title={`Delete question ${q.number}?`} description="This permanently removes the question from this paper. This cannot be undone." pending={deleting} onConfirm={() => void handleDelete()} />
             </div>
         );
     }

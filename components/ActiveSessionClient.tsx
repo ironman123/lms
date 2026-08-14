@@ -34,6 +34,7 @@ import type { ActiveSessionPaper } from "@/lib/session-loader";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
 import PracticeReminderTimer from "@/components/PracticeReminderTimer";
 import { clearPracticeReminder } from "@/lib/practice-reminder";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 type SessionQuestion = ActiveSessionPaper["questions"][number];
 
@@ -108,6 +109,7 @@ export default function ActiveSessionClient({
     );
     const [isLocked, setIsLocked] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const numericalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const submissionStartedRef = useRef(false);
@@ -274,9 +276,11 @@ export default function ActiveSessionClient({
             Object.values(answers).filter(hasMeaningfulAnswer).length;
         if (
             !skipUnansweredConfirmation &&
-            unanswered > 0 &&
-            !confirm(`${unanswered} unanswered. Submit anyway?`)
-        ) return;
+            unanswered > 0
+        ) {
+            setSubmitConfirmOpen(true);
+            return;
+        }
 
         submissionStartedRef.current = true;
         setIsSubmitting(true);
@@ -858,6 +862,7 @@ export default function ActiveSessionClient({
                     </Button>
                 </div>
             </aside>
+            <ConfirmDialog open={submitConfirmOpen} onOpenChange={setSubmitConfirmOpen} title="Submit with unanswered questions?" description={`${totalQuestions - Object.values(answers).filter(hasMeaningfulAnswer).length} question(s) are unanswered. You can still submit this attempt.`} confirmLabel="Submit anyway" pending={isSubmitting} onConfirm={() => void submitSession(true)} />
         </div>
     );
 }

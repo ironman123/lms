@@ -40,7 +40,7 @@ const NAV = [
     // },
 ];
 
-export default function LibrarySidebar() {
+export default function LibrarySidebar({ hasUnreadNotifications = false }: { hasUnreadNotifications?: boolean }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const pathname = usePathname();
 
@@ -54,7 +54,7 @@ export default function LibrarySidebar() {
                 onMouseEnter={() => setIsExpanded(true)}
                 onMouseLeave={() => setIsExpanded(false)}
                 className={cn(
-                    "hidden md:flex fixed left-4 top-50 z-40 flex-col overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
+                    "hidden md:flex fixed left-4 top-1/2 -translate-y-1/2 z-40 flex-col overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
                     "bg-card/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-slate-800/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]",
                     "rounded-[2rem]",
                     isExpanded ? "w-64 " : "w-[68px]"
@@ -128,7 +128,7 @@ export default function LibrarySidebar() {
                             item.label === "My Dashboard"
                                 ? "Dashboard"
                                 : item.label === "Notifications"
-                                    ? "Alerts"
+                                    ? "Notifications"
                                     : item.label;
                         return (
                             <Link
@@ -142,7 +142,7 @@ export default function LibrarySidebar() {
                                         : "text-muted-foreground dark:text-slate-400 hover:bg-muted/50 dark:hover:bg-slate-800/50"
                                 )}
                             >
-                                <Icon size={19} className="shrink-0" />
+                                <span className="relative"><Icon size={19} className="shrink-0" />{item.label === "Notifications" && hasUnreadNotifications && <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary ring-2 ring-card" aria-label="Unread notifications" />}</span>
                                 <span className="w-full truncate text-center text-[9px] font-bold leading-none">
                                     {mobileLabel}
                                 </span>

@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/card';
 import ExamCarouselCard from './ExamCarouselCard';
 import { parseSyllabusPDF } from "@/app/(main)/actions/ocr-syllabus";
 import { useRouter } from "next/navigation";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface NewExamFormProps {
     categories: { id: string; name: string; color: string | null | undefined }[];
@@ -140,8 +141,8 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
     };
 
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
     const handleDelete = async () => {
-        if (!confirm("Delete this exam? This cannot be undone.")) return;
         setIsDeleting(true);
         try
         {
@@ -403,7 +404,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
                                     type="button"
                                     variant="outline"
                                     className="border-red-200 text-red-600 hover:bg-red-50 text-red-600 hover:text-red-700 h-14 rounded-xl"
-                                    onClick={handleDelete}
+                                    onClick={() => setDeleteOpen(true)}
                                     disabled={isDeleting}
                                 >
                                     {isDeleting ? "Deleting..." : "Delete Exam"}
@@ -412,6 +413,7 @@ export default function NewExamForm({ categories = [], initialData, defaultCateg
                         </div>
                     </form>
                 </Form>
+                {isEditing && <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete this exam?" description="This permanently removes the exam and its syllabus links. This cannot be undone." pending={isDeleting} onConfirm={handleDelete} />}
             </div>
 
             {/* RIGHT: LIVE PREVIEW */}

@@ -94,7 +94,7 @@ export default function ModerationSettingsForm({
                 </label>
             ))}
 
-            <div className="sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] flex justify-end rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur">
+            <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex justify-end rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur md:bottom-[calc(1rem+env(safe-area-inset-bottom))]">
                 <button
                     type="button"
                     onClick={save}

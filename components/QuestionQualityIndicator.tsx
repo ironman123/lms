@@ -9,6 +9,7 @@ import { changeModerationCaseStatus } from "@/app/(main)/actions/moderation-acti
 import { REPORT_CATEGORY_LABELS } from "@/lib/moderation/schemas";
 import type { QuestionQualityIndicator } from "@/lib/moderation/question-quality";
 import type { Option } from "./PaperBuilder";
+import ConfirmDialog from "./ConfirmDialog";
 
 const STATUS = {
     INSUFFICIENT: {
@@ -63,6 +64,7 @@ export default function QuestionQualityIndicator({
 }) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
+    const [dismissOpen, setDismissOpen] = useState(false);
     const [pending, startTransition] = useTransition();
     const status = STATUS[quality.status];
     const StatusIcon = status.Icon;
@@ -70,7 +72,6 @@ export default function QuestionQualityIndicator({
 
     const dismissAsValid = () => {
         if (!quality.caseId) return;
-        if (!confirm("Dismiss this report as valid? This will keep an audit note and remove the review marker.")) return;
         startTransition(async () => {
             const result = await changeModerationCaseStatus({
                 caseId: quality.caseId!,
@@ -83,6 +84,7 @@ export default function QuestionQualityIndicator({
             }
             toast.success("Report dismissed as valid.");
             setOpen(false);
+            setDismissOpen(false);
             router.refresh();
         });
     };
@@ -167,13 +169,14 @@ export default function QuestionQualityIndicator({
                             <Link href={`/admin/moderation/${quality.caseId}`} className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-xs font-black hover:border-primary/40 hover:text-primary">
                                 Review / edit report
                             </Link>
-                            <button type="button" onClick={dismissAsValid} disabled={pending} className="inline-flex h-9 items-center rounded-lg border border-emerald-300 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950/40">
+                            <button type="button" onClick={() => setDismissOpen(true)} disabled={pending} className="inline-flex h-9 items-center rounded-lg border border-emerald-300 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950/40">
                                 {pending ? "Saving…" : "Dismiss as valid"}
                             </button>
                         </div>
                     )}
                 </section>
             )}
+            <ConfirmDialog open={dismissOpen} onOpenChange={setDismissOpen} title="Dismiss this report as valid?" description="The audit note will be retained, while this question's review marker is removed." confirmLabel="Dismiss report" pending={pending} onConfirm={dismissAsValid} />
         </div>
     );
 }

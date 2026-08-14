@@ -12,6 +12,7 @@ import { parsePaperPDF } from "@/app/(main)/actions/ocr-paper";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import ConfirmDialog from "./ConfirmDialog";
 //import QuestionBuilder from '@/components/QuestionBuilder';
 
 interface NewPaperFormProps {
@@ -25,6 +26,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
     const [isPending, startTransition] = useTransition();
     const [isScanning, setIsScanning] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
     const isEditing = !!initialData;
 
     const form = useForm<PaperFormInput, undefined, PaperFormValues>({
@@ -103,7 +105,6 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
     };
 
     const handleDelete = async () => {
-        if (!confirm("Delete this paper and all its questions? This cannot be undone.")) return;
         setIsDeleting(true);
         try
         {
@@ -127,6 +128,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
     // }
 
     return (
+        <>
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
 
@@ -218,7 +220,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
                             type="button"
                             variant="outline"
                             className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 h-14 rounded-xl"
-                            onClick={handleDelete}
+                            onClick={() => setDeleteOpen(true)}
                             disabled={isDeleting}
                         >
                             {isDeleting ? "Deleting..." : "Delete Paper"}
@@ -227,5 +229,7 @@ export default function NewPaperForm({ examId, examSlug, initialData }: NewPaper
                 </div>
             </form>
         </Form>
+        {isEditing && <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete this paper?" description="This permanently removes the paper and every question in it. This cannot be undone." pending={isDeleting} onConfirm={handleDelete} />}
+        </>
     );
 }
