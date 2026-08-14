@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import PaperBuilder, { type Question } from "@/components/PaperBuilder";
 import { requireAdminPage } from "@/lib/auth";
 import { OptionJSON } from "@/types/question";
+import { getQuestionQualityIndicatorsForPaper } from "@/lib/moderation/admin-service";
 
 
 interface PageProps {
@@ -20,7 +21,7 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
     const { id: examSlug, paperId } = await params;
     const { moderationCaseId, reportedQuestionId } = await searchParams;
 
-    const [paper, allExams] = await Promise.all([
+    const [paper, allExams, questionQualityById] = await Promise.all([
         prisma.questionPaper.findUnique({
             where: { id: paperId },
             include: {
@@ -37,6 +38,7 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
             select: { id: true, name: true },
             orderBy: { createdAt: "desc" },
         }),
+        getQuestionQualityIndicatorsForPaper(paperId),
     ]);
 
     if (!paper) notFound();
@@ -116,6 +118,7 @@ export default async function EditPaperPage({ params, searchParams }: PageProps)
                 linkedExamIds={linkedExamIds}
                 moderationCaseId={moderationCaseId}
                 reportedQuestionId={reportedQuestionId}
+                questionQualityById={questionQualityById}
             />
         </div>
     );

@@ -24,6 +24,7 @@ import {
 } from "@/lib/paper-json-import";
 import type { PaperJsonImport } from "@/lib/paper-json-import";
 import type { PaperReadinessIssue } from "@/lib/paper-readiness";
+import type { QuestionQualityIndicator } from "@/lib/moderation/question-quality";
 import {
     appendQuestion,
     removeQuestionByClientId,
@@ -89,6 +90,7 @@ export interface PaperBuilderProps {
     linkedExamIds?: string[];
     moderationCaseId?: string;
     reportedQuestionId?: string;
+    questionQualityById?: Record<string, QuestionQualityIndicator>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -711,6 +713,7 @@ export default function PaperBuilder({
     initialQuestions = [],
     moderationCaseId,
     reportedQuestionId,
+    questionQualityById = {},
 }: PaperBuilderProps) {
 
     const [title, setTitle] = useState(initialPaper?.title ?? "");
@@ -1696,6 +1699,7 @@ export default function PaperBuilder({
                                         ? moderationCaseId
                                         : undefined
                                 }
+                                quality={q.id ? questionQualityById[q.id] : undefined}
                                 requireBulkImportSave={
                                     jsonImportMode === "REPLACE" &&
                                     q.importSource === "JSON" &&

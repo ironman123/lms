@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { createQuestion, updateQuestion, deleteQuestion } from "@/app/(main)/actions/question-actions";
 import type { Question, Option } from "./PaperBuilder";
+import QuestionQualityIndicator from "./QuestionQualityIndicator";
+import type { QuestionQualityIndicator as QuestionQualityIndicatorData } from "@/lib/moderation/question-quality";
 
 const DIFFICULTIES = ["EASY", "MEDIUM", "HARD"] as const;
 const TYPES = ["MCQ", "MSQ", "NUMERICAL", "SUBJECTIVE"] as const;
@@ -33,6 +35,7 @@ export interface QuestionCardProps {
     wrapperRef?: (el: HTMLDivElement | null) => void;
     moderationCaseId?: string;
     requireBulkImportSave?: boolean;
+    quality?: QuestionQualityIndicatorData;
 }
 
 // ── Option Row ────────────────────────────────────────────────────────────────
@@ -95,6 +98,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         wrapperRef,
         moderationCaseId,
         requireBulkImportSave = false,
+        quality,
     }, ref) => {
         const [expanded, setExpanded] = useState(!q.saved);
         const [saving, setSaving] = useState(false);
@@ -385,6 +389,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 )}
                             </div>
                         )}
+                        {quality && <QuestionQualityIndicator quality={quality} options={q.options} />}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                         <button

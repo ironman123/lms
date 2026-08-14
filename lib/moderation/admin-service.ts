@@ -27,7 +27,11 @@ import {
     buildExamContentHealth,
     buildPaperContentHealth,
 } from "@/lib/moderation/content-health";
-import { buildQuestionQualityQueue } from "@/lib/moderation/question-quality";
+import {
+    buildQuestionQualityQueue,
+    evaluateQuestionQuality,
+    type QuestionQualityIndicator,
+} from "@/lib/moderation/question-quality";
 
 const CONFIG_SELECT = {
     questionReportThreshold: true,
@@ -472,6 +476,176 @@ export async function getQuestionQualityQueue(filters?: { paperId?: string }) {
                 : null;
     }
     return buildQuestionQualityQueue(normalizedCases, metricsByQuestion);
+}
+
+/**
+ * Editor-safe, durable evidence for every question in one paper. The data is
+ * read from daily aggregates, never from historical QuestionInteraction rows.
+ */
+export async function getQuestionQualityIndicatorsForPaper(
+    paperId: string
+): Promise<Record<string, QuestionQualityIndicator>> {
+    const questions = await prisma.question.findMany({
+        where: { paperId, isArchived: false },
+        select: { id: true, avgTimeSeconds: true },
+    });
+    const questionIds = questions.map((question) => question.id);
+    if (questionIds.length === 0) return {};
+
+    const [dailyRows, cases, optionRows, confidenceRows] = await Promise.all([
+        prisma.questionAnalyticsDaily.groupBy({
+            by: ["questionId"],
+            where: { questionId: { in: questionIds } },
+            _sum: {
+                interactionCount: true,
+                correctCount: true,
+                incorrectCount: true,
+                skippedCount: true,
+                totalDwellSeconds: true,
+            },
+        }),
+        prisma.moderationCase.findMany({
+            where: {
+                targetType: "QUESTION",
+                questionId: { in: questionIds },
+                status: {
+                    in: [
+                        ModerationCaseStatus.OPEN,
+                        ModerationCaseStatus.IN_REVIEW,
+                    ],
+                },
+            },
+            orderBy: { updatedAt: "desc" },
+            select: {
+                id: true,
+                questionId: true,
+                isEscalated: true,
+                reports: {
+                    where: { withdrawnAt: null },
+                    select: { reporterId: true, category: true },
+                },
+            },
+        }),
+        prisma.questionOptionAnalyticsDaily.findMany({
+            where: { daily: { questionId: { in: questionIds } } },
+            select: {
+                selectedAnswer: true,
+                selectionCount: true,
+                daily: { select: { questionId: true } },
+            },
+        }),
+        prisma.questionConfidenceAnalyticsDaily.findMany({
+            where: { daily: { questionId: { in: questionIds } } },
+            select: {
+                confidenceLevel: true,
+                correctCount: true,
+                incorrectCount: true,
+                daily: { select: { questionId: true } },
+            },
+        }),
+    ]);
+
+    const dailyByQuestion = new Map(dailyRows.map((row) => [row.questionId, row]));
+    const caseByQuestion = new Map<
+        string,
+        {
+            caseId: string;
+            isEscalated: boolean;
+            reporterIds: Set<string>;
+            reportCount: number;
+            categories: Map<string, number>;
+        }
+    >();
+    for (const moderationCase of cases) {
+        if (!moderationCase.questionId) continue;
+        const entry = caseByQuestion.get(moderationCase.questionId) ?? {
+            caseId: moderationCase.id,
+            isEscalated: false,
+            reporterIds: new Set<string>(),
+            reportCount: 0,
+            categories: new Map<string, number>(),
+        };
+        entry.isEscalated ||= moderationCase.isEscalated;
+        for (const report of moderationCase.reports) {
+            entry.reporterIds.add(report.reporterId);
+            entry.reportCount += 1;
+            entry.categories.set(
+                report.category,
+                (entry.categories.get(report.category) ?? 0) + 1
+            );
+        }
+        caseByQuestion.set(moderationCase.questionId, entry);
+    }
+
+    const optionsByQuestion = new Map<string, Map<string, number>>();
+    for (const row of optionRows) {
+        const options = optionsByQuestion.get(row.daily.questionId) ?? new Map();
+        options.set(
+            row.selectedAnswer,
+            (options.get(row.selectedAnswer) ?? 0) + row.selectionCount
+        );
+        optionsByQuestion.set(row.daily.questionId, options);
+    }
+    const confidenceByQuestion = new Map<
+        string,
+        Map<number, { correctCount: number; incorrectCount: number }>
+    >();
+    for (const row of confidenceRows) {
+        const confidence = confidenceByQuestion.get(row.daily.questionId) ?? new Map();
+        const existing = confidence.get(row.confidenceLevel) ?? {
+            correctCount: 0,
+            incorrectCount: 0,
+        };
+        existing.correctCount += row.correctCount;
+        existing.incorrectCount += row.incorrectCount;
+        confidence.set(row.confidenceLevel, existing);
+        confidenceByQuestion.set(row.daily.questionId, confidence);
+    }
+
+    return Object.fromEntries(
+        questions.map((question) => {
+            const daily = dailyByQuestion.get(question.id)?._sum;
+            const interactionCount = daily?.interactionCount ?? 0;
+            const correctCount = daily?.correctCount ?? 0;
+            const incorrectCount = daily?.incorrectCount ?? 0;
+            const skippedCount = daily?.skippedCount ?? 0;
+            const caseEntry = caseByQuestion.get(question.id);
+            const quality = evaluateQuestionQuality({
+                correctCount,
+                incorrectCount,
+                skippedCount,
+                averageDwellSeconds:
+                    interactionCount > 0
+                        ? Math.round((daily?.totalDwellSeconds ?? 0) / interactionCount)
+                        : null,
+                expectedTimeSeconds: question.avgTimeSeconds,
+                hasOpenCase: Boolean(caseEntry),
+                isEscalated: caseEntry?.isEscalated ?? false,
+                uniqueReporterCount: caseEntry?.reporterIds.size ?? 0,
+            });
+            return [
+                question.id,
+                {
+                    ...quality,
+                    caseId: caseEntry?.caseId ?? null,
+                    reportCount: caseEntry?.reportCount ?? 0,
+                    topCategories: [...(caseEntry?.categories ?? new Map()).entries()]
+                        .sort((left, right) => right[1] - left[1])
+                        .slice(0, 3)
+                        .map(([category, count]) => ({
+                            category: category as QuestionQualityIndicator["topCategories"][number]["category"],
+                            count,
+                        })),
+                    optionSelections: [...(optionsByQuestion.get(question.id) ?? new Map()).entries()]
+                        .sort((left, right) => right[1] - left[1])
+                        .map(([selectedAnswer, count]) => ({ selectedAnswer, count })),
+                    confidence: [...(confidenceByQuestion.get(question.id) ?? new Map()).entries()]
+                        .sort((left, right) => left[0] - right[0])
+                        .map(([level, counts]) => ({ level, ...counts })),
+                } satisfies QuestionQualityIndicator,
+            ];
+        })
+    );
 }
 
 export async function getPaperContentHealthDetail(paperId: string) {
