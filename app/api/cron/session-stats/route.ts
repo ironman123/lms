@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reconcilePendingSessionStats } from "@/lib/session-stats";
 import { runInteractionRetention } from "@/lib/interaction-retention";
+import { reconcilePendingQuestionAnalytics } from "@/lib/question-analytics";
+import {
+    acquireMaintenanceLease,
+    releaseMaintenanceLease,
+} from "@/lib/maintenance-lease";
 
 export const dynamic = "force-dynamic";
 
@@ -16,29 +21,47 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const startedAt = performance.now();
-    const results = await reconcilePendingSessionStats();
-    const failed = results.filter((result) => result.status === "failed");
-    const retention =
-        failed.length === 0
-            ? await runInteractionRetention()
-            : { status: "skipped_after_stats_failure" as const };
-    const durationMs = Math.round(performance.now() - startedAt);
-    console.info(JSON.stringify({
-        event: "session_stats_reconciliation",
-        processed: results.length - failed.length,
-        failed: failed.length,
-        durationMs,
-        retention,
-    }));
+    const holderId = await acquireMaintenanceLease("session-lifecycle");
+    if (!holderId) {
+        return NextResponse.json(
+            { ok: true, status: "already_running" },
+            { status: 202 }
+        );
+    }
 
-    return NextResponse.json(
-        { ok: failed.length === 0, results, retention },
-        {
-            status: failed.length === 0 ? 200 : 500,
-            headers: {
-                "Server-Timing": `reconcile;dur=${durationMs}`,
-            },
-        }
-    );
+    const startedAt = performance.now();
+    try {
+        const [stats, questionAnalytics] = await Promise.all([
+            reconcilePendingSessionStats(),
+            reconcilePendingQuestionAnalytics(),
+        ]);
+        const statsFailed = stats.filter((result) => result.status === "failed");
+        const analyticsFailed = questionAnalytics.filter(
+            (result) => result.status === "failed"
+        );
+        const failed = statsFailed.length + analyticsFailed.length;
+        const retention =
+            failed === 0
+                ? await runInteractionRetention()
+                : { status: "skipped_after_projection_failure" as const };
+        const durationMs = Math.round(performance.now() - startedAt);
+        console.info(JSON.stringify({
+            event: "session_lifecycle_reconciliation",
+            statsProcessed: stats.length - statsFailed.length,
+            analyticsProcessed: questionAnalytics.length - analyticsFailed.length,
+            failed,
+            durationMs,
+            retention,
+        }));
+
+        return NextResponse.json(
+            { ok: failed === 0, stats, questionAnalytics, retention },
+            {
+                status: failed === 0 ? 200 : 500,
+                headers: { "Server-Timing": `reconcile;dur=${durationMs}` },
+            }
+        );
+    } finally {
+        await releaseMaintenanceLease("session-lifecycle", holderId);
+    }
 }

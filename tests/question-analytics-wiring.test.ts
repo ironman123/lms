@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
@@ -12,10 +12,23 @@ test("durable question analytics is projected on submit, retry, and before reten
     const retention = read("lib", "interaction-retention.ts");
     assert.match(submission, /processSessionQuestionAnalytics\(sessionId\)/);
     assert.match(retry, /processSessionQuestionAnalytics\(parsed\.data\.sessionId\)/);
+    const cron = read("app", "api", "cron", "session-stats", "route.ts");
+    assert.match(cron, /reconcilePendingQuestionAnalytics/);
     assert.match(
         retention,
         /questionAnalyticsContribution[\s\S]*processedAt/
     );
+});
+
+test("scheduled lifecycle reconciles both projections behind a database lease", () => {
+    const cron = read("app", "api", "cron", "session-stats", "route.ts");
+    const analytics = read("lib", "question-analytics.ts");
+    const lease = read("lib", "maintenance-lease.ts");
+    assert.match(analytics, /reconcilePendingQuestionAnalytics/);
+    assert.match(cron, /acquireMaintenanceLease\("session-lifecycle"\)/);
+    assert.match(cron, /skipped_after_projection_failure/);
+    assert.match(lease, /ON CONFLICT \("key"\) DO UPDATE/);
+    assert.ok(existsSync(join(root, "prisma", "migrations", "20260814170000_session_lifecycle_lease", "migration.sql")));
 });
 
 test("durable analytics migration uses a unique session contribution and daily keys", () => {

@@ -131,6 +131,46 @@ export async function runQuestionAnalyticsBackfill({
     }
 }
 
+/**
+ * Scheduled safety net for sessions whose synchronous projection and QStash
+ * retry both failed. It includes both absent contributions and incomplete ones.
+ */
+export async function reconcilePendingQuestionAnalytics(limit = 50) {
+    const pending = await prisma.testSession.findMany({
+        where: {
+            status: SessionStatus.COMPLETED,
+            purpose: SessionPurpose.STANDARD,
+            interactions: { some: {} },
+            OR: [
+                { questionAnalyticsContribution: { is: null } },
+                { questionAnalyticsContribution: { is: { processedAt: null } } },
+            ],
+        },
+        select: { id: true },
+        orderBy: { completedAt: "asc" },
+        take: Math.min(Math.max(limit, 1), 100),
+    });
+    const results: Array<
+        | { sessionId: string; status: "processed" | "already_processed" | "not_eligible" }
+        | { sessionId: string; status: "failed"; error: string }
+    > = [];
+    for (const session of pending) {
+        try {
+            const result = await processSessionQuestionAnalytics(session.id);
+            results.push({ sessionId: session.id, ...result });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            await prisma.questionAnalyticsContribution.upsert({
+                where: { sessionId: session.id },
+                create: { sessionId: session.id, lastError: errorMessage.slice(0, 2_000) },
+                update: { lastError: errorMessage.slice(0, 2_000) },
+            }).catch(() => undefined);
+            results.push({ sessionId: session.id, status: "failed", error: errorMessage });
+        }
+    }
+    return results;
+}
+
 export async function getRecentQuestionAnalyticsBackfillRuns() {
     return prisma.questionAnalyticsBackfillRun.findMany({ orderBy: { startedAt: "desc" }, take: 20 });
 }

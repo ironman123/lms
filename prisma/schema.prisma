@@ -456,6 +456,17 @@ model InteractionRetentionRun {
   @@index([startedAt])
 }
 
+/// A short-lived, database-backed lease for scheduled maintenance. Unlike an
+/// in-memory lock, it also works when Vercel starts a second function instance.
+model MaintenanceLease {
+  key         String   @id
+  holderId    String
+  lockedUntil DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([lockedUntil])
+}
+
 model QuestionAnalyticsContribution {
   id          String   @id @default(uuid())
   sessionId   String   @unique
