@@ -3,10 +3,10 @@
 
 import prisma from "@/lib/prisma";
 import { requireAdmin, requireAuth } from "@/lib/auth";
-import { qstash } from "@/lib/qstash";
 import { redis } from "@/lib/redis";
 import { withCache, invalidateTag } from "@/lib/cache";
 import { revalidatePath } from "next/cache";
+import { enqueueNotificationDelivery } from "@/lib/notification-delivery";
 
 const NOTIF_CACHE_KEY = "notifications:recent";
 const NOTIF_TTL = 3600; // 1 hour
@@ -36,15 +36,12 @@ export async function sendNotification(data: {
     // Bust the cache so the bell picks up the new notification immediately
     await invalidateTag("notifications");
 
-    // Queue the push delivery
-    await qstash.publishJSON({
-        url: `${process.env.NEXT_PUBLIC_APP_URL}/api/queues/push`,
-        body: { notificationId: notification.id },
-        retries: 2,
-    });
+    // The notification is durable before it is queued. If QStash is down,
+    // it remains QUEUED and can be retried safely by the delivery worker.
+    const queue = await enqueueNotificationDelivery(notification.id).catch(() => ({ queued: false as const, reason: "queue_failed" as const }));
 
     revalidatePath("/library/notifications");
-    return { success: true, id: notification.id };
+    return { success: true, id: notification.id, queued: queue.queued };
 }
 
 // ── Bell: read recent notifications (cached) ──────────────────────────────────
@@ -56,7 +53,7 @@ export async function getRecentNotifications() {
         NOTIF_TTL,
         () =>
             prisma.notification.findMany({
-                where: { sentAt: { not: null } },
+                where: { status: "COMPLETED" },
                 orderBy: { createdAt: "desc" },
                 take: 10,
                 select: {

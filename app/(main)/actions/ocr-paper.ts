@@ -9,6 +9,8 @@ import {
 } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const MAX_OCR_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const ACCEPTED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
 export interface ParsedOption {
     label: string;   // "A", "B", "C", "D"
@@ -54,17 +56,10 @@ async function generateWithRetry(
         } catch (error: unknown)
         {
             const message = errorMessage(error);
-            const is429 = message.includes("429");
-            if (is429 && attempt < maxRetries - 1)
-            {
-                const match = message.match(/retry in (\d+)/i);
-                const wait = (match ? parseInt(match[1]) : 30) + 5;
-                console.log(`[OCR] Rate limited — waiting ${wait}s (attempt ${attempt + 1}/${maxRetries})`);
-                await new Promise(r => setTimeout(r, wait * 1000));
-            } else
-            {
-                throw error;
+            if (message.includes("429")) {
+                throw new Error("OCR provider is busy. Please retry the import in a minute.");
             }
+            throw error;
         }
     }
 
@@ -74,10 +69,7 @@ async function generateWithRetry(
 export async function parsePaperPDF(
     base64Data: string
 ): Promise<{ success: true; data: ParsedPaper } | { success: false; error: string }> {
-    console.log("[OCR] Verifying admin access...");
     await requireAdmin();
-
-    console.log("[OCR] Starting paper parsing...");
 
     if (!process.env.GEMINI_API_KEY)
     {
@@ -97,8 +89,12 @@ export async function parsePaperPDF(
     {
         return { success: false, error: "Invalid base64 data" };
     }
-
-    console.log("[OCR] Sending Paper to Gemini Vision...");
+    if (!ACCEPTED_MIME_TYPES.has(mimeType)) {
+        return { success: false, error: "Use a PDF, JPEG, PNG, or WebP file." };
+    }
+    if (Math.floor((base64Content.length * 3) / 4) > MAX_OCR_DOCUMENT_BYTES) {
+        return { success: false, error: "OCR files must be 10 MB or smaller." };
+    }
 
     try
     {
@@ -120,9 +116,7 @@ export async function parsePaperPDF(
         ]);
 
         const raw = result.response.text();
-        console.log(`[OCR] Response length: ${raw.length} chars`);
-        console.log(`[OCR] RAW RESPONSE:`, raw.slice(0, 2000));
-        console.log(`[OCR] Response length: ${raw.length} chars`, raw);
+        console.info(JSON.stringify({ event: "paper_ocr_completed", responseChars: raw.length }));
 
         return parseResponse(raw);
     } catch (error: unknown)

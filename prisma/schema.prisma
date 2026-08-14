@@ -790,6 +790,7 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
 
   @@index([userId])
 }
@@ -801,11 +802,39 @@ model Notification {
   url       String? // deep link on click
   examId    String? // null = broadcast to all
   type      NotificationType
+  status    NotificationStatus @default(QUEUED)
   sentAt    DateTime?
   createdAt DateTime         @default(now())
 
   exam Exam?             @relation(fields: [examId], references: [id])
   logs NotificationLog[]
+  deliveries NotificationDelivery[]
+
+  @@index([status, createdAt])
+}
+
+/// One durable push attempt per device subscription.  This is intentionally
+/// separate from the in-app notification; an unavailable push provider must
+/// never make the notification itself disappear.
+model NotificationDelivery {
+  id             String                     @id @default(uuid())
+  notificationId String
+  subscriptionId String
+  endpoint       String
+  status         NotificationDeliveryStatus @default(PENDING)
+  attempts       Int                        @default(0)
+  lastError      String?
+  deliveredAt    DateTime?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  subscription PushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, subscriptionId])
+  @@index([subscriptionId])
+  @@index([notificationId, status, createdAt])
+  @@index([status, updatedAt])
 }
 
 model NotificationLog {
@@ -869,6 +898,21 @@ enum EventType {
   ADMIT_CARD
   EXAM_DATE
   RESULT
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENDING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  DELIVERED
+  RETRYABLE
+  FAILED
+  EXPIRED
 }
 
 enum UserRole {

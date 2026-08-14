@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { reconcilePendingSessionStats } from "@/lib/session-stats";
 import { runInteractionRetention } from "@/lib/interaction-retention";
 import { reconcilePendingQuestionAnalytics } from "@/lib/question-analytics";
+import { reconcileNotificationDeliveries } from "@/lib/notification-delivery";
 import {
     acquireMaintenanceLease,
     releaseMaintenanceLease,
@@ -31,9 +32,10 @@ export async function GET(req: NextRequest) {
 
     const startedAt = performance.now();
     try {
-        const [stats, questionAnalytics] = await Promise.all([
+        const [stats, questionAnalytics, notifications] = await Promise.all([
             reconcilePendingSessionStats(),
             reconcilePendingQuestionAnalytics(),
+            reconcileNotificationDeliveries(),
         ]);
         const statsFailed = stats.filter((result) => result.status === "failed");
         const analyticsFailed = questionAnalytics.filter(
@@ -49,13 +51,14 @@ export async function GET(req: NextRequest) {
             event: "session_lifecycle_reconciliation",
             statsProcessed: stats.length - statsFailed.length,
             analyticsProcessed: questionAnalytics.length - analyticsFailed.length,
+            notificationsProcessed: notifications.length,
             failed,
             durationMs,
             retention,
         }));
 
         return NextResponse.json(
-            { ok: failed === 0, stats, questionAnalytics, retention },
+            { ok: failed === 0, stats, questionAnalytics, notifications, retention },
             {
                 status: failed === 0 ? 200 : 500,
                 headers: { "Server-Timing": `reconcile;dur=${durationMs}` },

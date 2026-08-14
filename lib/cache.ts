@@ -12,6 +12,10 @@ import { redis } from "@/lib/redis";
 import { after } from "next/server";
 
 const TAG_PREFIX = "tag:";
+// Collapses concurrent cache misses inside one serverless instance. Redis is
+// still the cross-instance cache; this prevents a burst of identical search
+// requests from stampeding Postgres before the first response warms Redis.
+const inFlight = new Map<string, Promise<unknown>>();
 
 type CacheOptions = {
     deferWrite?: boolean;
@@ -57,19 +61,27 @@ export async function withCache<T>(
         console.warn("[cache] read failed:", err);
     }
 
-    // ── Source of truth ───────────────────────────────────────────────────────
-    const value = await fn();
+    const ongoing = inFlight.get(key) as Promise<T> | undefined;
+    if (ongoing) return ongoing;
 
-    // ── Cache write (non-fatal) ───────────────────────────────────────────────
-    if (options.deferWrite)
-    {
-        after(() => writeCache(key, value, ttlSeconds, tags));
-    } else
-    {
-        await writeCache(key, value, ttlSeconds, tags);
+    const work = (async () => {
+        // ── Source of truth ───────────────────────────────────────────────────
+        const value = await fn();
+
+        // ── Cache write (non-fatal) ───────────────────────────────────────────
+        if (options.deferWrite) {
+            after(() => writeCache(key, value, ttlSeconds, tags));
+        } else {
+            await writeCache(key, value, ttlSeconds, tags);
+        }
+        return value;
+    })();
+    inFlight.set(key, work);
+    try {
+        return await work;
+    } finally {
+        inFlight.delete(key);
     }
-
-    return value;
 }
 
 // Deletes every key registered under this tag, then deletes the tag set itself.

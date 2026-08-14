@@ -27,10 +27,10 @@ export default async function NotificationsPage() {
     const isAdmin = user?.role === "ADMIN";
 
     const notifications = await prisma.notification.findMany({
-        where: { sentAt: { not: null } },
+        where: isAdmin ? {} : { status: "COMPLETED" },
         include: {
             exam: { select: { name: true, slug: true } },
-            _count: { select: { logs: { where: { delivered: true } } } },
+            _count: { select: { deliveries: { where: { status: "DELIVERED" } } } },
         },
         orderBy: { createdAt: "desc" },
         take: 50,
@@ -85,7 +85,7 @@ export default async function NotificationsPage() {
                                     <p className="text-xs text-muted-foreground leading-relaxed">{n.body}</p>
                                     <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
                                         <span>{timeAgo(n.createdAt)}</span>
-                                        {isAdmin && <span>{n._count.logs} delivered</span>}
+                                        {isAdmin && <><span>{n.status.toLowerCase()}</span><span>{n._count.deliveries} delivered</span></>}
                                         {n.url && (
                                             <Link href={n.url} className="text-blue-500 hover:underline">
                                                 View →
