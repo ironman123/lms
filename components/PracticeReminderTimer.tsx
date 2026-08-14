@@ -15,6 +15,7 @@ function remainingSeconds(deadline: number) {
 export default function PracticeReminderTimer({ sessionId }: { sessionId: string }) {
     const [deadline, setDeadline] = useState<number | null>(null);
     const [remaining, setRemaining] = useState<number | null>(null);
+    const [expired, setExpired] = useState(false);
 
     useEffect(() => {
         const timeout = window.setTimeout(() => {
@@ -37,6 +38,7 @@ export default function PracticeReminderTimer({ sessionId }: { sessionId: string
                         "You can keep practising—nothing was submitted or changed.",
                     duration: 10_000,
                 });
+                setExpired(true);
                 setDeadline(null);
             }
         };
@@ -45,6 +47,13 @@ export default function PracticeReminderTimer({ sessionId }: { sessionId: string
         return () => window.clearInterval(interval);
     }, [deadline, sessionId]);
 
+    if (expired) {
+        return (
+            <div role="status" className="max-w-[calc(100vw-2rem)] rounded-2xl border border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs font-black text-foreground shadow-lg backdrop-blur">
+                Practice time goal reached — you can keep going.
+            </div>
+        );
+    }
     if (remaining === null || remaining <= 0) return null;
     const minutes = Math.floor(remaining / 60);
     const seconds = remaining % 60;

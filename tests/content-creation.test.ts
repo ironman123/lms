@@ -122,4 +122,12 @@ test("content actions return structured failures and the builder keeps publish b
         "utf8"
     );
     assert.match(questionCard, /Manual grading is not available yet/);
+    assert.doesNotMatch(questionCard, /const MemoizedQuestionCard = memo/);
+
+    const sessionClient = readFileSync(
+        new URL("../components/ActiveSessionClient.tsx", import.meta.url),
+        "utf8"
+    );
+    assert.match(sessionClient, /MCQ · choose one/);
+    assert.match(sessionClient, /MSQ · select all/);
 });

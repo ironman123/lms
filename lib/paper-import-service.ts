@@ -238,10 +238,27 @@ export async function commitPaperImport(
                 command.items
             );
             const highestPosition = await tx.question.aggregate({
-                where: { paperId: command.paperId },
+                where: {
+                    paperId: command.paperId,
+                    isArchived: false,
+                },
                 _max: { position: true },
             });
-            const positionOffset = (highestPosition._max.position ?? -1) + 1;
+            const archivedAt = new Date();
+            if (command.mode === "REPLACE") {
+                await tx.question.updateMany({
+                    where: { paperId: command.paperId, isArchived: false },
+                    data: {
+                        isArchived: true,
+                        archivedAt,
+                        archiveReason: "IMPORT_REPLACED",
+                        contentRevision: { increment: 1 },
+                    },
+                });
+            }
+            const positionOffset = command.mode === "REPLACE"
+                ? 0
+                : (highestPosition._max.position ?? -1) + 1;
             const importId = crypto.randomUUID();
             const committedAt = new Date();
             const sortedItems = [...resolvedItems].sort(
@@ -268,6 +285,7 @@ export async function commitPaperImport(
                     questionCount: questionRows.length,
                     committedAt,
                     metadata: {
+                        mode: command.mode,
                         autoMatchedTopicCount: questionRows.filter(
                             (question) => question.syllabusEntryId !== null
                         ).length,

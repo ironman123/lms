@@ -8,11 +8,11 @@ import {
     useEffect,
 } from "react";
 import {
-    Sparkles, Loader2, Plus, CheckCircle2,
+    Sparkles, Loader2, Plus, CheckCircle2, Trash2,
     FileText, BookOpen, AlertCircle, Save, Search, X, FileJson, Download
 } from "lucide-react";
 import { parsePaperPDF, type ParsedQuestion } from "@/app/(main)/actions/ocr-paper";
-import { createQuestionPaper, publishQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
+import { clearQuestionPaperQuestions, createQuestionPaper, publishQuestionPaper, updateQuestionPaper } from "@/app/(main)/actions/paper-actions";
 import { commitPaperImportAction } from "@/app/(main)/actions/paper-import-actions";
 import { toast } from "sonner";
 import { QuestionPaperType } from "@prisma/client";
@@ -22,7 +22,13 @@ import {
     normalizePaperJsonQuestion,
     parsePaperJsonImport,
 } from "@/lib/paper-json-import";
+import type { PaperJsonImport } from "@/lib/paper-json-import";
 import type { PaperReadinessIssue } from "@/lib/paper-readiness";
+import {
+    appendQuestion,
+    removeQuestionByClientId,
+    updateQuestionByClientId,
+} from "@/lib/question-list-state";
 
 // ── Shared Types ──────────────────────────────────────────────────────────────
 
@@ -728,6 +734,9 @@ export default function PaperBuilder({
 
     const [isScanning, setIsScanning] = useState(false);
     const [isImportingJson, setIsImportingJson] = useState(false);
+    const [pendingJsonImport, setPendingJsonImport] = useState<PaperJsonImport | null>(null);
+    const [pendingJsonFileName, setPendingJsonFileName] = useState<string | null>(null);
+    const [jsonImportMode, setJsonImportMode] = useState<"APPEND" | "REPLACE">("APPEND");
     const [jsonImportFeedback, setJsonImportFeedback] = useState<{
         kind: "success" | "error";
         title: string;
@@ -735,6 +744,9 @@ export default function PaperBuilder({
     } | null>(null);
     const [isSavingPaper, startSavingPaper] = useTransition();
     const [isPublishing, startPublishing] = useTransition();
+    const [isClearing, startClearing] = useTransition();
+    const [clearStep, setClearStep] = useState<1 | 2 | null>(null);
+    const [clearPhrase, setClearPhrase] = useState("");
 
     const savedCount = questions.filter(q => q.saved).length;
     const totalCount = questions.length;
@@ -873,6 +885,7 @@ export default function PaperBuilder({
                         importAttemptRef.current.idempotencyKey,
                     source,
                     sourceFileName: pendingImportFileName,
+                    mode: source === "JSON" ? jsonImportMode : "APPEND",
                     items: importItems,
                 });
 
@@ -909,6 +922,7 @@ export default function PaperBuilder({
                     setPaperStatus("DRAFT");
                     importAttemptRef.current = null;
                     setPendingImportFileName(null);
+                    setJsonImportMode("APPEND");
                 }
             }
 
@@ -1080,61 +1094,9 @@ export default function PaperBuilder({
                 return;
             }
 
-            if (
-                questions.length > 0 &&
-                !confirm(
-                    `Append ${parsed.data.questions.length} imported questions to the existing ${questions.length}?`
-                )
-            )
-            {
-                toast.dismiss(toastId);
-                return;
-            }
-
-            if (!initialPaper && !paperId)
-            {
-                setTitle(parsed.data.title);
-                setYear(parsed.data.year ?? "");
-                setType(parsed.data.type as QuestionPaperType);
-            }
-
-            setQuestions((current) => {
-                const offset = current.length;
-                const importedQuestions = [...parsed.data.questions]
-                    .sort((a, b) => a.number - b.number)
-                    .map((question, index) => ({
-                        clientId: createClientId(),
-                        number: offset + index + 1,
-                        ...normalizePaperJsonQuestion(question),
-                        saved: false,
-                        topicId: "",
-                        syllabusEntryId: "",
-                        categoryId: "",
-                        importSource: "JSON" as const,
-                        sourceNumber: question.number,
-                    }));
-                return [...current, ...importedQuestions];
-            });
-            const cancelledCount = parsed.data.questions.filter(
-                (question) => question.cancelled
-            ).length;
-            setJsonImportFeedback({
-                kind: "success",
-                title: `Imported ${parsed.data.questions.length} questions`,
-                details: cancelledCount > 0
-                    ? [
-                        `${cancelledCount} officially cancelled question${cancelledCount === 1 ? "" : "s"
-                        } preserved with zero scoring impact.`,
-                    ]
-                    : ["All questions passed validation."],
-            });
-            toast.success(
-                `Validated and imported ${parsed.data.questions.length} questions${cancelledCount > 0
-                    ? ` (${cancelledCount} cancelled)`
-                    : ""
-                }.`,
-                { id: toastId }
-            );
+            setPendingJsonImport(parsed.data);
+            setPendingJsonFileName(file.name);
+            toast.success(`Validated ${parsed.data.questions.length} questions. Choose how to apply them.`, { id: toastId });
         } catch (error)
         {
             const message = getErrorMessage(error);
@@ -1223,6 +1185,45 @@ export default function PaperBuilder({
         });
     };
 
+    const applyJsonImport = (mode: "APPEND" | "REPLACE") => {
+        if (!pendingJsonImport) return;
+        if (!initialPaper && !paperId) {
+            setTitle(pendingJsonImport.title);
+            setYear(pendingJsonImport.year ?? "");
+            setType(pendingJsonImport.type as QuestionPaperType);
+        }
+        const imported = [...pendingJsonImport.questions]
+            .sort((a, b) => a.number - b.number)
+            .map((question, index) => ({
+                clientId: createClientId(),
+                number: index + 1,
+                ...normalizePaperJsonQuestion(question),
+                saved: false,
+                topicId: "",
+                syllabusEntryId: "",
+                categoryId: "",
+                importSource: "JSON" as const,
+                sourceNumber: question.number,
+            }));
+        setQuestions((current) =>
+            mode === "REPLACE"
+                ? imported
+                : [...current, ...imported].map((question, index) => ({
+                    ...question,
+                    number: index + 1,
+                }))
+        );
+        setPendingImportFileName(pendingJsonFileName);
+        setJsonImportMode(mode);
+        setPendingJsonImport(null);
+        setPendingJsonFileName(null);
+        setJsonImportFeedback({
+            kind: "success",
+            title: `${mode === "REPLACE" ? "Replacement" : "Append"} ready`,
+            details: [`${imported.length} imported questions are ready to save.`],
+        });
+    };
+
     const handlePublishPaper = () => {
         if (!paperId) {
             toast.error("Save the paper before publishing it.");
@@ -1256,18 +1257,38 @@ export default function PaperBuilder({
     };
 
     const addQuestion = () => {
-        setQuestions(prev => [...prev, emptyQuestion(prev.length + 1)]);
+        setQuestions((previous) =>
+            appendQuestion(previous, emptyQuestion(previous.length + 1))
+        );
         setPaperStatus("DRAFT");
     };
-    const updateQuestion_ = (index: number, updated: Question) => {
-        setQuestions(prev => prev.map((q, i) => i === index ? updated : q));
+    const updateQuestion_ = (clientId: string, updated: Question) => {
+        setQuestions((previous) =>
+            updateQuestionByClientId(previous, clientId, updated)
+        );
         if (!updated.saved) setPaperStatus("DRAFT");
     };
-    const deleteQuestion_ = (index: number) => {
+    const deleteQuestion_ = (clientId: string) => {
         setPaperStatus("DRAFT");
-        setQuestions(prev => {
-        const next = prev.filter((_, i) => i !== index);
-        return next.map((q, i) => ({ ...q, number: i + 1 }));
+        setQuestions((previous) =>
+            removeQuestionByClientId(previous, clientId)
+        );
+    };
+
+    const handleClearQuestions = () => {
+        if (!paperId || clearPhrase !== `DELETE ${questions.length} QUESTIONS`) return;
+        startClearing(async () => {
+            const result = await clearQuestionPaperQuestions(paperId, paperRevision);
+            if (!result.success) {
+                toast.error(result.error);
+                return;
+            }
+            setQuestions([]);
+            setPaperRevision(result.paperRevision);
+            setPaperStatus("DRAFT");
+            setClearStep(null);
+            setClearPhrase("");
+            toast.success(`${result.clearedCount} questions archived from this draft.`);
         });
     };
 
@@ -1428,6 +1449,47 @@ export default function PaperBuilder({
                     </div>
                 )}
 
+                {pendingJsonImport && (
+                    <section
+                        role="dialog"
+                        aria-label="Choose JSON import behaviour"
+                        className="rounded-2xl border border-primary/30 bg-primary/5 p-5"
+                    >
+                        <p className="text-sm font-black text-foreground">
+                            Apply {pendingJsonImport.questions.length} validated JSON questions
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                            Append keeps the current questions. Replace removes the current active questions from this draft when you save; historical session records remain intact.
+                        </p>
+                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                            <button
+                                type="button"
+                                onClick={() => applyJsonImport("APPEND")}
+                                className="min-h-11 rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground hover:bg-muted"
+                            >
+                                Append questions
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyJsonImport("REPLACE")}
+                                className="min-h-11 rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700"
+                            >
+                                Replace current questions
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPendingJsonImport(null);
+                                    setPendingJsonFileName(null);
+                                }}
+                                className="min-h-11 rounded-xl px-4 text-sm font-bold text-muted-foreground hover:bg-muted"
+                            >
+                                Cancel import
+                            </button>
+                        </div>
+                    </section>
+                )}
+
                 {publishFeedback && (
                     <div
                         role="alert"
@@ -1461,6 +1523,31 @@ export default function PaperBuilder({
                             </button>
                         </div>
                     </div>
+                )}
+
+                {clearStep && (
+                    <section role="alertdialog" aria-label="Clear all questions" className="rounded-2xl border border-rose-500/35 bg-rose-500/5 p-5">
+                        {clearStep === 1 ? (
+                            <>
+                                <p className="text-sm font-black text-foreground">Clear all {questions.length} questions?</p>
+                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">They will be archived, not hard-deleted; historical sessions remain intact. This cannot be undone from the builder.</p>
+                                <div className="mt-4 flex gap-2">
+                                    <button type="button" onClick={() => setClearStep(null)} className="min-h-10 rounded-xl px-4 text-sm font-bold text-muted-foreground hover:bg-muted">Cancel</button>
+                                    <button type="button" onClick={() => setClearStep(2)} className="min-h-10 rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700">Continue</button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-sm font-black text-foreground">Final confirmation</p>
+                                <p className="mt-1 text-xs text-muted-foreground">Type <span className="font-mono font-bold text-foreground">DELETE {questions.length} QUESTIONS</span> to archive every active question.</p>
+                                <input value={clearPhrase} onChange={(event) => setClearPhrase(event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-border bg-card px-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-rose-500/30" />
+                                <div className="mt-4 flex gap-2">
+                                    <button type="button" disabled={isClearing} onClick={() => setClearStep(1)} className="min-h-10 rounded-xl px-4 text-sm font-bold text-muted-foreground hover:bg-muted">Back</button>
+                                    <button type="button" disabled={isClearing || clearPhrase !== `DELETE ${questions.length} QUESTIONS`} onClick={handleClearQuestions} className="min-h-10 rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50">{isClearing ? "Clearing…" : "Archive all questions"}</button>
+                                </div>
+                            </>
+                        )}
+                    </section>
                 )}
 
                 <div className="bg-card rounded-2xl border border-border shadow-sm p-6 space-y-5">
@@ -1576,6 +1663,11 @@ export default function PaperBuilder({
                                 </span>
                             )}
                         </div>
+                        {paperId && (
+                            <button type="button" onClick={() => setClearStep(1)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/5 px-3 text-xs font-bold text-rose-700 hover:bg-rose-500/10 dark:text-rose-300">
+                                <Trash2 size={14} /> Clear all questions
+                            </button>
+                        )}
                         {questions.length > 0 && (
                             <QuestionGrid
                                 questions={questions}
@@ -1585,7 +1677,7 @@ export default function PaperBuilder({
                                 canSave={Boolean(paperId)}
                             />
                         )}
-                        {questions.map((q, i) => (
+                        {questions.map((q) => (
                             <QuestionCard
                                 ref={el => registerCardRef(q.clientId, el)}
                                 wrapperRef={el => registerScrollRef(q.clientId, el)}
@@ -1595,12 +1687,19 @@ export default function PaperBuilder({
                                 examSlug={examSlug}
                                 onOpenTopicPicker={openTopicPicker}
                                 onPaperRevisionChange={setPaperRevision}
-                                onUpdate={updated => updateQuestion_(i, updated)}
-                                onDelete={() => deleteQuestion_(i)}
+                                onUpdate={(clientId, updated) =>
+                                    updateQuestion_(clientId, updated)
+                                }
+                                onDelete={deleteQuestion_}
                                 moderationCaseId={
                                     q.id === reportedQuestionId
                                         ? moderationCaseId
                                         : undefined
+                                }
+                                requireBulkImportSave={
+                                    jsonImportMode === "REPLACE" &&
+                                    q.importSource === "JSON" &&
+                                    !q.saved
                                 }
                             />
                         ))}

@@ -31,4 +31,5 @@ test("practice reminder never submits or writes session data", () => {
     assert.doesNotMatch(storage, /prisma|fetch\(|server action/i);
     assert.doesNotMatch(reminder, /completeExamSession|submitSession|onExpire/);
     assert.match(reminder, /nothing was submitted or changed/);
+    assert.match(reminder, /Practice time goal reached/);
 });

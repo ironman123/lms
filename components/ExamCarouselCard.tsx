@@ -152,9 +152,9 @@ const ExamCarouselCard = ({
                             </div>
                         </div>
 
-                        <div className="flex gap-1">
+                        <div className="flex max-w-[48%] min-w-0 gap-1 overflow-x-auto pb-1 [scrollbar-width:thin]">
                             {tags.slice(0, 5).map((tag, i) => (
-                                <span key={i} className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                <span key={i} className="shrink-0 text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
                                     #{tag}
                                 </span>
                             ))}

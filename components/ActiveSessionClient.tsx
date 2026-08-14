@@ -205,6 +205,15 @@ export default function ActiveSessionClient({
         return "—";
     }
 
+    function questionTypeLabel(q: SessionQuestion): string {
+        switch (q.type) {
+            case "MCQ": return "MCQ · choose one";
+            case "MSQ": return "MSQ · select all";
+            case "NUMERICAL": return "Numerical";
+            case "SUBJECTIVE": return "Subjective";
+        }
+    }
+
     // ── Navigation ────────────────────────────────────────────────────────────
     const onNavigate = (newIndex: number) => {
         if (isLocked) return;
@@ -364,6 +373,12 @@ export default function ActiveSessionClient({
                                         className="rounded-md border-border bg-background px-2 py-0 text-[9px] font-black md:text-[10px]"
                                     >
                                         Q {currentIndex + 1}
+                                    </Badge>
+                                    <Badge
+                                        variant="outline"
+                                        className="rounded-md border-primary/25 bg-primary/5 px-2 py-0 text-[9px] font-black uppercase text-primary md:text-[10px]"
+                                    >
+                                        {questionTypeLabel(currentQuestion)}
                                     </Badge>
                                     <span className="flex max-w-[120px] items-center gap-1 truncate text-[9px] font-black uppercase tracking-widest text-muted-foreground md:max-w-none md:text-[10px]">
                                         <Hash size={10} />

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import DiscardDraftPaperButton from "@/components/DiscardDraftPaperButton";
 
 export default async function DraftPapersPage() {
     const drafts = await prisma.questionPaper.findMany({
@@ -29,7 +30,10 @@ export default async function DraftPapersPage() {
                         <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">Draft · {paper._count.questions} questions</p>
                         <h3 className="mt-2 line-clamp-2 text-lg font-black">{paper.title}</h3>
                         <p className="mt-2 text-xs text-muted-foreground">{paper.examQuestionPaperLinks.map((link) => link.exam.name).join(", ") || "Standalone paper"}</p>
-                        <Link href={`/library/paper/${paper.id}/edit`} className="mt-5 inline-flex h-10 items-center rounded-lg bg-primary px-4 text-xs font-black text-primary-foreground">Continue editing</Link>
+                        <div className="mt-5 flex flex-wrap gap-2">
+                            <Link href={`/library/paper/${paper.id}/edit`} className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-xs font-black text-primary-foreground">Continue editing</Link>
+                            <DiscardDraftPaperButton id={paper.id} title={paper.title} />
+                        </div>
                     </article>
                 ))}
             </div>

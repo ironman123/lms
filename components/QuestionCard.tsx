@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, forwardRef, useImperativeHandle, memo } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { toast } from "sonner";
 import {
     Loader2, Plus, Trash2, CheckCircle2, Circle, X,
@@ -26,12 +26,13 @@ export interface QuestionCardProps {
     q: Question;
     paperId: string | null;
     examSlug: string;
-    onUpdate: (updated: Question) => void;
-    onDelete: () => void;
+    onUpdate: (clientId: string, updated: Question) => void;
+    onDelete: (clientId: string) => void;
     onOpenTopicPicker: (clientId: string) => void;
     onPaperRevisionChange?: (revision: number) => void;
     wrapperRef?: (el: HTMLDivElement | null) => void;
     moderationCaseId?: string;
+    requireBulkImportSave?: boolean;
 }
 
 // ── Option Row ────────────────────────────────────────────────────────────────
@@ -93,16 +94,18 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         onPaperRevisionChange,
         wrapperRef,
         moderationCaseId,
+        requireBulkImportSave = false,
     }, ref) => {
         const [expanded, setExpanded] = useState(!q.saved);
         const [saving, setSaving] = useState(false);
+        const [deleting, setDeleting] = useState(false);
 
         const isOptionsType = q.type === "MCQ" || q.type === "MSQ";
         const isNumerical = q.type === "NUMERICAL";
         const isSubjective = q.type === "SUBJECTIVE";
 
         const updateQuestionDraft = (changes: Partial<Question>) =>
-            onUpdate({ ...q, ...changes, saved: false });
+            onUpdate(q.clientId, { ...q, ...changes, saved: false });
 
         const updateField = <K extends keyof Question>(key: K, value: Question[K]) =>
             updateQuestionDraft({ [key]: value });
@@ -192,6 +195,10 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         // ── Save ────────────────────────────────────────────────────────────────
 
         const handleSave = async (): Promise<boolean> => {
+            if (requireBulkImportSave) {
+                toast.error("Use Save all unsaved to apply a replacement import safely.");
+                return false;
+            }
             const error = validate();
             if (error)
             {
@@ -247,7 +254,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         moderationCaseId
                     );
                     onPaperRevisionChange?.(result.paperRevision);
-                    onUpdate({ ...q, saved: true });
+                    onUpdate(q.clientId, { ...q, saved: true });
                     toast.success(
                         moderationCaseId
                             ? `Q${q.number} updated and report resolved`
@@ -261,7 +268,7 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         payload
                     );
                     onPaperRevisionChange?.(result.paperRevision);
-                    onUpdate({ ...q, id: result.id, saved: true });
+                    onUpdate(q.clientId, { ...q, id: result.id, saved: true });
                     toast.success(`Q${q.number} saved`);
                 }
                 setExpanded(false);
@@ -280,9 +287,11 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
         useImperativeHandle(ref, () => ({ save: handleSave }));
 
         const handleDelete = async () => {
+            if (deleting) return;
             if (q.id)
             {
                 if (!confirm(`Delete question ${q.number}?`)) return;
+                setDeleting(true);
                 try
                 {
                     const result = await deleteQuestion(q.id, paperId as string, examSlug);
@@ -290,10 +299,11 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                 } catch
                 {
                     toast.error("Failed to delete");
+                    setDeleting(false);
                     return;
                 }
             }
-            onDelete();
+            onDelete(q.clientId);
         };
 
         // ── Collapsed summary helpers ───────────────────────────────────────────
@@ -387,9 +397,11 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                         <button
                             type="button"
                             onClick={handleDelete}
-                            className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                            disabled={deleting}
+                            aria-label={`Delete question ${q.number}`}
+                            className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            <Trash2 size={15} />
+                            {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
                         </button>
                     </div>
                 </div>
@@ -652,9 +664,11 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                 onClick={() => {
                                     void handleSave();
                                 }}
-                                disabled={saving || !paperId}
+                                disabled={saving || !paperId || requireBulkImportSave}
                                 title={
-                                    !paperId
+                                    requireBulkImportSave
+                                        ? "Use Save all unsaved to apply this replacement import"
+                                        : !paperId
                                         ? "Create the paper before saving questions"
                                         : undefined
                                 }
@@ -665,6 +679,8 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
                                     ? "Saving..."
                                     : !paperId
                                         ? "Create Paper First"
+                                        : requireBulkImportSave
+                                            ? "Save all imports"
                                         : q.id
                                             ? "Update"
                                             : "Save Question"
@@ -679,13 +695,4 @@ const QuestionCard = forwardRef<QuestionCardHandle, QuestionCardProps>(
 );
 
 QuestionCard.displayName = "QuestionCard";
-const MemoizedQuestionCard = memo(
-    QuestionCard,
-    (previous, next) =>
-        previous.q === next.q &&
-        previous.paperId === next.paperId &&
-        previous.examSlug === next.examSlug &&
-        previous.moderationCaseId === next.moderationCaseId
-);
-MemoizedQuestionCard.displayName = "MemoizedQuestionCard";
-export default MemoizedQuestionCard;
+export default QuestionCard;

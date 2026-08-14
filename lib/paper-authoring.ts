@@ -2,6 +2,7 @@ import { z } from "zod";
 import { questionSchema } from "@/types/question";
 
 export const paperImportSourceSchema = z.enum(["JSON", "OCR", "MANUAL"]);
+export const paperImportModeSchema = z.enum(["APPEND", "REPLACE"]).default("APPEND");
 
 export const paperImportItemSchema = z.object({
     clientId: z.string().trim().min(1).max(200),
@@ -16,6 +17,7 @@ export const paperImportCommandSchema = z
         expectedRevision: z.number().int().positive().optional(),
         idempotencyKey: z.string().uuid(),
         source: paperImportSourceSchema,
+        mode: paperImportModeSchema,
         sourceFileName: z.string().trim().max(255).nullable().optional(),
         sourceHash: z.string().trim().max(128).nullable().optional(),
         items: z

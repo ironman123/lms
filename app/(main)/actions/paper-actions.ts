@@ -257,6 +257,89 @@ export async function updateQuestionPaper(
     }
 }
 
+export async function clearQuestionPaperQuestions(
+    paperId: string,
+    expectedRevision?: number
+) {
+    await requireAdmin();
+    try {
+        if (!paperId) {
+            return { success: false as const, error: "Paper ID is required." };
+        }
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`
+                SELECT "id" FROM "QuestionPaper" WHERE "id" = ${paperId} FOR UPDATE
+            `;
+            const paper = await tx.questionPaper.findUnique({
+                where: { id: paperId },
+                select: { contentRevision: true },
+            });
+            if (!paper) throw new Error("Paper not found.");
+            if (
+                expectedRevision !== undefined &&
+                paper.contentRevision !== expectedRevision
+            ) {
+                throw new Error("This paper changed in another tab. Reload before clearing questions.");
+            }
+            const archivedAt = new Date();
+            const cleared = await tx.question.updateMany({
+                where: { paperId, isArchived: false },
+                data: {
+                    isArchived: true,
+                    archivedAt,
+                    archiveReason: "BULK_CLEARED",
+                    contentRevision: { increment: 1 },
+                },
+            });
+            const updated = await tx.questionPaper.update({
+                where: { id: paperId },
+                data: {
+                    contentRevision: { increment: 1 },
+                    status: PaperStatus.DRAFT,
+                },
+                select: { contentRevision: true },
+            });
+            return { clearedCount: cleared.count, paperRevision: updated.contentRevision };
+        });
+        await Promise.all([
+            invalidateTag("papers"),
+            invalidateTag("exams"),
+            invalidateKey(`paper:${paperId}`),
+        ]);
+        revalidatePath("/library/paper");
+        return { success: true as const, ...result };
+    } catch (error) {
+        console.error("Bulk question clear failed", error);
+        return {
+            success: false as const,
+            error: actionErrorMessage(error, "Unable to clear the questions."),
+        };
+    }
+}
+
+export async function discardDraftQuestionPaper(paperId: string, examSlug: string) {
+    await requireAdmin();
+    const paper = await prisma.questionPaper.findUnique({
+        where: { id: paperId },
+        select: { status: true, isArchived: true },
+    });
+    if (!paper || paper.isArchived) {
+        return { success: false as const, error: "Draft paper not found." };
+    }
+    if (paper.status !== PaperStatus.DRAFT) {
+        return { success: false as const, error: "Only unpublished draft papers can be discarded." };
+    }
+    try {
+        await deleteQuestionPaper(paperId, examSlug);
+        return { success: true as const };
+    } catch (error) {
+        return {
+            success: false as const,
+            error: actionErrorMessage(error, "Unable to discard this draft."),
+        };
+    }
+}
+
 export async function deleteQuestionPaper(paperId: string, examSlug: string) {
     const admin = await requireAdmin();
     if (!paperId) throw new Error("Paper ID is required");

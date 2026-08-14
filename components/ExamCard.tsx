@@ -19,11 +19,11 @@ const ExamCard = ({ name, description, tags, duration, totalMarks, color }: Exam
         >
             {/* Header: Tags & Bookmark */}
             <div className="flex justify-between items-start mb-5">
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
                     {tags.map((tag, index) => (
                         <span
                             key={index}
-                            className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-muted text-muted-foreground"
+                            className="shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-muted text-muted-foreground"
                         >
                             {tag}
                         </span>

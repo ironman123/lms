@@ -24,6 +24,7 @@ test("paper list mutations invalidate the shared papers cache", () => {
         "createQuestionPaper",
         "updateQuestionPaper",
         "deleteQuestionPaper",
+        "clearQuestionPaperQuestions",
     ]) {
         assert.match(
             exportedFunctionBody(actions, action),
@@ -31,6 +32,25 @@ test("paper list mutations invalidate the shared papers cache", () => {
             `${action} must invalidate cached paper lists`
         );
     }
+});
+
+test("bulk authoring operations keep history and protect against stale edits", () => {
+    const actions = source("app/(main)/actions/paper-actions.ts");
+    const imports = source("lib/paper-import-service.ts");
+    const builder = source("components/PaperBuilder.tsx");
+
+    assert.match(actions, /FOR UPDATE/);
+    assert.match(actions, /BULK_CLEARED/);
+    assert.match(actions, /discardDraftQuestionPaper/);
+    assert.match(imports, /command\.mode === "REPLACE"/);
+    assert.match(imports, /IMPORT_REPLACED/);
+    assert.match(builder, /Append questions/);
+    assert.match(builder, /Replace current questions/);
+    assert.match(builder, /DELETE \$\{questions\.length\} QUESTIONS/);
+
+    const questionCard = source("components/QuestionCard.tsx");
+    assert.match(questionCard, /requireBulkImportSave/);
+    assert.match(questionCard, /replacement import safely/);
 });
 
 test("paper list cache separates admin drafts from the public audience", () => {
