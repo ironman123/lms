@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "crypto";
 import { Prisma, SessionPurpose, SessionStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { toAppDateKey } from "@/lib/date-utils";
@@ -25,31 +26,65 @@ export async function processSessionQuestionAnalytics(sessionId: string) {
         }
         const deltas = buildQuestionAnalyticsDeltas(session.interactions);
         const day = toAppDateKey(session.completedAt);
-        for (const [questionId, delta] of deltas) {
-            const daily = await tx.questionAnalyticsDaily.upsert({
-                where: { questionId_day: { questionId, day } },
-                create: { questionId, day, interactionCount: delta.interactionCount, correctCount: delta.correctCount, incorrectCount: delta.incorrectCount, skippedCount: delta.skippedCount, pendingCount: delta.pendingCount, unavailableCount: delta.unavailableCount, totalDwellSeconds: delta.totalDwellSeconds },
-                update: { interactionCount: { increment: delta.interactionCount }, correctCount: { increment: delta.correctCount }, incorrectCount: { increment: delta.incorrectCount }, skippedCount: { increment: delta.skippedCount }, pendingCount: { increment: delta.pendingCount }, unavailableCount: { increment: delta.unavailableCount }, totalDwellSeconds: { increment: delta.totalDwellSeconds } },
-                select: { id: true },
-            });
-            for (const [selectedAnswer, selectionCount] of delta.options) {
-                await tx.questionOptionAnalyticsDaily.upsert({
-                    where: { dailyId_selectedAnswer: { dailyId: daily.id, selectedAnswer } },
-                    create: { dailyId: daily.id, selectedAnswer, selectionCount },
-                    update: { selectionCount: { increment: selectionCount } },
-                });
-            }
-            for (const [confidenceLevel, counts] of delta.confidence) {
-                await tx.questionConfidenceAnalyticsDaily.upsert({
-                    where: { dailyId_confidenceLevel: { dailyId: daily.id, confidenceLevel } },
-                    create: { dailyId: daily.id, confidenceLevel, ...counts },
-                    update: { correctCount: { increment: counts.correctCount }, incorrectCount: { increment: counts.incorrectCount } },
-                });
-            }
+        const dailyRows = [...deltas.entries()].map(([questionId, delta]) =>
+            Prisma.sql`(${randomUUID()}, ${questionId}, ${day}, ${delta.interactionCount}, ${delta.correctCount}, ${delta.incorrectCount}, ${delta.skippedCount}, ${delta.pendingCount}, ${delta.unavailableCount}, ${delta.totalDwellSeconds}, NOW(), NOW())`
+        );
+        const daily = await tx.$queryRaw<Array<{ id: string; questionId: string }>>(
+            Prisma.sql`
+                INSERT INTO "QuestionAnalyticsDaily" (
+                    "id", "questionId", "day", "interactionCount", "correctCount",
+                    "incorrectCount", "skippedCount", "pendingCount", "unavailableCount",
+                    "totalDwellSeconds", "createdAt", "updatedAt"
+                ) VALUES ${Prisma.join(dailyRows)}
+                ON CONFLICT ("questionId", "day") DO UPDATE SET
+                    "interactionCount" = "QuestionAnalyticsDaily"."interactionCount" + EXCLUDED."interactionCount",
+                    "correctCount" = "QuestionAnalyticsDaily"."correctCount" + EXCLUDED."correctCount",
+                    "incorrectCount" = "QuestionAnalyticsDaily"."incorrectCount" + EXCLUDED."incorrectCount",
+                    "skippedCount" = "QuestionAnalyticsDaily"."skippedCount" + EXCLUDED."skippedCount",
+                    "pendingCount" = "QuestionAnalyticsDaily"."pendingCount" + EXCLUDED."pendingCount",
+                    "unavailableCount" = "QuestionAnalyticsDaily"."unavailableCount" + EXCLUDED."unavailableCount",
+                    "totalDwellSeconds" = "QuestionAnalyticsDaily"."totalDwellSeconds" + EXCLUDED."totalDwellSeconds",
+                    "updatedAt" = NOW()
+                RETURNING "id", "questionId"
+            `
+        );
+        const dailyIdByQuestion = new Map(daily.map((row) => [row.questionId, row.id]));
+        const optionRows = [...deltas.entries()].flatMap(([questionId, delta]) =>
+            [...delta.options.entries()].map(([selectedAnswer, selectionCount]) =>
+                Prisma.sql`(${randomUUID()}, ${dailyIdByQuestion.get(questionId)!}, ${selectedAnswer}, ${selectionCount})`
+            )
+        );
+        if (optionRows.length > 0) {
+            await tx.$executeRaw(Prisma.sql`
+                INSERT INTO "QuestionOptionAnalyticsDaily" ("id", "dailyId", "selectedAnswer", "selectionCount")
+                VALUES ${Prisma.join(optionRows)}
+                ON CONFLICT ("dailyId", "selectedAnswer") DO UPDATE SET
+                    "selectionCount" = "QuestionOptionAnalyticsDaily"."selectionCount" + EXCLUDED."selectionCount"
+            `);
+        }
+        const confidenceRows = [...deltas.entries()].flatMap(([questionId, delta]) =>
+            [...delta.confidence.entries()].map(([confidenceLevel, counts]) =>
+                Prisma.sql`(${randomUUID()}, ${dailyIdByQuestion.get(questionId)!}, ${confidenceLevel}, ${counts.correctCount}, ${counts.incorrectCount})`
+            )
+        );
+        if (confidenceRows.length > 0) {
+            await tx.$executeRaw(Prisma.sql`
+                INSERT INTO "QuestionConfidenceAnalyticsDaily" ("id", "dailyId", "confidenceLevel", "correctCount", "incorrectCount")
+                VALUES ${Prisma.join(confidenceRows)}
+                ON CONFLICT ("dailyId", "confidenceLevel") DO UPDATE SET
+                    "correctCount" = "QuestionConfidenceAnalyticsDaily"."correctCount" + EXCLUDED."correctCount",
+                    "incorrectCount" = "QuestionConfidenceAnalyticsDaily"."incorrectCount" + EXCLUDED."incorrectCount"
+            `);
         }
         await tx.questionAnalyticsContribution.update({ where: { id: contribution.id }, data: { processedAt: new Date(), lastError: null } });
         return { status: "processed" as const, questionCount: deltas.size };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        // A large paper can touch 100 daily rows plus option/confidence rows.
+        // This remains bounded per session, but exceeds Prisma's 5s default
+        // against a pooled remote Postgres connection.
+        timeout: 30_000,
+    });
 }
 
 export async function runQuestionAnalyticsBackfill({
