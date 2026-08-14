@@ -7,6 +7,7 @@ import {
     getPaperContentPerformance,
 } from "@/lib/moderation/admin-service";
 import { REPORT_CATEGORY_LABELS } from "@/lib/moderation/schemas";
+import QuestionAnalyticsBackfillControls from "@/components/QuestionAnalyticsBackfillControls";
 
 function formatDate(value: Date) {
     return new Intl.DateTimeFormat("en-IN", {
@@ -85,6 +86,16 @@ export default async function ContentHealthPage() {
                         </p>
                     </div>
                 ))}
+            </section>
+
+            <section className="mt-7 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h3 className="font-black">Historical analytics backfill</h3>
+                    <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                        Projects up to 100 completed sessions with retained interactions into durable daily counters. It is idempotent, so retrying never double-counts.
+                    </p>
+                </div>
+                <QuestionAnalyticsBackfillControls />
             </section>
 
             <div className="mt-5 flex justify-end">

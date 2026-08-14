@@ -28,6 +28,7 @@ import {
     enqueueSessionStatsRetry,
     processSessionStatsContribution,
 } from "@/lib/session-stats";
+import { processSessionQuestionAnalytics } from "@/lib/question-analytics";
 import { elapsedMs, logExamEvent } from "@/lib/observability";
 
 export async function createExamSession(
@@ -578,6 +579,7 @@ export async function completeExamSession(
         // ── Update aggregate stats (non-fatal) ────────────────────────────────
         try {
             await processSessionStatsContribution(sessionId);
+            await processSessionQuestionAnalytics(sessionId);
         } catch (statsError) {
             logExamEvent("session_stats_deferred", {
                 operationId,

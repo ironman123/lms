@@ -33,7 +33,7 @@ export default async function QuestionQualityPage() {
                     </p>
                     <h1 className="mt-2 text-3xl font-black">Reported-question review queue</h1>
                     <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-                        This is evidence for human review, not an automated verdict. Accuracy, skips, and time use retained detailed interactions from completed standard sessions; sample labels prevent weak data from being over-interpreted.
+                        This is evidence for human review, not an automated verdict. Accuracy, skips, and time use durable aggregate counters from completed standard sessions; sample labels prevent weak data from being over-interpreted.
                     </p>
                 </div>
                 <Link

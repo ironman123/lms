@@ -58,7 +58,7 @@ export default async function PaperContentHealthDetailPage({
             <section className="mt-7 overflow-hidden rounded-2xl border border-border bg-card">
                 <div className="border-b border-border p-5">
                     <h2 className="font-black">Affected questions</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">Only unresolved reports appear here. Question metrics use retained detailed interactions and are descriptive evidence, not automatic content verdicts.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Only unresolved reports appear here. Question metrics use durable aggregate counters and are descriptive evidence, not automatic content verdicts.</p>
                 </div>
                 {questions.length === 0 ? (
                     <p className="p-8 text-sm text-muted-foreground">No unresolved question reports for this paper.</p>

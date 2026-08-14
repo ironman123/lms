@@ -436,24 +436,17 @@ export async function getQuestionQualityQueue(filters?: { paperId?: string }) {
     });
     const questionIds = [...new Set(normalizedCases.map((item) => item.questionId))];
     if (questionIds.length === 0) return [];
-    const [grades, dwell] = await Promise.all([
-        prisma.questionInteraction.groupBy({
-            by: ["questionId", "grade"],
-            where: {
-                questionId: { in: questionIds },
-                session: { status: "COMPLETED", purpose: "STANDARD" },
-            },
-            _count: { _all: true },
-        }),
-        prisma.questionInteraction.groupBy({
-            by: ["questionId"],
-            where: {
-                questionId: { in: questionIds },
-                session: { status: "COMPLETED", purpose: "STANDARD" },
-            },
-            _avg: { totalDwellTime: true },
-        }),
-    ]);
+    const daily = await prisma.questionAnalyticsDaily.groupBy({
+        by: ["questionId"],
+        where: { questionId: { in: questionIds } },
+        _sum: {
+            correctCount: true,
+            incorrectCount: true,
+            skippedCount: true,
+            totalDwellSeconds: true,
+            interactionCount: true,
+        },
+    });
     const metricsByQuestion = new Map(
         questionIds.map((questionId) => [
             questionId,
@@ -466,16 +459,17 @@ export async function getQuestionQualityQueue(filters?: { paperId?: string }) {
             },
         ])
     );
-    for (const row of grades) {
+    for (const row of daily) {
         const metrics = metricsByQuestion.get(row.questionId);
         if (!metrics) continue;
-        if (row.grade === "CORRECT") metrics.correctCount += row._count._all;
-        if (row.grade === "INCORRECT") metrics.incorrectCount += row._count._all;
-        if (row.grade === "SKIPPED") metrics.skippedCount += row._count._all;
-    }
-    for (const row of dwell) {
-        const metrics = metricsByQuestion.get(row.questionId);
-        if (metrics) metrics.averageDwellSeconds = row._avg.totalDwellTime;
+        metrics.correctCount = row._sum.correctCount ?? 0;
+        metrics.incorrectCount = row._sum.incorrectCount ?? 0;
+        metrics.skippedCount = row._sum.skippedCount ?? 0;
+        const interactionCount = row._sum.interactionCount ?? 0;
+        metrics.averageDwellSeconds =
+            interactionCount > 0
+                ? Math.round((row._sum.totalDwellSeconds ?? 0) / interactionCount)
+                : null;
     }
     return buildQuestionQualityQueue(normalizedCases, metricsByQuestion);
 }

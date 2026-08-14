@@ -212,6 +212,7 @@ model Question {
   interactions      QuestionInteraction[]
   moderationCases   ModerationCase[]
   mistakeEntries    MistakeNotebookEntry[]
+  analyticsDaily    QuestionAnalyticsDaily[]
 
   // MCQ + MSQ only
   options        Json? // OptionJSON[] | null for NUMERICAL/SUBJECTIVE
@@ -408,6 +409,7 @@ model TestSession {
   statsContribution    SessionStatsContribution?
   contentReports       ContentReport[]
   mistakeEntries       MistakeNotebookEntry[]
+  questionAnalyticsContribution QuestionAnalyticsContribution?
 
   @@index([userId, status, startTime])
   @@index([status, expiresAt])
@@ -452,6 +454,78 @@ model InteractionRetentionRun {
   error               String?
 
   @@index([startedAt])
+}
+
+model QuestionAnalyticsContribution {
+  id          String   @id @default(uuid())
+  sessionId   String   @unique
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+  lastError   String?
+
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([processedAt, createdAt])
+}
+
+model QuestionAnalyticsBackfillRun {
+  id                String    @id @default(uuid())
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+  dryRun            Boolean   @default(false)
+  examinedSessions  Int       @default(0)
+  projectedSessions Int       @default(0)
+  skippedSessions   Int       @default(0)
+  error             String?
+
+  @@index([startedAt])
+}
+
+model QuestionAnalyticsDaily {
+  id                   String   @id @default(uuid())
+  questionId           String
+  day                  String
+  interactionCount     Int      @default(0)
+  correctCount         Int      @default(0)
+  incorrectCount       Int      @default(0)
+  skippedCount         Int      @default(0)
+  pendingCount         Int      @default(0)
+  unavailableCount     Int      @default(0)
+  totalDwellSeconds    Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  question             Question                         @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  optionSelections     QuestionOptionAnalyticsDaily[]
+  confidenceSelections QuestionConfidenceAnalyticsDaily[]
+
+  @@unique([questionId, day])
+  @@index([day])
+}
+
+model QuestionOptionAnalyticsDaily {
+  id              String   @id @default(uuid())
+  dailyId         String
+  selectedAnswer  String
+  selectionCount  Int      @default(0)
+
+  daily QuestionAnalyticsDaily @relation(fields: [dailyId], references: [id], onDelete: Cascade)
+
+  @@unique([dailyId, selectedAnswer])
+  @@index([dailyId])
+}
+
+model QuestionConfidenceAnalyticsDaily {
+  id             String   @id @default(uuid())
+  dailyId        String
+  confidenceLevel Int
+  correctCount   Int      @default(0)
+  incorrectCount Int      @default(0)
+
+  daily QuestionAnalyticsDaily @relation(fields: [dailyId], references: [id], onDelete: Cascade)
+
+  @@unique([dailyId, confidenceLevel])
+  @@index([dailyId])
 }
 
 model MistakeNotebookEntry {

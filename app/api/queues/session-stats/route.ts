@@ -2,6 +2,7 @@ import { Receiver } from "@upstash/qstash";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { processSessionStatsContribution } from "@/lib/session-stats";
+import { processSessionQuestionAnalytics } from "@/lib/question-analytics";
 
 const payloadSchema = z.object({
     sessionId: z.string().uuid(),
@@ -37,8 +38,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const result = await processSessionStatsContribution(
-        parsed.data.sessionId
-    );
-    return NextResponse.json({ ok: true, result });
+    const [stats, questionAnalytics] = await Promise.all([
+        processSessionStatsContribution(parsed.data.sessionId),
+        processSessionQuestionAnalytics(parsed.data.sessionId),
+    ]);
+    return NextResponse.json({ ok: true, stats, questionAnalytics });
 }

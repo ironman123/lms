@@ -73,6 +73,9 @@ async function retainSession(
                 statsContribution: {
                     select: { processedAt: true },
                 },
+                questionAnalyticsContribution: {
+                    select: { processedAt: true },
+                },
                 interactions: {
                     orderBy: { questionPosition: "asc" },
                     select: {
@@ -152,6 +155,12 @@ async function retainSession(
         }
 
         if (!session.statsContribution?.processedAt) {
+            return { status: "skipped", reason: "unprocessed_projection" };
+        }
+        if (
+            session.purpose === SessionPurpose.STANDARD &&
+            !session.questionAnalyticsContribution?.processedAt
+        ) {
             return { status: "skipped", reason: "unprocessed_projection" };
         }
 
